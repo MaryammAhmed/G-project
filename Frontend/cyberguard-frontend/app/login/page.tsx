@@ -7,12 +7,28 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Attempting Login:", { username, password });
-    alert(
-      `Success! Logging in as ${username}. Next step: Verifying this with our backend!`,
-    );
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Login failed");
+      }
+
+      const data = await res.json();
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("ageGroup", data.age_group);
+      alert(`Welcome back, Tier ${data.age_group} agent.`);
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      alert(err.message);
+    }
   };
 
   return (

@@ -7,11 +7,15 @@ PostgreSQL database. It holds the connection credentials, builds the async engin
 database sessions whenever a user tries to interact with CyberGuard.
 """
 
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# The exact map to your new Docker database
-DATABASE_URL = "postgresql+asyncpg://postgres:devpass@localhost:5432/cyberguard"
+# Points at your Docker container "cg-db", which maps host port 5435 -> container 5432
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5435/cyberguard"
+)
 
 # The engine that drives the connection
 engine = create_async_engine(DATABASE_URL, echo=True)

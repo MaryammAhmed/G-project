@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
+from jose import jwt
+from datetime import datetime, timedelta
 
 # Import the database bridge and blueprint we just made
 from database import get_db
@@ -15,7 +17,7 @@ app = FastAPI()
 # Set up CORS so the Next.js frontend (port 3000) can talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,3 +53,29 @@ async def register(payload: RegisterPayload, db: AsyncSession = Depends(get_db))
     
     # 4. Return the terminal-style success message
     return {"status": "ok", "message": f"Clearance granted, Agent {user.username} — Tier {user.age_group} initiate."}
+
+
+SECRET_KEY = "dev-secret-change-me-later"  # move to .env before ever deploying
+
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/login")
+async def login(payload: LoginPayload, db: AsyncSession = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.username == payload.username))
+
+    # Same error for "no such user" and "wrong password" —
+    # never let an attacker learn which usernames exist
+    if not user or not pwd_context.verify(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token_data = {
+        "sub": str(user.id),
+        "age_group": user.age_group,
+        "exp": datetime.utcnow() + timedelta(hours=12),
+    }
+    token = jwt.encode(token_data, SECRET_KEY, algorithm="HS256")
+
+    return {"status": "ok", "token": token, "age_group": user.age_group}
+

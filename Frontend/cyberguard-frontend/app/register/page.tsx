@@ -18,25 +18,27 @@ export default function Register() {
 
     try {
       // The Fetch command is the bridge. It knocks on Python's door at port 8000.
-      const response = await fetch("http://localhost:8000/register", {
+      const res = await fetch("http://127.0.0.1:8000/api/register", {
         method: "POST", // POST means we are SENDING new data (not just reading it)
         headers: { "Content-Type": "application/json" },
         // We package up our memory boxes and translate them into a format Python understands (JSON)
-        body: JSON.stringify({ 
-          username: username, 
+        body: JSON.stringify({
+          username: username,
           password: password,
-          ageGroup: ageGroup 
+          ageGroup: ageGroup,
         }),
       });
 
       // We wait for Python to send a reply back, then unpack it
-      const data = await response.json();
+      const data = await res.json();
 
-      // If Python gave us a thumbs up (response.ok), show the success message!
-      if (response.ok) {
+      // If Python gave us a thumbs up (res.ok), show the success message!
+      if (res.ok) {
         alert("Success! Backend says: " + data.message);
       } else {
-        alert("Registration failed!");
+        // data.detail carries the SPECIFIC reason from FastAPI
+        // (e.g. "Username already taken") instead of a generic message
+        alert("Registration failed: " + (data.detail || "Unknown error"));
       }
     } catch (error) {
       // This only happens if the backend is completely turned off or broken
@@ -52,15 +54,20 @@ export default function Register() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl">
-        <h2 className="text-3xl font-bold text-center text-emerald-400">Create Account</h2>
-        <p className="mt-2 text-center text-sm text-slate-400">Choose your training identity to begin</p>
+        <h2 className="text-3xl font-bold text-center text-emerald-400">
+          Create Account
+        </h2>
+        <p className="mt-2 text-center text-sm text-slate-400">
+          Choose your training identity to begin
+        </p>
 
         {/* When this form is submitted, it triggers our 'handleRegister' function above */}
         <form onSubmit={handleRegister} className="mt-8 space-y-6">
-          
           {/* USERNAME INPUT */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300">Username</label>
+            <label className="block text-sm font-semibold text-slate-300">
+              Username
+            </label>
             <input
               type="text"
               required
@@ -73,7 +80,9 @@ export default function Register() {
 
           {/* PASSWORD INPUT */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300">Password</label>
+            <label className="block text-sm font-semibold text-slate-300">
+              Password
+            </label>
             <input
               type="password"
               required
@@ -86,9 +95,10 @@ export default function Register() {
 
           {/* TRAINING TRACK BUTTONS */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Select Your Training Track</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">
+              Select Your Training Track
+            </label>
             <div className="grid grid-cols-1 gap-3">
-              
               {/* Group A Button */}
               <button
                 type="button" // Important: type="button" prevents it from accidentally submitting the form
@@ -101,7 +111,9 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group A (Ages 16–19)</div>
-                <div className="text-xs mt-1">Scenario: School exam portals, gaming accounts, social media.</div>
+                <div className="text-xs mt-1">
+                  Scenario: School exam portals, gaming accounts, social media.
+                </div>
               </button>
 
               {/* Group B Button */}
@@ -115,7 +127,10 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group B (Ages 20–22)</div>
-                <div className="text-xs mt-1">Scenario: University portals, campus Wi-Fi, internship applications.</div>
+                <div className="text-xs mt-1">
+                  Scenario: University portals, campus Wi-Fi, internship
+                  applications.
+                </div>
               </button>
 
               {/* Group C Button */}
@@ -129,7 +144,9 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group C (Ages 23–25)</div>
-                <div className="text-xs mt-1">Scenario: Corporate emails, HR systems, client file security.</div>
+                <div className="text-xs mt-1">
+                  Scenario: Corporate emails, HR systems, client file security.
+                </div>
               </button>
             </div>
           </div>
@@ -144,7 +161,10 @@ export default function Register() {
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Already have an account?{" "}
-          <Link href="/login" className="text-emerald-400 hover:text-emerald-300 underline font-semibold">
+          <Link
+            href="/login"
+            className="text-emerald-400 hover:text-emerald-300 underline font-semibold"
+          >
             Sign in here
           </Link>
         </p>
