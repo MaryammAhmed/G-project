@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { TierThemeProvider } from "@/context/TierThemeProvider";
 
 
 const geistSans = Geist({
@@ -35,7 +36,9 @@ export default function RootLayout({
             login()/logout() via the useAuth() hook. This is the one
             spot in the whole project where that connection is made. */}
         <AuthProvider>
-          {children}
+          <TierThemeProvider>
+            {children}
+          </TierThemeProvider>
         </AuthProvider>
       </body>
     </html>
