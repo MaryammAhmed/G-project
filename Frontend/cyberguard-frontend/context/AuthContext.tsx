@@ -1,62 +1,56 @@
 "use client";
-// "use client" is required because this file uses React hooks (useState, useEffect)
-// and browser APIs (localStorage) — none of that works on the server.
+// Needs to run in the browser — we use localStorage below.
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-// ============================================================
-// 1. DEFINE THE SHAPE OF OUR "BROADCAST"
-// ============================================================
-// This describes exactly what information/functions any page in our app
-// will be able to "tune in" to via useAuth(). Think of it as a contract:
-// anything using this context is guaranteed these fields will exist.
+// This file is a shared "notice board" for login info.
+// Instead of every page checking localStorage separately,
+// they all read from this one shared place.
+
+// The shape of what the notice board holds:
 type AuthContextType = {
-  token: string | null;       // The JWT(JSON Web Token) string, or null if logged out
-  ageGroup: string | null;    // "A", "B", or "C" — which training tier
-  isLoggedIn: boolean;        // Simple true/false, handy for UI checks
-  login: (token: string, ageGroup: string) => void;  // Call this after a successful login/register
-  logout: () => void;         // Call this to log the user out everywhere
+  token: string | null;       // JWT, or null if logged out
+  ageGroup: string | null;    // "A", "B", or "C"
+  isLoggedIn: boolean;        // quick true/false check
+  isLoading: boolean;         // true until we've checked localStorage once
+  login: (token: string, ageGroup: string) => void;
+  logout: () => void;
 };
 
-// createContext needs a default value that matches the shape above.
-// This default is only ever used if a component tries to useAuth()
-// OUTSIDE of an <AuthProvider> — which shouldn't happen if we wire things
-// up correctly, but TypeScript needs *something* here regardless.
+// Create the empty board (default values, nothing real yet).
 const AuthContext = createContext<AuthContextType>({
   token: null,
   ageGroup: null,
   isLoggedIn: false,
+  isLoading: true,
   login: () => {},
   logout: () => {},
 });
 
-// ============================================================
-// 2. THE PROVIDER — this is the actual "radio broadcaster"
-// ============================================================
-// Any component wrapped inside <AuthProvider>...</AuthProvider> gets
-// access to the values below via useAuth(). We'll wrap our ENTIRE app
-// with this in layout.tsx, so every page can use it.
+// The component that actually writes to the board.
+// Wrap your whole app in this (done in layout.tsx).
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // These two pieces of state live here ONCE, instead of being
-  // re-read from localStorage separately on every single page.
   const [token, setToken] = useState<string | null>(null);
   const [ageGroup, setAgeGroup] = useState<string | null>(null);
 
-  // On first load of the app (e.g. someone refreshes the page),
-  // we need to check: "was this person already logged in before?"
-  // localStorage survives page refreshes, so we read from it once,
-  // right when the app starts up, and load that into our state.
+  // Starts true: "haven't checked localStorage yet."
+  // Flips to false once the check below finishes.
+  // Without this, other components might ask "logged in?" too early
+  // and get a wrong "no" before we've actually looked.
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Runs once on app load. localStorage survives refreshes,
+  // so we check it here to restore login state after a refresh.
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedAgeGroup = localStorage.getItem("ageGroup");
     if (storedToken) setToken(storedToken);
     if (storedAgeGroup) setAgeGroup(storedAgeGroup);
-  }, []); // The empty [] means "only run this once, when the app first mounts"
+    setIsLoading(false); // done checking now
+  }, []);
 
-  // This function is what login/page.tsx and register/page.tsx will call
-  // after a successful backend response. It does two things:
-  // 1. Updates our in-memory state (so the UI reacts immediately)
-  // 2. Saves to localStorage (so it survives a page refresh)
+  // Call this after a successful login/register.
+  // Updates live state AND saves to localStorage.
   const login = (newToken: string, newAgeGroup: string) => {
     setToken(newToken);
     setAgeGroup(newAgeGroup);
@@ -64,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("ageGroup", newAgeGroup);
   };
 
-  // Clears everything, both in memory and in localStorage.
+  // Clears everything, in memory and in localStorage.
   const logout = () => {
     setToken(null);
     setAgeGroup(null);
@@ -72,28 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("ageGroup");
   };
 
-  // isLoggedIn is just a convenience — instead of every page checking
-  // "is token not null and not an empty string", they can just check
-  // this simple boolean.
   const isLoggedIn = !!token;
 
-  // Provider.value is the actual "broadcast" — everything inside {}
-  // becomes available to any child component that calls useAuth().
+  // Broadcast all of this to every page inside {children}.
   return (
-    <AuthContext.Provider value={{ token, ageGroup, isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ token, ageGroup, isLoggedIn, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// ============================================================
-// 3. THE HOOK — this is how pages "tune in" to the broadcast
-// ============================================================
-// Instead of every page writing:
-//   const auth = useContext(AuthContext)
-// we wrap that in a small custom hook so pages can just write:
-//   const { isLoggedIn, login } = useAuth()
-// This is a common React pattern — it's shorter and easier to read.
+// Shortcut so pages can write useAuth() instead of useContext(AuthContext).
 export function useAuth() {
   return useContext(AuthContext);
 }

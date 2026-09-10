@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+// ^ NEW: we now "tune in" to the shared notice board instead of
+// touching localStorage directly in this file.
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  // NEW: grab the login() function from our AuthContext. This is the
+  // ONE correct way to record "someone just logged in" from now on.
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,8 +29,13 @@ export default function Login() {
       }
 
       const data = await res.json();
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("ageGroup", data.age_group);
+
+      // CHANGED: instead of two separate localStorage.setItem() calls,
+      // we hand the token and age group to the context's login()
+      // function. It updates the live app state AND saves to
+      // localStorage for us, in one centralized place.
+      login(data.token, data.age_group);
+
       alert(`Welcome back, Tier ${data.age_group} agent.`);
     } catch (err: any) {
       console.error("Login failed:", err);
@@ -33,7 +45,6 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-white">
-      {/* Visual background glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl">

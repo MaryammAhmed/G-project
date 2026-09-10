@@ -1,109 +1,91 @@
-"use client"; // Required by Next.js when a page has interactive elements (like a form or buttons)
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+// ^ NEW: tune in to the shared notice board.
 
 export default function Register() {
-  // 1. THE MEMORY BOXES (State)
-  // These variables remember what the user types or clicks on the screen.
-  // Whenever a user types in the input box, these get updated instantly.
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [ageGroup, setAgeGroup] = useState("A"); // Automatically starts everyone in Group A
+  const [ageGroup, setAgeGroup] = useState("A");
 
-  // 2. THE HANDSHAKE (Backend Connection)
-  // This function only runs when the user clicks the "Create Account" button.
+  // NEW: grab login() from context — we'll use this if your backend
+  // ever returns a token straight after registration (auto-login).
+  // If it doesn't yet, this line is still safe to keep for later.
+  const { login } = useAuth();
+
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault(); // Crucial: Stops the webpage from reloading and erasing the form!
+    e.preventDefault();
 
     try {
-      // The Fetch command is the bridge. It knocks on Python's door at port 8000.
       const res = await fetch("http://127.0.0.1:8000/api/register", {
-        method: "POST", // POST means we are SENDING new data (not just reading it)
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        // We package up our memory boxes and translate them into a format Python understands (JSON)
         body: JSON.stringify({
           username: username,
           password: password,
-          ageGroup: ageGroup,
+          ageGroup: ageGroup
         }),
       });
 
-      // We wait for Python to send a reply back, then unpack it
       const data = await res.json();
 
-      // If Python gave us a thumbs up (res.ok), show the success message!
       if (res.ok) {
+        // NEW: if your backend's /api/register response ever includes
+        // a token (some apps auto-login right after registering),
+        // this line would record it the same centralized way login does:
+        // if (data.token) login(data.token, data.age_group);
         alert("Success! Backend says: " + data.message);
       } else {
-        // data.detail carries the SPECIFIC reason from FastAPI
-        // (e.g. "Username already taken") instead of a generic message
         alert("Registration failed: " + (data.detail || "Unknown error"));
       }
     } catch (error) {
-      // This only happens if the backend is completely turned off or broken
       alert("Could not reach the Python server. Is Uvicorn running?");
     }
   };
 
-  // 3. THE VISUAL SHELL (UI)
-  // Everything below this line is exactly what the user sees on their screen.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-white">
-      {/* Visual background glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl">
-        <h2 className="text-3xl font-bold text-center text-emerald-400">
-          Create Account
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-400">
-          Choose your training identity to begin
-        </p>
+        <h2 className="text-3xl font-bold text-center text-emerald-400">Create Account</h2>
+        <p className="mt-2 text-center text-sm text-slate-400">Choose your training identity to begin</p>
 
-        {/* When this form is submitted, it triggers our 'handleRegister' function above */}
         <form onSubmit={handleRegister} className="mt-8 space-y-6">
-          {/* USERNAME INPUT */}
+
           <div>
-            <label className="block text-sm font-semibold text-slate-300">
-              Username
-            </label>
+            <label className="block text-sm font-semibold text-slate-300">Username</label>
             <input
               type="text"
               required
-              value={username} // Ties this visual box to our 'username' memory box
-              onChange={(e) => setUsername(e.target.value)} // Updates the memory box on every keystroke
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               placeholder="e.g. Layla_H"
             />
           </div>
 
-          {/* PASSWORD INPUT */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300">
-              Password
-            </label>
+            <label className="block text-sm font-semibold text-slate-300">Password</label>
             <input
               type="password"
               required
-              value={password} // Ties this visual box to our 'password' memory box
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               placeholder="••••••••"
             />
           </div>
 
-          {/* TRAINING TRACK BUTTONS */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">
-              Select Your Training Track
-            </label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Select Your Training Track</label>
             <div className="grid grid-cols-1 gap-3">
-              {/* Group A Button */}
+
               <button
-                type="button" // Important: type="button" prevents it from accidentally submitting the form
-                onClick={() => setAgeGroup("A")} // Changes the memory box to "A"
-                // The confusing code below just changes the colors if this group is currently selected
+                type="button"
+                onClick={() => setAgeGroup("A")}
                 className={`rounded-lg border p-3 text-left transition-all ${
                   ageGroup === "A"
                     ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
@@ -111,15 +93,12 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group A (Ages 16–19)</div>
-                <div className="text-xs mt-1">
-                  Scenario: School exam portals, gaming accounts, social media.
-                </div>
+                <div className="text-xs mt-1">Scenario: School exam portals, gaming accounts, social media.</div>
               </button>
 
-              {/* Group B Button */}
               <button
                 type="button"
-                onClick={() => setAgeGroup("B")} // Changes the memory box to "B"
+                onClick={() => setAgeGroup("B")}
                 className={`rounded-lg border p-3 text-left transition-all ${
                   ageGroup === "B"
                     ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
@@ -127,16 +106,12 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group B (Ages 20–22)</div>
-                <div className="text-xs mt-1">
-                  Scenario: University portals, campus Wi-Fi, internship
-                  applications.
-                </div>
+                <div className="text-xs mt-1">Scenario: University portals, campus Wi-Fi, internship applications.</div>
               </button>
 
-              {/* Group C Button */}
               <button
                 type="button"
-                onClick={() => setAgeGroup("C")} // Changes the memory box to "C"
+                onClick={() => setAgeGroup("C")}
                 className={`rounded-lg border p-3 text-left transition-all ${
                   ageGroup === "C"
                     ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
@@ -144,9 +119,7 @@ export default function Register() {
                 }`}
               >
                 <div className="font-bold">Group C (Ages 23–25)</div>
-                <div className="text-xs mt-1">
-                  Scenario: Corporate emails, HR systems, client file security.
-                </div>
+                <div className="text-xs mt-1">Scenario: Corporate emails, HR systems, client file security.</div>
               </button>
             </div>
           </div>
@@ -161,10 +134,7 @@ export default function Register() {
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Already have an account?{" "}
-          <Link
-            href="/login"
-            className="text-emerald-400 hover:text-emerald-300 underline font-semibold"
-          >
+          <Link href="/login" className="text-emerald-400 hover:text-emerald-300 underline font-semibold">
             Sign in here
           </Link>
         </p>
