@@ -41,3 +41,5 @@ Backend/__pycache__/
 Backend/migrations/versions/__pycache__/
 *.pyc
 .env
+
+

@@ -3,17 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-// ^ NEW: tune in to the shared notice board.
 
 export default function Register() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ageGroup, setAgeGroup] = useState("A");
-
-  // NEW: grab login() from context — we'll use this if your backend
-  // ever returns a token straight after registration (auto-login).
-  // If it doesn't yet, this line is still safe to keep for later.
-  const { login } = useAuth();
+  const { login } = useAuth(); // used later if backend ever auto-logs-in after register
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,20 +18,12 @@ export default function Register() {
       const res = await fetch("http://127.0.0.1:8000/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username,
-          password: password,
-          ageGroup: ageGroup
-        }),
+        body: JSON.stringify({ username, email, password, ageGroup }), // email added
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        // NEW: if your backend's /api/register response ever includes
-        // a token (some apps auto-login right after registering),
-        // this line would record it the same centralized way login does:
-        // if (data.token) login(data.token, data.age_group);
         alert("Success! Backend says: " + data.message);
       } else {
         alert("Registration failed: " + (data.detail || "Unknown error"));
@@ -67,6 +55,19 @@ export default function Register() {
             />
           </div>
 
+          {/* NEW — email field, same style as the others, sits between username and password */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-300">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              placeholder="you@example.com"
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-slate-300">Password</label>
             <input
@@ -92,7 +93,7 @@ export default function Register() {
                     : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
                 }`}
               >
-                <div className="font-bold">Group A (Ages 16–19)</div>
+                <div className="font-bold">Group A (Ages 16–18)</div>
                 <div className="text-xs mt-1">Scenario: School exam portals, gaming accounts, social media.</div>
               </button>
 
@@ -105,7 +106,7 @@ export default function Register() {
                     : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
                 }`}
               >
-                <div className="font-bold">Group B (Ages 20–22)</div>
+                <div className="font-bold">Group B (Ages 19–22)</div>
                 <div className="text-xs mt-1">Scenario: University portals, campus Wi-Fi, internship applications.</div>
               </button>
 

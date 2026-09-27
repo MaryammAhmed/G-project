@@ -2,17 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";   // NEW — needed to redirect to /verify-otp
 import { useAuth } from "@/context/AuthContext";
-// ^ NEW: we now "tune in" to the shared notice board instead of
-// touching localStorage directly in this file.
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  // NEW: grab the login() function from our AuthContext. This is the
-  // ONE correct way to record "someone just logged in" from now on.
   const { login } = useAuth();
+  const router = useRouter();   // NEW
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +28,21 @@ export default function Login() {
 
       const data = await res.json();
 
-      // CHANGED: instead of two separate localStorage.setItem() calls,
-      // we hand the token and age group to the context's login()
-      // function. It updates the live app state AND saves to
-      // localStorage for us, in one centralized place.
-      login(data.token, data.age_group);
+      // NEW — check this FIRST, before anything assumes a token exists.
+      // /api/login no longer returns a token on success; it returns
+      // { otp_required: true, username } instead. If we see that flag,
+      // stop here and send the user to verify their code — carrying
+      // the username in the URL since that's a separate page load and
+      // none of this page's variables survive the navigation.
+      if (data.otp_required) {
+        router.push(`/verify-otp?username=${data.username}`);
+        return; // stop here — nothing below should run in this case
+      }
 
+      // Old behavior — only reachable now if the backend ever returns
+      // a token directly again (e.g. OTP disabled later). Left intact
+      // so nothing else breaks if that ever happens.
+      login(data.token, data.age_group);
       alert(`Welcome back, Tier ${data.age_group} agent.`);
     } catch (err: any) {
       console.error("Login failed:", err);

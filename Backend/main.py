@@ -6,20 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
-import os                          # NEW: lets us read values from .env
-from dotenv import load_dotenv     # NEW: loads the .env file into memory
-from groq import Groq              # NEW: Groq's official client
+import os, re, random, requests
+from dotenv import load_dotenv
+from groq import Groq
 
-# Import the database bridge and blueprint we just made
 from database import get_db
 from models import User
 
-load_dotenv()  # NEW: run this once, at startup, so os.environ has our .env values
-
-# Initialize the FastAPI application
+load_dotenv()
 app = FastAPI()
 
-# Set up CORS so the Next.js frontend (port 3000) can talk to this backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -28,42 +24,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Set up the password hasher
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# NEW: Groq client, using the key from .env — never hardcode this
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+SECRET_KEY = "dev-secret-change-me-later"  # move to .env before ever deploying
 
-# Define the structure of the incoming data from the frontend
+# --- Password strength ---
+
+COMMON_WEAK_PASSWORDS = {"123", "password", "12345678", "qwerty", "letmein", "admin123"}
+PASSWORD_RULES = [
+    (r".{8,}", "Password must be at least 8 characters long."),
+    (r"[A-Z]", "Password must contain an uppercase letter."),
+    (r"[a-z]", "Password must contain a lowercase letter."),
+    (r"\d", "Password must contain a number."),
+    (r"[@#$%!^&*]", "Password must contain a special character (@#$%!^&*)."),
+]
+
+def validate_password_strength(password: str) -> None:
+    for pattern, message in PASSWORD_RULES:
+        if not re.search(pattern, password):
+            raise ValueError(message)
+    if password.lower() in COMMON_WEAK_PASSWORDS:
+        raise ValueError("This password is too common — choose something less predictable.")
+
+# --- Auth ---
+
 class RegisterPayload(BaseModel):
     username: str
+    email: str
     password: str
     ageGroup: str
 
-# The secure registration route
 @app.post("/api/register")
 async def register(payload: RegisterPayload, db: AsyncSession = Depends(get_db)):
-    # 1. Check if the username already exists
-    existing = await db.scalar(select(User).where(User.username == payload.username))
-    if existing:
+    if await db.scalar(select(User).where(User.username == payload.username)):
         raise HTTPException(status_code=409, detail="Username already taken")
-    
-    # 2. Hash the password and create the user
+
+    try:
+        validate_password_strength(payload.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     user = User(
         username=payload.username,
+        email=payload.email,
         hashed_password=pwd_context.hash(payload.password),
         age_group=payload.ageGroup,
     )
-    
-    # 3. Save to the Docker database
     db.add(user)
     await db.commit()
-    
-    # 4. Return the terminal-style success message
     return {"status": "ok", "message": f"Clearance granted, Agent {user.username} — Tier {user.age_group} initiate."}
 
-
-SECRET_KEY = "dev-secret-change-me-later"  # move to .env before ever deploying
 
 class LoginPayload(BaseModel):
     username: str
@@ -72,11 +82,63 @@ class LoginPayload(BaseModel):
 @app.post("/api/login")
 async def login(payload: LoginPayload, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == payload.username))
-
-    # Same error for "no such user" and "wrong password" —
-    # never let an attacker learn which usernames exist
+    # Same error for "no user" and "wrong password" — don't leak which usernames exist
     if not user or not pwd_context.verify(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    await generate_and_send_otp(user, db)
+    return {"otp_required": True, "username": user.username}  # no token until OTP passes
+
+
+# --- OTP + email ---
+
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL")
+
+def send_otp_email(to_email: str, otp_code: str):
+    """Real send via Brevo's API. Raises if Brevo doesn't return 201,
+    so a failed send never looks like it succeeded."""
+    response = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+        json={
+            "sender": {"email": BREVO_SENDER_EMAIL},
+            "to": [{"email": to_email}],
+            "subject": "Your CyberGuard verification code",
+            "htmlContent": f"<p>Your code is: <strong>{otp_code}</strong></p><p>Expires in 10 minutes.</p>",
+        },
+    )
+    if response.status_code != 201:
+        raise Exception(f"Email send failed: {response.text}")
+
+
+async def generate_and_send_otp(user: User, db: AsyncSession):
+    """Shared by /api/login and /api/resend-otp: makes a code, stores
+    only its hash + expiry, then sends it."""
+    otp_code = str(random.randint(100000, 999999))
+    user.otp_code_hash = pwd_context.hash(otp_code)
+    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
+    await db.commit()
+    send_otp_email(user.email, otp_code)
+
+
+class OtpVerifyPayload(BaseModel):
+    username: str
+    code: str
+
+@app.post("/api/verify-otp")
+async def verify_otp(payload: OtpVerifyPayload, db: AsyncSession = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.username == payload.username))
+    if not user or not user.otp_code_hash:
+        raise HTTPException(status_code=400, detail="No OTP pending for this account")
+    if datetime.utcnow() > user.otp_expires_at:
+        raise HTTPException(status_code=400, detail="OTP expired, please request a new one")
+    if not pwd_context.verify(payload.code, user.otp_code_hash):
+        raise HTTPException(status_code=400, detail="Incorrect code")
+
+    user.otp_code_hash = None
+    user.otp_expires_at = None
+    await db.commit()
 
     token_data = {
         "sub": str(user.id),
@@ -84,11 +146,23 @@ async def login(payload: LoginPayload, db: AsyncSession = Depends(get_db)):
         "exp": datetime.utcnow() + timedelta(hours=12),
     }
     token = jwt.encode(token_data, SECRET_KEY, algorithm="HS256")
-
     return {"status": "ok", "token": token, "age_group": user.age_group}
 
 
-# NEW: which real cybersecurity standard grounds each module's mentor feedback
+class ResendOtpPayload(BaseModel):
+    username: str
+
+@app.post("/api/resend-otp")
+async def resend_otp(payload: ResendOtpPayload, db: AsyncSession = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.username == payload.username))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await generate_and_send_otp(user, db)
+    return {"message": "A new code has been sent"}
+
+
+# --- AI mentor ---
+
 MODULE_STANDARDS = {
     1: "NIST SP 800-63B (Digital Identity Guidelines — memorized secrets and authentication)",
     2: "CISA Secure Our World (phishing recognition and reporting guidance)",
@@ -96,7 +170,18 @@ MODULE_STANDARDS = {
     4: "OWASP Top 10 for Large Language Model Applications",
 }
 
-# NEW: the mentor's rules of behavior — module/tier get filled in per request
+MODULE_CORE_GUIDANCE = {
+    1: "Length is the primary driver of password strength, not symbol complexity. "
+       "NIST explicitly does NOT require mixed character types or forced complexity rules — "
+       "a long passphrase (15+ characters) is stronger and easier to remember than a short complex password.",
+    2: "Phishing relies on urgency and impersonation. Verify sender addresses and links before clicking, "
+       "and report suspicious messages rather than just deleting them.",
+    3: "Social engineering exploits trust and authority, not technical vulnerabilities. "
+       "Always verify unusual requests through a separate, known communication channel.",
+    4: "Never share sensitive personal, financial, or proprietary data with an AI system, "
+       "and treat AI-generated output as unverified until checked against a reliable source.",
+}
+
 SYSTEM_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor, speaking to a Tier {tier} agent
 training in cybersecurity awareness. This conversation is part of Module {module},
 which is grounded in {standard}.
@@ -118,41 +203,23 @@ Your feedback style:
 Respond to the user's specific message or decision below, addressing what they
 actually did, not a generic script."""
 
-# NEW: the actual, correct guidance per module — so the AI states real facts,
-# not whatever it happens to generate from general training knowledge.
-MODULE_CORE_GUIDANCE = {
-    1: "Length is the primary driver of password strength, not symbol complexity. "
-       "NIST explicitly does NOT require mixed character types or forced complexity rules — "
-       "a long passphrase (15+ characters) is stronger and easier to remember than a short complex password.",
-    2: "Phishing relies on urgency and impersonation. Verify sender addresses and links before clicking, "
-       "and report suspicious messages rather than just deleting them.",
-    3: "Social engineering exploits trust and authority, not technical vulnerabilities. "
-       "Always verify unusual requests through a separate, known communication channel.",
-    4: "Never share sensitive personal, financial, or proprietary data with an AI system, "
-       "and treat AI-generated output as unverified until checked against a reliable source.",
-}
-
-# NEW: builds the correct prompt for whichever module/tier the user is currently in
 def build_system_prompt(tier: str, module: int) -> str:
     standard = MODULE_STANDARDS.get(module, "recognized cybersecurity best practices")
     core_guidance = MODULE_CORE_GUIDANCE.get(module, "Follow general cybersecurity best practices.")
     return SYSTEM_PROMPT_TEMPLATE.format(tier=tier, module=module, standard=standard, core_guidance=core_guidance)
 
 
-# CHANGED: now carries tier + module, not just the raw message
 class ChatPayload(BaseModel):
     message: str
-    tier: str        # "A", "B", or "C"
-    module: int       # 1-4
+    tier: str
+    module: int
 
-# CHANGED: builds a system prompt matching the user's tier/module before asking Groq
 @app.post("/api/chat")
 async def chat(payload: ChatPayload):
-    system_prompt = build_system_prompt(payload.tier, payload.module)
     response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": build_system_prompt(payload.tier, payload.module)},
             {"role": "user", "content": payload.message},
         ],
     )
