@@ -26,7 +26,7 @@ app.add_middleware(
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-SECRET_KEY = "dev-secret-change-me-later"  # move to .env before ever deploying
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
 # --- Password strength ---
 
