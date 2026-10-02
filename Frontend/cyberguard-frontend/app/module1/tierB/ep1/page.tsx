@@ -7,6 +7,7 @@
 
 "use client";
 import { useState, useRef, useEffect } from "react";
+import TierGate from "@/components/TierGate";
 import { AGENT_TIERS } from "@/config/characters";
 import { episodeVariants, Beat, EpisodeChoice } from "@/data/scenarios/module1-tierB-ep1";
 import { speak, stopSpeaking } from "@/lib/speech";
@@ -23,10 +24,9 @@ export default function Episode1() {
   const [muted, setMuted] = useState(false);
   const zain = AGENT_TIERS.TIER_B;
 
-
   useEffect(() => {
-  speak(variant.incident);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: speak once on mount only
+    speak(variant.incident);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: speak once on mount only
   }, []);
 
   // Which beat we're currently on. Starts at 0 — the first beat gets
@@ -46,29 +46,24 @@ export default function Episode1() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-// On mount (and whenever beatIndex changes), push the CURRENT beat
-// into the chat — but only if it isn't already there. React's Strict
-// Mode deliberately runs effects twice in development to surface bugs
-// like double-pushing; this guard makes the push idempotent so it's
-// safe even when the effect fires more than once.
-useEffect(() => {
-  const beat = variant.beats[beatIndex];
+  // On mount (and whenever beatIndex changes), push the CURRENT beat
+  // into the chat — but only if it isn't already there.
+  useEffect(() => {
+    const beat = variant.beats[beatIndex];
 
-  setMessages((prev) => {
-    // If a message with this beat's id (or "complete") is already in
-    // the list, do nothing — prevents the duplicate you saw.
-    const alreadyAdded = prev.some((m) => m.id === (beat?.id ?? "complete"));
-    if (alreadyAdded) return prev;
+    setMessages((prev) => {
+      const alreadyAdded = prev.some((m) => m.id === (beat?.id ?? "complete"));
+      if (alreadyAdded) return prev;
 
-    if (!beat) {
-      return [...prev, { type: "complete", id: "complete" }];
-    }
-    if (beat.type === "choice") {
-      return [...prev, { type: "choice-beat", id: beat.id, beat }];
-    }
-    return [...prev, { type: "task-beat", id: beat.id, beat }];
-  });
-}, [beatIndex]);
+      if (!beat) {
+        return [...prev, { type: "complete", id: "complete" }];
+      }
+      if (beat.type === "choice") {
+        return [...prev, { type: "choice-beat", id: beat.id, beat }];
+      }
+      return [...prev, { type: "task-beat", id: beat.id, beat }];
+    });
+  }, [beatIndex]);
 
   // Shared by both choice picks and task submits — calls the AI for
   // feedback, then advances to the next beat once it's in.
@@ -118,26 +113,28 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-void flex flex-col">
-      <div className="border-b border-cyan/20 px-6 py-4 font-mono">
-        <p className="text-xs text-cyan uppercase tracking-widest">
-          {zain.title} — {zain.stage}
-        </p>
-      </div>
+    <TierGate requiredTier="B">
+      <div className="min-h-screen bg-void flex flex-col">
+        <div className="border-b border-cyan/20 px-6 py-4 font-mono">
+          <p className="text-xs text-cyan uppercase tracking-widest">
+            {zain.title} — {zain.stage}
+          </p>
+        </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 max-w-2xl mx-auto w-full">
-        {messages.map((msg) => (
-          <ChatBubble
-            key={msg.id}
-            msg={msg}
-            answered={answeredIds.has(msg.id)}
-            onChoicePick={handleChoicePick}
-            onTaskSubmit={handleTaskSubmit}
-          />
-        ))}
-        <div ref={bottomRef} />
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 max-w-2xl mx-auto w-full">
+          {messages.map((msg) => (
+            <ChatBubble
+              key={msg.id}
+              msg={msg}
+              answered={answeredIds.has(msg.id)}
+              onChoicePick={handleChoicePick}
+              onTaskSubmit={handleTaskSubmit}
+            />
+          ))}
+          <div ref={bottomRef} />
+        </div>
       </div>
-    </div>
+    </TierGate>
   );
 }
 
@@ -206,8 +203,6 @@ function ChatBubble({
   return null;
 }
 
-// Small standalone input for task beats (like entering a 2FA code),
-// kept separate so it can hold its own typing state.
 function TaskInput({
   beatId,
   prompt,
