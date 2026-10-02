@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Our custom palette — Tailwind v4 generates utility classes like
+   bg-void, text-cyan, etc. automatically from these variables.
+   Change a color here, it updates everywhere it's used. */
+@theme {
+  --color-void: #05070D;
+  --color-panel: #0F1420;
+  --color-cyan: #22D3EE;
+  --color-violet: #A855F7;
+  --color-term-green: #4AFA9A;
+  --color-alert: #FF4D4D;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
