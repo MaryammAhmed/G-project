@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";   // NEW — needed to redirect to /verify-otp
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Login() {
@@ -10,7 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const { login } = useAuth();
-  const router = useRouter();   // NEW
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,20 +28,11 @@ export default function Login() {
 
       const data = await res.json();
 
-      // NEW — check this FIRST, before anything assumes a token exists.
-      // /api/login no longer returns a token on success; it returns
-      // { otp_required: true, username } instead. If we see that flag,
-      // stop here and send the user to verify their code — carrying
-      // the username in the URL since that's a separate page load and
-      // none of this page's variables survive the navigation.
       if (data.otp_required) {
-        router.push(`/verify-otp?username=${data.username}`);
-        return; // stop here — nothing below should run in this case
+        router.push(`/verify-otp?username=${encodeURIComponent(data.username)}`);
+        return;
       }
 
-      // Old behavior — only reachable now if the backend ever returns
-      // a token directly again (e.g. OTP disabled later). Left intact
-      // so nothing else breaks if that ever happens.
       login(data.token, data.age_group);
       alert(`Welcome back, Tier ${data.age_group} agent.`);
     } catch (err: any) {
@@ -51,7 +42,11 @@ export default function Login() {
   };
 
   return (
+    // Single root div — everything else is nested INSIDE this one tag.
+    // This is the part that kept breaking: there must be exactly ONE
+    // top-level element here, not two competing ones.
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-white">
+
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl">
