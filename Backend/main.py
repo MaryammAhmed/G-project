@@ -224,3 +224,96 @@ async def chat(payload: ChatPayload):
         ],
     )
     return {"reply": response.choices[0].message.content}
+
+# =============================================================
+# SCENARIO FEEDBACK  (separate from the open /api/chat mentor)
+# =============================================================
+# Added at the END of the file on purpose — it only needs
+# MODULE_STANDARDS, MODULE_CORE_GUIDANCE, BaseModel, and groq_client,
+# which are all already defined above by this point. Appending here
+# means we never risk overwriting anything that already works.
+
+SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to a Tier {tier} agent's
+in-game decision during Module {module}, grounded in {standard}.
+
+The correct guidance for this module is: {core_guidance}
+
+The scenario situation was: {incident}
+The player chose: {choice_text}
+This choice was: {verdict_label}
+
+Respond in EXACTLY 2 sentences, no more than 35 words total, no exceptions:
+- Sentence 1: the concrete consequence of this specific choice
+- Sentence 2: the security principle behind it, matching the correct guidance above exactly
+
+No greeting, no markdown, no hedging."""
+
+
+def build_scenario_feedback_prompt(tier: str, module: int, incident: str, choice_text: str, correct: bool) -> str:
+    standard = MODULE_STANDARDS.get(module, "recognized cybersecurity best practices")
+    core_guidance = MODULE_CORE_GUIDANCE.get(module, "Follow general cybersecurity best practices.")
+    verdict_label = "the correct/safe choice" if correct else "an unsafe choice"
+    return SCENARIO_FEEDBACK_PROMPT_TEMPLATE.format(
+        tier=tier, module=module, standard=standard, core_guidance=core_guidance,
+        incident=incident, choice_text=choice_text, verdict_label=verdict_label,
+    )
+
+
+class ScenarioFeedbackPayload(BaseModel):
+    tier: str
+    module: int
+    incident: str
+    choice_text: str
+    correct: bool
+
+
+@app.post("/api/scenario-feedback")
+async def scenario_feedback(payload: ScenarioFeedbackPayload):
+    response = groq_client.chat.completions.create(
+        model="openai/gpt-oss-20b",
+        messages=[
+            {"role": "system", "content": build_scenario_feedback_prompt(
+                payload.tier, payload.module, payload.incident, payload.choice_text, payload.correct
+            )},
+            {"role": "user", "content": "Give the feedback now."},
+        ],
+    )
+    return {"feedback": response.choices[0].message.content}
+# =============================================================
+# PRACTICE OTP — for the 2FA hands-on lab, separate from real login
+# =============================================================
+# Deliberately isolated from the User table's otp_code_hash/otp_expires_at
+# columns — those are real account security state. Mixing lab practice
+# codes into that would risk a completed lesson accidentally clearing
+# or conflicting with someone's actual pending login OTP.
+
+practice_otp_store: dict[str, dict] = {}  # {email: {"hash": ..., "expires": ...}}
+
+class PracticeOtpSendPayload(BaseModel):
+    email: str
+
+@app.post("/api/practice-otp/send")
+async def send_practice_otp(payload: PracticeOtpSendPayload):
+    code = str(random.randint(100000, 999999))
+    practice_otp_store[payload.email] = {
+        "hash": pwd_context.hash(code),
+        "expires": datetime.utcnow() + timedelta(minutes=10),
+    }
+    send_otp_email(payload.email, code)  # reuses your real, working Brevo function
+    return {"status": "sent"}
+
+class PracticeOtpVerifyPayload(BaseModel):
+    email: str
+    code: str
+
+@app.post("/api/practice-otp/verify")
+async def verify_practice_otp(payload: PracticeOtpVerifyPayload):
+    entry = practice_otp_store.get(payload.email)
+    if not entry:
+        raise HTTPException(status_code=400, detail="No practice code pending — request one first")
+    if datetime.utcnow() > entry["expires"]:
+        raise HTTPException(status_code=400, detail="Code expired")
+    correct = pwd_context.verify(payload.code, entry["hash"])
+    if correct:
+        del practice_otp_store[payload.email]  # one-time use, same as the real system
+    return {"correct": correct}
