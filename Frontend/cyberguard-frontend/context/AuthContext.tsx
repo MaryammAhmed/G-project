@@ -1,82 +1,92 @@
-"use client";
-// Needs to run in the browser — we use localStorage below.
+"use client"; 
+// Instructs Next.js that this module is a Client Component, 
+// which is required because we access browser APIs (localStorage) and React hooks (useState, useEffect).
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-// This file is a shared "notice board" for login info.
-// Instead of every page checking localStorage separately,
-// they all read from this one shared place.
-
-// The shape of what the notice board holds:
+// Defines the shape/contract of the authentication state and functions available throughout the app.
 type AuthContextType = {
-  token: string | null;       // JWT, or null if logged out
-  ageGroup: string | null;    // "A", "B", or "C"
-  isLoggedIn: boolean;        // quick true/false check
-  isLoading: boolean;         // true until we've checked localStorage once
-  login: (token: string, ageGroup: string) => void;
-  logout: () => void;
+  token: string | null;       // JWT authentication token (null if logged out)
+  ageGroup: string | null;    // User's assigned age demographic tier (e.g., "A", "B", "C")
+  email: string | null;       // User's verified email address (used in scenario labs/2FA practice)
+  isLoggedIn: boolean;        // Convenience boolean indicating active authentication status
+  isLoading: boolean;         // Prevents premature rendering while reading state from localStorage on startup
+  login: (token: string, ageGroup: string, email: string) => void;  // Updates state + localStorage on successful login
+  logout: () => void;         // Clears session state and wipes browser storage
 };
 
-// Create the empty board (default values, nothing real yet).
+// Initializes the React Context with default fallback values before the provider mounts.
 const AuthContext = createContext<AuthContextType>({
   token: null,
   ageGroup: null,
+  email: null,
   isLoggedIn: false,
   isLoading: true,
   login: () => {},
   logout: () => {},
 });
 
-// The component that actually writes to the board.
-// Wrap your whole app in this (done in layout.tsx).
+// Wrapper component that stores authentication state and provides it to all child components.
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // State variables for in-memory session data
   const [token, setToken] = useState<string | null>(null);
   const [ageGroup, setAgeGroup] = useState<string | null>(null);
-
-  // Starts true: "haven't checked localStorage yet."
-  // Flips to false once the check below finishes.
-  // Without this, other components might ask "logged in?" too early
-  // and get a wrong "no" before we've actually looked.
+  const [email, setEmail] = useState<string | null>(null);
+  
+  // Tracks initial session rehydration status to prevent flash of unauthenticated UI on page load
   const [isLoading, setIsLoading] = useState(true);
 
-  // Runs once on app load. localStorage survives refreshes,
-  // so we check it here to restore login state after a refresh.
+  // Runs once on initial browser load to rehydrate state from persisted browser storage (localStorage)
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedAgeGroup = localStorage.getItem("ageGroup");
+    const storedEmail = localStorage.getItem("email");
+
     if (storedToken) setToken(storedToken);
     if (storedAgeGroup) setAgeGroup(storedAgeGroup);
-    setIsLoading(false); // done checking now
+    if (storedEmail) setEmail(storedEmail);
+
+    setIsLoading(false); // Session check completed
   }, []);
 
-  // Call this after a successful login/register.
-  // Updates live state AND saves to localStorage.
-  const login = (newToken: string, newAgeGroup: string) => {
+  // Called after successful authentication (login/verify-otp) to store credentials in memory and persistent storage
+  const login = (newToken: string, newAgeGroup: string, newEmail: string) => {
+    // 1. Update active React state
     setToken(newToken);
     setAgeGroup(newAgeGroup);
+    setEmail(newEmail);
+
+    // 2. Persist to localStorage so sessions survive page refreshes
     localStorage.setItem("token", newToken);
     localStorage.setItem("ageGroup", newAgeGroup);
+    localStorage.setItem("email", newEmail);
   };
 
-  // Clears everything, in memory and in localStorage.
+  // Called on explicit logout or session termination to wipe all user session data
   const logout = () => {
+    // 1. Clear active React state
     setToken(null);
     setAgeGroup(null);
+    setEmail(null);
+
+    // 2. Clear persisted items from localStorage
     localStorage.removeItem("token");
     localStorage.removeItem("ageGroup");
+    localStorage.removeItem("email");
   };
 
+  // Derived boolean helper: returns true if a token exists, false otherwise
   const isLoggedIn = !!token;
 
-  // Broadcast all of this to every page inside {children}.
+  // Exposes all context fields and actions to any descendant component inside <AuthProvider>
   return (
-    <AuthContext.Provider value={{ token, ageGroup, isLoggedIn, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ token, ageGroup, email, isLoggedIn, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// Shortcut so pages can write useAuth() instead of useContext(AuthContext).
+// Custom hook helper so page components can consume context easily via `useAuth()` instead of `useContext(AuthContext)`
 export function useAuth() {
   return useContext(AuthContext);
 }

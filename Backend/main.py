@@ -1,3 +1,10 @@
+# main.py
+#
+# CyberGuard backend — FastAPI. Organized top to bottom as:
+# setup → password rules → auth (register/login) → OTP + email (real
+# login) → AI mentor chat → episode scenario feedback → practice OTP
+# (2FA lab exercise, separate from real login OTP).
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +23,7 @@ from models import User
 load_dotenv()
 app = FastAPI()
 
+# Lets the Next.js frontend (running on a different port) talk to this API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -28,7 +36,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
-# --- Password strength ---
+
+# =============================================================
+# PASSWORD STRENGTH — used at registration
+# =============================================================
 
 COMMON_WEAK_PASSWORDS = {"123", "password", "12345678", "qwerty", "letmein", "admin123"}
 PASSWORD_RULES = [
@@ -40,13 +51,17 @@ PASSWORD_RULES = [
 ]
 
 def validate_password_strength(password: str) -> None:
+    """Checks every rule in order, raises on the first one that fails."""
     for pattern, message in PASSWORD_RULES:
         if not re.search(pattern, password):
             raise ValueError(message)
     if password.lower() in COMMON_WEAK_PASSWORDS:
         raise ValueError("This password is too common — choose something less predictable.")
 
-# --- Auth ---
+
+# =============================================================
+# AUTH — register and login (login triggers OTP, doesn't issue a token yet)
+# =============================================================
 
 class RegisterPayload(BaseModel):
     username: str
@@ -90,7 +105,9 @@ async def login(payload: LoginPayload, db: AsyncSession = Depends(get_db)):
     return {"otp_required": True, "username": user.username}  # no token until OTP passes
 
 
-# --- OTP + email ---
+# =============================================================
+# REAL LOGIN OTP + EMAIL — the actual account security step
+# =============================================================
 
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL")
@@ -136,6 +153,7 @@ async def verify_otp(payload: OtpVerifyPayload, db: AsyncSession = Depends(get_d
     if not pwd_context.verify(payload.code, user.otp_code_hash):
         raise HTTPException(status_code=400, detail="Incorrect code")
 
+    # Success — clear the OTP so this exact code can't be reused
     user.otp_code_hash = None
     user.otp_expires_at = None
     await db.commit()
@@ -161,7 +179,9 @@ async def resend_otp(payload: ResendOtpPayload, db: AsyncSession = Depends(get_d
     return {"message": "A new code has been sent"}
 
 
-# --- AI mentor ---
+# =============================================================
+# AI MENTOR — the free-text /api/chat used by the standalone chat page
+# =============================================================
 
 MODULE_STANDARDS = {
     1: "NIST SP 800-63B (Digital Identity Guidelines — memorized secrets and authentication)",
@@ -225,13 +245,16 @@ async def chat(payload: ChatPayload):
     )
     return {"reply": response.choices[0].message.content}
 
+
 # =============================================================
-# SCENARIO FEEDBACK  (separate from the open /api/chat mentor)
+# SCENARIO FEEDBACK — used by episodes after each choice/task beat
 # =============================================================
-# Added at the END of the file on purpose — it only needs
-# MODULE_STANDARDS, MODULE_CORE_GUIDANCE, BaseModel, and groq_client,
-# which are all already defined above by this point. Appending here
-# means we never risk overwriting anything that already works.
+# THIS is the route that was duplicated 3x before — this is now the
+# ONLY copy. Combines: max_tokens + reasoning_effort (keeps responses
+# fast and on-budget) with refusal detection (catches the model
+# occasionally saying "I'm sorry, I can't comply" instead of real
+# feedback) and empty-content detection, retried once before falling
+# back to a safe default line.
 
 SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to a Tier {tier} agent's
 in-game decision during Module {module}, grounded in {standard}.
@@ -247,7 +270,6 @@ Respond in EXACTLY 2 sentences, no more than 35 words total, no exceptions:
 - Sentence 2: the security principle behind it, matching the correct guidance above exactly
 
 No greeting, no markdown, no hedging."""
-
 
 def build_scenario_feedback_prompt(tier: str, module: int, incident: str, choice_text: str, correct: bool) -> str:
     standard = MODULE_STANDARDS.get(module, "recognized cybersecurity best practices")
@@ -267,113 +289,28 @@ class ScenarioFeedbackPayload(BaseModel):
     correct: bool
 
 
-@app.post("/api/scenario-feedback")
-async def scenario_feedback(payload: ScenarioFeedbackPayload):
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {"role": "system", "content": build_scenario_feedback_prompt(
-                payload.tier, payload.module, payload.incident, payload.choice_text, payload.correct
-            )},
-            {"role": "user", "content": "Give the feedback now."},
-        ],
-    )
-    return {"feedback": response.choices[0].message.content}
-# =============================================================
-# PRACTICE OTP — for the 2FA hands-on lab, separate from real login
-# =============================================================
-# Deliberately isolated from the User table's otp_code_hash/otp_expires_at
-# columns — those are real account security state. Mixing lab practice
-# codes into that would risk a completed lesson accidentally clearing
-# or conflicting with someone's actual pending login OTP.
+# Phrases indicating the model refused instead of answering — if the
+# reply contains any of these, or is just empty, we don't show it.
+REFUSAL_MARKERS = ["i'm sorry", "i am sorry", "can't comply", "cannot comply", "i cannot assist", "i can't assist"]
 
-practice_otp_store: dict[str, dict] = {}  # {email: {"hash": ..., "expires": ...}}
+def looks_like_refusal(text: str) -> bool:
+    lowered = (text or "").strip().lower()
+    return len(lowered) == 0 or any(marker in lowered for marker in REFUSAL_MARKERS)
 
-class PracticeOtpSendPayload(BaseModel):
-    email: str
-
-@app.post("/api/practice-otp/send")
-async def send_practice_otp(payload: PracticeOtpSendPayload):
-    code = str(random.randint(100000, 999999))
-    practice_otp_store[payload.email] = {
-        "hash": pwd_context.hash(code),
-        "expires": datetime.utcnow() + timedelta(minutes=10),
-    }
-    send_otp_email(payload.email, code)  # reuses your real, working Brevo function
-    return {"status": "sent"}
-
-class PracticeOtpVerifyPayload(BaseModel):
-    email: str
-    code: str
-
-@app.post("/api/practice-otp/verify")
-async def verify_practice_otp(payload: PracticeOtpVerifyPayload):
-    entry = practice_otp_store.get(payload.email)
-    if not entry:
-        raise HTTPException(status_code=400, detail="No practice code pending — request one first")
-    if datetime.utcnow() > entry["expires"]:
-        raise HTTPException(status_code=400, detail="Code expired")
-    correct = pwd_context.verify(payload.code, entry["hash"])
-    if correct:
-        del practice_otp_store[payload.email]  # one-time use, same as the real system
-    return {"correct": correct}
-
-# =============================================================
-# PRACTICE OTP  (used inside episodes for a hands-on 2FA exercise)
-# =============================================================
-# Deliberately SEPARATE from the real login OTP system above.
-# Reusing User.otp_code_hash here would risk overwriting a genuine
-# pending LOGIN code for the same account — these must stay isolated.
-# Added at the end of the file, same pattern as scenario-feedback,
-# so nothing already working risks being disturbed.
-
-# Simple in-memory store: email -> current practice code.
-# Resets if uvicorn restarts — totally fine, since this is just a
-# teaching exercise, not real security.
-practice_otp_codes: dict[str, str] = {}
-
-class PracticeOtpSendPayload(BaseModel):
-    email: str
-
-@app.post("/api/practice-otp/send")
-async def practice_otp_send(payload: PracticeOtpSendPayload):
-    """Generates a practice code and emails it, reusing the same
-    real Brevo sender function — but stores it separately from
-    real login OTPs."""
-    code = str(random.randint(100000, 999999))
-    practice_otp_codes[payload.email] = code
-    send_otp_email(payload.email, code)  # same function your real login already uses
-    return {"status": "sent"}
-
-
-class PracticeOtpVerifyPayload(BaseModel):
-    email: str
-    code: str
-
-@app.post("/api/practice-otp/verify")
-async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
-    """Checks the submitted code against the in-memory store.
-    No hashing here — low stakes, it's a practice exercise, not
-    real account security."""
-    correct = practice_otp_codes.get(payload.email) == payload.code
-    if correct:
-        practice_otp_codes.pop(payload.email, None)  # used once, then discarded
-    return {"correct": correct}
 
 @app.post("/api/scenario-feedback")
 async def scenario_feedback(payload: ScenarioFeedbackPayload):
-    system_prompt = build_scenario_feedback_prompt(
+    prompt = build_scenario_feedback_prompt(
         payload.tier, payload.module, payload.incident, payload.choice_text, payload.correct
     )
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": "Give the feedback now."},
     ]
 
-    # Try up to twice — if Groq returns empty content on the first
-    # attempt (can happen if the model spends its whole budget
-    # "thinking" before writing anything visible), retry once before
-    # giving up. This is invisible to the player — just a tiny delay.
+    # Up to 2 attempts — Groq occasionally returns empty content or a
+    # refusal for no real reason (model flakiness, not a prompt bug).
+    # Invisible to the player, just a small delay if it happens.
     for attempt in range(2):
         response = groq_client.chat.completions.create(
             model="openai/gpt-oss-20b",
@@ -382,44 +319,46 @@ async def scenario_feedback(payload: ScenarioFeedbackPayload):
             messages=messages,
         )
         content = response.choices[0].message.content
-        if content and content.strip():
+        if not looks_like_refusal(content):
             return {"feedback": content}
 
-    # Both attempts came back empty — fall back to a guaranteed,
-    # always-true statement rather than showing nothing at all.
-    return {"feedback": "Good thing to think about — length and uniqueness are what actually protect an account."}
+    # Both attempts failed — a safe, always-true fallback so the player
+    # never sees a blank bubble or a raw refusal message.
+    return {"feedback": "This choice has real security consequences — consider how it affects account safety and apply the standard's guidance here."}
+
 
 # =============================================================
-# PRACTICE OTP  (for the in-episode 2FA hands-on task — NOT real auth)
+# PRACTICE OTP — the in-episode 2FA hands-on task, NOT real login
 # =============================================================
-# Separate from the real login OTP on purpose: this is a TEACHING tool
-# inside an episode, not a security boundary. Same Brevo delivery, same
-# hashing discipline (never store the raw code), but its own in-memory
-# store so a practice code can never be confused with — or interfere
-# with — a real login session.
+# Deliberately separate from the real login OTP system above: this is
+# a teaching exercise inside an episode, not an account security
+# boundary. Same hashing discipline (never store the raw code), but
+# its own in-memory store so a practice code can never collide with
+# or clear a real pending login OTP for the same account.
+#
+# THIS is also the route that was duplicated 3x — one earlier copy
+# didn't even hash the code. This is now the only copy, and it does.
 
 practice_otp_store: dict[str, dict] = {}  # email -> {"hash": str, "expires": datetime}
 
 def send_practice_otp_email(to_email: str, otp_code: str):
     """Same Brevo call as the real OTP email, but written in the
-    mentor's voice and clearly labeled as a practice exercise, so it
-    reads as part of the story rather than a real security alert."""
+    mentor's voice and clearly labeled as a practice exercise."""
     response = requests.post(
         "https://api.brevo.com/v3/smtp/email",
         headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
         json={
-            "sender": {"email": BREVO_SENDER_EMAIL, "name": "Zara — CyberGuard Mentor"},
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "CyberGuard Mentor"},
             "to": [{"email": to_email}],
             "subject": "🛰️ CyberGuard Training — Your Practice Verification Code",
             "htmlContent": (
-                f"<p>This is Zara, your CyberGuard mentor.</p>"
+                f"<p>This is your CyberGuard mentor.</p>"
                 f"<p>Here's the practice verification code for this episode's 2FA exercise:</p>"
                 f"<p style='font-size:24px;font-weight:bold;'>{otp_code}</p>"
                 f"<p>Enter it in the episode to confirm 2FA is working. Expires in 10 minutes.</p>"
             ),
         },
     )
-    print(f"PRACTICE OTP — BREVO STATUS: {response.status_code}")  # TEMPORARY — remove after confirming it works
     if response.status_code != 201:
         raise Exception(f"Practice OTP email send failed: {response.text}")
 
@@ -429,8 +368,6 @@ class PracticeOtpSendPayload(BaseModel):
 
 @app.post("/api/practice-otp/send")
 async def practice_otp_send(payload: PracticeOtpSendPayload):
-    """Generates a practice code, stores only its HASH with a 10-minute
-    expiry (same discipline as the real OTP), and emails it via Brevo."""
     otp_code = str(random.randint(100000, 999999))
     practice_otp_store[payload.email] = {
         "hash": pwd_context.hash(otp_code),
@@ -444,36 +381,15 @@ class PracticeOtpVerifyPayload(BaseModel):
     email: str
     code: str
 
-# Phrases that indicate the model refused instead of answering —
-# checked so a refusal never reaches the player as "feedback".
-REFUSAL_MARKERS = ["i'm sorry", "i am sorry", "can't comply", "cannot comply", "i cannot assist", "i can't assist"]
+@app.post("/api/practice-otp/verify")
+async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
+    entry = practice_otp_store.get(payload.email)
+    if not entry:
+        raise HTTPException(status_code=400, detail="No practice code pending — request one first")
+    if datetime.utcnow() > entry["expires"]:
+        raise HTTPException(status_code=400, detail="Code expired")
 
-def looks_like_refusal(text: str) -> bool:
-    lowered = text.strip().lower()
-    return any(marker in lowered for marker in REFUSAL_MARKERS) or len(lowered) == 0
-
-@app.post("/api/scenario-feedback")
-async def scenario_feedback(payload: ScenarioFeedbackPayload):
-    prompt = build_scenario_feedback_prompt(
-        payload.tier, payload.module, payload.incident, payload.choice_text, payload.correct
-    )
-
-    # Try up to 2 times — if the model refuses or returns empty, ask
-    # again before giving up. Real content almost always comes back
-    # clean on the second try; this is model flakiness, not a prompt bug.
-    for attempt in range(2):
-        response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": "Give the feedback now."},
-            ],
-        )
-        feedback = response.choices[0].message.content
-        if not looks_like_refusal(feedback):
-            return {"feedback": feedback}
-
-    # Both attempts failed — return something the player can still use
-    # instead of silently failing or showing a refusal.
-    fallback = "This choice has real security consequences — consider how it affects account safety and apply the standard's guidance here."
-    return {"feedback": fallback}
+    correct = pwd_context.verify(payload.code, entry["hash"])
+    if correct:
+        practice_otp_store.pop(payload.email, None)  # one-time use
+    return {"correct": correct}

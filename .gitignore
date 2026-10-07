@@ -43,3 +43,5 @@ Backend/migrations/versions/__pycache__/
 .env
 
 
+
+.vscode/

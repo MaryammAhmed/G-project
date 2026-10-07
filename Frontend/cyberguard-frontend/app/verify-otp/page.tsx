@@ -30,9 +30,9 @@ export default function VerifyOtpPage() {
     const data = await res.json(); // read the backend's response
 
     if (res.ok) {
-      // Correct code — backend sent back a real token + age_group.
-      // login(...) stores both centrally, same as a normal login would.
-      login(data.token, data.age_group);
+      // Correct code — backend sent back token, age_group, and email.
+      // login(...) stores all three centrally.
+      login(data.token, data.age_group, data.email); // UPDATED: passing email from response
       router.push("/dashboard"); // send the user into the app
     } else {
       // Wrong/expired code — show whatever message the backend gave us
