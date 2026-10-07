@@ -1,22 +1,56 @@
 @import "tailwindcss";
 
-/* Our custom palette — Tailwind v4 generates utility classes like
-   bg-void, text-cyan, etc. automatically from these variables.
-   Change a color here, it updates everywhere it's used. */
+/*
+  CYBERGUARD DESIGN SYSTEM: Cosmic + Cyberpunk + Mystical.
+  Anything inside @theme becomes a Tailwind class:
+    --color-electric-blue -> text-electric-blue, bg-electric-blue/20 ...
+    --animate-bob         -> animate-bob
+*/
 @theme {
-  --color-void: #05070D;
-  --color-panel: #0F1420;
-  --color-cyan: #22D3EE;
-  --color-violet: #A855F7;
-  --color-term-green: #4AFA9A;
-  --color-alert: #FF4D4D;
+  /* Backgrounds */
+  --color-space: #070711;
+  --color-space-blue: #0b1024;
+  --color-panel: #111329;
+  --color-panel-light: #181a38;
+
+  /* Cyber / mystical accents */
+  --color-electric-blue: #4cc9ff;
+  --color-cosmic-purple: #8b5cf6;
+  --color-mystic-violet: #c084fc;
+
+  /* Maya's signature red */
+  --color-maya-red: #8f3035;
+  --color-maya-red-light: #b7474c;
+
+  /* Cipher the cat */
+  --color-cipher-green: #8cff9b;
+
+  /* Feedback: correct / wrong / caution */
+  --color-success: #4ade80;
+  --color-danger: #fb4b5b;
+  --color-warning: #f6c453;
+
+  /* Text */
+  --color-text-primary: #f5f3ff;
+  --color-text-secondary: #b8b5c9;
+  --color-text-muted: #77748c;
+
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.1);
+
+  /* Animations: --animate-NAME creates the class animate-NAME.
+     The keyframes are defined further down. */
+  --animate-bob: bob 3s ease-in-out infinite;
+  --animate-star-drift: starDrift 6s ease-in-out infinite;
+  --animate-cosmic-pulse: cosmicPulse 5s ease-in-out infinite;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #070711;
+  --foreground: #f5f3ff;
 }
 
+/* "inline" lets these point at other variables (like fonts). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -24,24 +58,67 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* BASE STYLES */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Theme font first, Arial only as fallback.
+     Later we add an Arabic font (e.g. Cairo) to this list. */
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-@keyframes flashCorrect { 0% { background-color: rgba(74,250,154,0.4); } 100% { background-color: transparent; } }
-@keyframes flashIncorrect { 0% { background-color: rgba(255,77,77,0.4); } 100% { background-color: transparent; } }
-.flash-correct { animation: flashCorrect 0.6s ease-out; }
+/* KEYFRAMES (animation recipes) */
+
+/* Stars/particles drifting gently */
+@keyframes starDrift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+/* Glows that slowly breathe */
+@keyframes cosmicPulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.6;  transform: scale(1.08); }
+}
+
+/* Small floating motion, great for Cipher */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+
+/* Green flash on a correct answer */
+@keyframes flashCorrect {
+  0%   { background-color: rgba(74, 222, 128, 0.35); }
+  100% { background-color: transparent; }
+}
+
+/* Red flash on a wrong answer */
+@keyframes flashIncorrect {
+  0%   { background-color: rgba(251, 75, 91, 0.35); }
+  100% { background-color: transparent; }
+}
+
+.flash-correct   { animation: flashCorrect 0.6s ease-out; }
 .flash-incorrect { animation: flashIncorrect 0.6s ease-out; }
 
-@keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+/* Accessibility: if the device is set to "reduce motion",
+   switch animations off. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
