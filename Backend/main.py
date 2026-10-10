@@ -4,17 +4,25 @@
 # setup → password rules → auth (register/login) → OTP + email (real
 # login) → AI mentor chat → episode scenario feedback → practice OTP
 # (2FA lab exercise, separate from real login OTP).
+#
+# CHANGE: age tiers (A / B / C) were REMOVED everywhere. The platform now
+# targets ONE audience: high school students, ages 16-18.
 
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+#   - verify-otp page:  login(data.token, data.age_group, data.email)
+#   - login page:       login(data.token, data.age_group, data.email)
+#   - AuthContext, TierThemeProvider, TierGate (they use ageGroup)
+#   - chat page and episode pages (they send "tier" in their requests)
+
+from fastapi import FastAPI, HTTPException, Depends # Depends injects database sessions
+from fastapi.middleware.cors import CORSMiddleware # allows your Next.js frontend to talk to your backend
+from pydantic import BaseModel #ensuring FastAPI automatically validates user input
 from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from passlib.context import CryptContext
-from jose import jwt
-from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession #Represents an asynchronous database session, allowing your app to talk to PostgreSQL without freezing
+from passlib.context import CryptContext #The security library used to securely hash passwords and verify them using Bcrypt
+from jose import jwt #A library used to create (encode) and read (decode) secure JSON Web Tokens (JWT) for user login sessions
+from datetime import datetime, timedelta #Python's built-in tool for managing dates and times. Used here to set expiration times for JWT tokens and OTP codes
 import os, re, random, requests
-from dotenv import load_dotenv
+from dotenv import load_dotenv #Loads secret keys and environment variables from your .env file
 from groq import Groq
 
 from database import get_db
@@ -35,6 +43,10 @@ app.add_middleware(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+
+# The ONE audience of the platform. Used inside the AI mentor prompts so the
+# model always speaks to the right age group (replaces the old per-tier text).
+AUDIENCE = "a high school student (ages 16-18)"
 
 
 # =============================================================
@@ -67,7 +79,8 @@ class RegisterPayload(BaseModel):
     username: str
     email: str
     password: str
-    ageGroup: str
+    # REMOVED: ageGroup: str
+    # If the old frontend still sends "ageGroup", Pydantic simply ignores it.
 
 @app.post("/api/register")
 async def register(payload: RegisterPayload, db: AsyncSession = Depends(get_db)):
@@ -83,11 +96,12 @@ async def register(payload: RegisterPayload, db: AsyncSession = Depends(get_db))
         username=payload.username,
         email=payload.email,
         hashed_password=pwd_context.hash(payload.password),
-        age_group=payload.ageGroup,
+        # REMOVED: age_group=payload.ageGroup,
     )
     db.add(user)
     await db.commit()
-    return {"status": "ok", "message": f"Clearance granted, Agent {user.username} — Tier {user.age_group} initiate."}
+    # Message no longer mentions a tier.
+    return {"status": "ok", "message": f"Clearance granted, Agent {user.username} — welcome to CyberGuard."}
 
 
 class LoginPayload(BaseModel):
@@ -119,10 +133,15 @@ def send_otp_email(to_email: str, otp_code: str):
         "https://api.brevo.com/v3/smtp/email",
         headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
         json={
-            "sender": {"email": BREVO_SENDER_EMAIL},
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "CyberGuard Security"},
             "to": [{"email": to_email}],
-            "subject": "Your CyberGuard verification code",
-            "htmlContent": f"<p>Your code is: <strong>{otp_code}</strong></p><p>Expires in 10 minutes.</p>",
+            "subject": "🛡️ CyberGuard — Your Login Verification Code",
+            "htmlContent": (
+                f"<p>Hello Agent,</p>"
+                f"<p>Here is your secure authentication code to access your CyberGuard terminal:</p>"
+                f"<p style='font-size:24px;font-weight:bold;color:burgendy;'>{otp_code}</p>"
+                f"<p>Enter this code in the login portal to proceed. Expires in 5 minutes.</p>"
+            ),
         },
     )
     if response.status_code != 201:
@@ -134,7 +153,7 @@ async def generate_and_send_otp(user: User, db: AsyncSession):
     only its hash + expiry, then sends it."""
     otp_code = str(random.randint(100000, 999999))
     user.otp_code_hash = pwd_context.hash(otp_code)
-    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
+    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=5)
     await db.commit()
     send_otp_email(user.email, otp_code)
 
@@ -160,11 +179,12 @@ async def verify_otp(payload: OtpVerifyPayload, db: AsyncSession = Depends(get_d
 
     token_data = {
         "sub": str(user.id),
-        "age_group": user.age_group,
+        # REMOVED: "age_group": user.age_group,
         "exp": datetime.utcnow() + timedelta(hours=12),
     }
     token = jwt.encode(token_data, SECRET_KEY, algorithm="HS256")
-    return {"status": "ok", "token": token, "age_group": user.age_group, "email": user.email}
+    # REMOVED: "age_group" from the response. The frontend only needs token + email now.
+    return {"status": "ok", "token": token, "email": user.email}
 
 
 class ResendOtpPayload(BaseModel):
@@ -202,7 +222,8 @@ MODULE_CORE_GUIDANCE = {
        "and treat AI-generated output as unverified until checked against a reliable source.",
 }
 
-SYSTEM_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor, speaking to a Tier {tier} agent
+# CHANGE: "{tier}" placeholder removed. The mentor now always addresses {audience}.
+SYSTEM_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor, speaking to {audience}
 training in cybersecurity awareness. This conversation is part of Module {module},
 which is grounded in {standard}.
 
@@ -218,20 +239,24 @@ Your feedback style:
   bodies for this module
 - Explain the underlying mechanism — why this matters, not just what to do
 - Never be condescending; treat the user as capable of understanding real technical detail
+- Keep examples relatable to a teenager's world (school, games, social media)
 - Keep responses to a MAXIMUM of 4 sentences, no exceptions
 
 Respond to the user's specific message or decision below, addressing what they
 actually did, not a generic script."""
 
-def build_system_prompt(tier: str, module: int) -> str:
+# CHANGE: the "tier" parameter was removed from this function.
+def build_system_prompt(module: int) -> str:
     standard = MODULE_STANDARDS.get(module, "recognized cybersecurity best practices")
     core_guidance = MODULE_CORE_GUIDANCE.get(module, "Follow general cybersecurity best practices.")
-    return SYSTEM_PROMPT_TEMPLATE.format(tier=tier, module=module, standard=standard, core_guidance=core_guidance)
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        audience=AUDIENCE, module=module, standard=standard, core_guidance=core_guidance
+    )
 
 
 class ChatPayload(BaseModel):
     message: str
-    tier: str
+    # REMOVED: tier: str   (old frontend code that still sends "tier" is simply ignored)
     module: int
 
 @app.post("/api/chat")
@@ -239,7 +264,7 @@ async def chat(payload: ChatPayload):
     response = groq_client.chat.completions.create(
         model="openai/gpt-oss-20b",
         messages=[
-            {"role": "system", "content": build_system_prompt(payload.tier, payload.module)},
+            {"role": "system", "content": build_system_prompt(payload.module)},
             {"role": "user", "content": payload.message},
         ],
     )
@@ -256,8 +281,9 @@ async def chat(payload: ChatPayload):
 # feedback) and empty-content detection, retried once before falling
 # back to a safe default line.
 
-SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to a Tier {tier} agent's
-in-game decision during Module {module}, grounded in {standard}.
+# CHANGE: "{tier}" placeholder removed here too.
+SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to the in-game decision of
+{audience} during Module {module}, grounded in {standard}.
 
 The correct guidance for this module is: {core_guidance}
 
@@ -271,18 +297,19 @@ Respond in EXACTLY 2 sentences, no more than 35 words total, no exceptions:
 
 No greeting, no markdown, no hedging."""
 
-def build_scenario_feedback_prompt(tier: str, module: int, incident: str, choice_text: str, correct: bool) -> str:
+# CHANGE: the "tier" parameter was removed from this function.
+def build_scenario_feedback_prompt(module: int, incident: str, choice_text: str, correct: bool) -> str:
     standard = MODULE_STANDARDS.get(module, "recognized cybersecurity best practices")
     core_guidance = MODULE_CORE_GUIDANCE.get(module, "Follow general cybersecurity best practices.")
     verdict_label = "the correct/safe choice" if correct else "an unsafe choice"
     return SCENARIO_FEEDBACK_PROMPT_TEMPLATE.format(
-        tier=tier, module=module, standard=standard, core_guidance=core_guidance,
+        audience=AUDIENCE, module=module, standard=standard, core_guidance=core_guidance,
         incident=incident, choice_text=choice_text, verdict_label=verdict_label,
     )
 
 
 class ScenarioFeedbackPayload(BaseModel):
-    tier: str
+    # REMOVED: tier: str   (old frontend code that still sends "tier" is simply ignored)
     module: int
     incident: str
     choice_text: str
@@ -301,7 +328,7 @@ def looks_like_refusal(text: str) -> bool:
 @app.post("/api/scenario-feedback")
 async def scenario_feedback(payload: ScenarioFeedbackPayload):
     prompt = build_scenario_feedback_prompt(
-        payload.tier, payload.module, payload.incident, payload.choice_text, payload.correct
+        payload.module, payload.incident, payload.choice_text, payload.correct
     )
     messages = [
         {"role": "system", "content": prompt},
@@ -355,7 +382,7 @@ def send_practice_otp_email(to_email: str, otp_code: str):
                 f"<p>This is your CyberGuard mentor.</p>"
                 f"<p>Here's the practice verification code for this episode's 2FA exercise:</p>"
                 f"<p style='font-size:24px;font-weight:bold;'>{otp_code}</p>"
-                f"<p>Enter it in the episode to confirm 2FA is working. Expires in 10 minutes.</p>"
+                f"<p>Enter it in the episode to confirm 2FA is working. Expires in 5 minutes.</p>"
             ),
         },
     )
@@ -371,7 +398,7 @@ async def practice_otp_send(payload: PracticeOtpSendPayload):
     otp_code = str(random.randint(100000, 999999))
     practice_otp_store[payload.email] = {
         "hash": pwd_context.hash(otp_code),
-        "expires": datetime.utcnow() + timedelta(minutes=10),
+        "expires": datetime.utcnow() + timedelta(minutes=5),
     }
     send_practice_otp_email(payload.email, otp_code)
     return {"status": "sent"}
@@ -393,3 +420,12 @@ async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
     if correct:
         practice_otp_store.pop(payload.email, None)  # one-time use
     return {"correct": correct}
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",  # NEW — accepts any port on localhost
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

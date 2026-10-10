@@ -3,12 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import CyberShell from "@/components/layout/CyberShell";
+
+// The project now targets ONE audience only: high school students (ages 16–18).
+// The backend still stores an "age_group" value for every user, so we keep
+// sending it, but it is now a fixed constant instead of a user choice.
+// "A" is the code the backend already uses for the 16–18 group.
+const FIXED_AGE_GROUP = "A";
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ageGroup, setAgeGroup] = useState("A");
+  // REMOVED: const [ageGroup, setAgeGroup] = useState("A");
+  // No state is needed any more because the user can no longer change it.
   const { login } = useAuth(); // used later if backend ever auto-logs-in after register
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -18,7 +26,14 @@ export default function Register() {
       const res = await fetch("http://127.0.0.1:8000/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password, ageGroup }), // email added
+        // The backend expects the key "ageGroup", so the name stays the same,
+        // but the value always comes from the fixed constant above.
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          ageGroup: FIXED_AGE_GROUP,
+        }),
       });
 
       const data = await res.json();
@@ -34,112 +49,105 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
+    <CyberShell variant="center" accent="emerald">
+      {/* ---- Floating Sticker Decorations ---- */}
+      <div className="hidden sm:block absolute top-[10%] left-[6%] -rotate-6 bg-panel border border-emerald-400/40 rounded px-3 py-2 font-hud text-[10px] text-emerald-400">
+        sys_init: agent_creation
+      </div>
 
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl">
-        <h2 className="text-3xl font-bold text-center text-emerald-400">Create Account</h2>
-        <p className="mt-2 text-center text-sm text-slate-400">Choose your training identity to begin</p>
+      <div className="hidden sm:flex absolute top-[15%] right-[8%] rotate-[4deg] bg-panel border border-emerald-400/30 rounded px-3 py-2 font-hud text-[10px] text-emerald-400 items-center gap-1">
+        <span>🛡️</span> NIST SP 800-63B Compliant
+      </div>
 
-        <form onSubmit={handleRegister} className="mt-8 space-y-6">
+      <div className="hidden sm:flex absolute bottom-[12%] left-[8%] rotate-[5deg] bg-panel border border-emerald-400/40 rounded-full w-12 h-12 items-center justify-center text-xl">
+        ⚡
+      </div>
 
+      <div className="hidden sm:block absolute bottom-[15%] right-[6%] rotate-[-4deg] bg-panel border border-cyan/40 rounded px-3 py-2 font-hud text-[10px] text-cyan">
+        clearance_level: Tier 1
+      </div>
+
+      {/* ---- Main Glassmorphism Register Card ---- */}
+      <div className="cg-glass relative z-10 w-full max-w-md p-8 space-y-6">
+        {/* Terminal Header Dots */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-brick" />
+          <span className="w-2.5 h-2.5 rounded-full bg-warning" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+        </div>
+
+        <div>
+          <p className="cg-kicker mb-1">{"// AGENT REGISTRATION"}</p>
+          <h2 className="cg-title text-2xl font-bold text-emerald-400">
+            Create Account
+          </h2>
+          <p className="mt-1 text-xs text-text-secondary font-hud">
+            Choose your training identity to begin
+          </p>
+        </div>
+
+        <form onSubmit={handleRegister} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-slate-300">Username</label>
+            <label className="cg-label">Username</label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="cg-input"
               placeholder="e.g. Layla_H"
             />
           </div>
 
-          {/* NEW — email field, same style as the others, sits between username and password */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300">Email</label>
+            <label className="cg-label">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="cg-input"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-300">Password</label>
+            <label className="cg-label">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="cg-input"
               placeholder="••••••••"
             />
           </div>
 
+          {/* REMOVED: the three "Select Your Training Track" buttons (Group A / B / C).
+              REPLACED with a read-only info box so players still see which track
+              they are joining, but nothing here is clickable or changeable. */}
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Select Your Training Track</label>
-            <div className="grid grid-cols-1 gap-3">
-
-              <button
-                type="button"
-                onClick={() => setAgeGroup("A")}
-                className={`rounded-lg border p-3 text-left transition-all ${
-                  ageGroup === "A"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                    : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold">Group A (Ages 16–18)</div>
-                <div className="text-xs mt-1">Scenario: School exam portals, gaming accounts, social media.</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAgeGroup("B")}
-                className={`rounded-lg border p-3 text-left transition-all ${
-                  ageGroup === "B"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                    : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold">Group B (Ages 19–22)</div>
-                <div className="text-xs mt-1">Scenario: University portals, campus Wi-Fi, internship applications.</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAgeGroup("C")}
-                className={`rounded-lg border p-3 text-left transition-all ${
-                  ageGroup === "C"
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                    : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold">Group C (Ages 23–25)</div>
-                <div className="text-xs mt-1">Scenario: Corporate emails, HR systems, client file security.</div>
-              </button>
+            <label className="cg-label mb-2">Your Training Track</label>
+            <div className="rounded-xl border border-emerald-400 bg-emerald-400/10 p-3.5 text-emerald-300">
+              <div className="font-hud text-sm font-bold">High School (Ages 16–18)</div>
+              <div className="text-xs mt-1 opacity-80">
+                Scenario: School exam portals, gaming accounts, social media.
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400 transition-all active:scale-95"
-          >
+          <button type="submit" className="cg-btn w-full font-hud uppercase font-bold tracking-wider">
             Create Account & Save Profile
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-400">
+        <p className="text-center text-xs text-text-secondary font-hud">
           Already have an account?{" "}
-          <Link href="/login" className="text-emerald-400 hover:text-emerald-300 underline font-semibold">
+          <Link href="/login" className="text-emerald-400 hover:underline font-semibold">
             Sign in here
           </Link>
         </p>
       </div>
-    </div>
+    </CyberShell>
   );
 }

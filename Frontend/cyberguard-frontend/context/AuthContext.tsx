@@ -11,7 +11,7 @@ type AuthContextType = {
   email: string | null;       // User's verified email address (used in scenario labs/2FA practice)
   isLoggedIn: boolean;        // Convenience boolean indicating active authentication status
   isLoading: boolean;         // Prevents premature rendering while reading state from localStorage on startup
-  login: (token: string, ageGroup: string, email: string) => void;  // Updates state + localStorage on successful login
+  login: (token: string, email: string) => void;  // Updates state + localStorage on successful login
   logout: () => void;         // Clears session state and wipes browser storage
 };
 
@@ -43,22 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedEmail = localStorage.getItem("email");
 
     if (storedToken) setToken(storedToken);
-    if (storedAgeGroup) setAgeGroup(storedAgeGroup);
     if (storedEmail) setEmail(storedEmail);
 
     setIsLoading(false); // Session check completed
   }, []);
 
   // Called after successful authentication (login/verify-otp) to store credentials in memory and persistent storage
-  const login = (newToken: string, newAgeGroup: string, newEmail: string) => {
+  const login = (newToken: string, newEmail: string) => {
     // 1. Update active React state
     setToken(newToken);
-    setAgeGroup(newAgeGroup);
     setEmail(newEmail);
 
     // 2. Persist to localStorage so sessions survive page refreshes
     localStorage.setItem("token", newToken);
-    localStorage.setItem("ageGroup", newAgeGroup);
     localStorage.setItem("email", newEmail);
   };
 
@@ -66,12 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     // 1. Clear active React state
     setToken(null);
-    setAgeGroup(null);
     setEmail(null);
 
     // 2. Clear persisted items from localStorage
     localStorage.removeItem("token");
-    localStorage.removeItem("ageGroup");
     localStorage.removeItem("email");
   };
 
