@@ -18,7 +18,7 @@ DATABASE_URL = os.environ.get(
 )
 
 # The engine that drives the connection
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 
 # The session maker that opens and closes the vault door
 SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
