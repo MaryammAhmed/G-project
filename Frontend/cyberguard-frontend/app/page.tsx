@@ -77,7 +77,7 @@ export default function Home() {
 
           <g className="bob-body">
             {/* Shield arm (left, static) */}
-            <path d="M95,110 Q70,120 58,145" stroke="url(#boneGrad)" strokeWidth="9" fill="none" strokeLinecap="round" stroke-dasharray="0" />
+            <path d="M95,110 Q70,120 58,145" stroke="url(#boneGrad)" strokeWidth="9" fill="none" strokeLinecap="round" strokeDasharray="0" />
             <circle cx="95" cy="110" r="6" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
             <circle cx="58" cy="145" r="6" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
 
