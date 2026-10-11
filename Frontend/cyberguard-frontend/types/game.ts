@@ -80,7 +80,17 @@ export interface PassphraseTask {
   type: "passphrase";
   id: string;
   prompt: Localized;
-  minLength: number;  // current guidance favors LENGTH over forced symbols
+  minLength: number;  // total characters, e.g. 16
+  minWords: number;   // how many separate words, e.g. 4
+  points: number;
+}
+
+/* Practice 2FA: the backend emails a 6-digit code and the player
+   types it in. Reuses your existing /api/practice-otp endpoints. */
+export interface OtpTask {
+  type: "otp";
+  id: string;
+  prompt: Localized;
   points: number;
 }
 
@@ -103,7 +113,7 @@ export interface PickTask {
   points: number;
 }
 
-export type Task = PassphraseTask | ClassifyTask | PickTask;
+export type Task = PassphraseTask | ClassifyTask | PickTask | OtpTask;
 
 /* ============================================================
    SCENARIO and MODULE
@@ -127,7 +137,7 @@ export interface Module {
 }
 
 /* ------------------------------------------------------------
-   HELPER: the best possible score of a scenario.
+   HELPER: the best possible score of a scenario.f
    Needed to turn a score into a percentage for the ProgressLog.
    ------------------------------------------------------------ */
 export function maxScore(s: Scenario): number {
