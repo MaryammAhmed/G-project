@@ -45,3 +45,11 @@ Backend/migrations/versions/__pycache__/
 
 
 .vscode/
+
+.venv/
+__pycache__/
+*.pyc
+.env
+.brud/
+node_modules/
+.next/
