@@ -35,13 +35,19 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Python
+# Python (backend)
 Backend/.venv/
 Backend/__pycache__/
 Backend/migrations/versions/__pycache__/
 *.pyc
-.env
 
-
-
+# Local editor + OS
 .vscode/
+
+# Frontend nested node modules (ensure nested installs ignored)
+Frontend/cyberguard-frontend/node_modules/
+
+# Avoid committing build artifacts or secrets unintentionally
+.env.local
+.env.production.local
+
