@@ -27,7 +27,6 @@ export default function Maya({ mood = "idle" }: MayaProps) {
         height={900}
         priority
         className="relative z-10 h-full w-auto object-contain
-          drop-shadow-[0_0_18px_rgba(76,201,255,0.35)]
           drop-shadow-[0_10px_30px_rgba(139,92,246,0.35)]"
       />
 

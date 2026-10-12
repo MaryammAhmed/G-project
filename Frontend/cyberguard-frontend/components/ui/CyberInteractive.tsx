@@ -35,6 +35,16 @@ const ACCENTS: Record<Accent, string> = {
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
+/*
+  TypeScript's CSSProperties does not know custom variables like "--c".
+  This one helper adds the variable in ONE place, so no style object in this
+  file needs its own cast (this is what fixes the '"--c" does not exist in
+  type CSSProperties' error).
+*/
+function withAccent(color: string, rest: CSSProperties = {}): CSSProperties {
+  return { "--c": color, ...rest } as CSSProperties;
+}
+
 /* Browsers block audio until the first user gesture, so remember when one happened. */
 let gestureSeen = false;
 if (typeof window !== "undefined") {
@@ -47,13 +57,14 @@ if (typeof window !== "undefined") {
   );
 }
 
+/* Plays a sound only after a gesture; audio is a bonus and must never break the page. */
 function playSound(kind: SfxKind | false | undefined) {
   if (!kind || !gestureSeen) return;
   try {
     ensureAudio();
     sfx(kind);
   } catch {
-    /* audio is a bonus, never break the page because of it */
+    /* ignore audio errors */
   }
 }
 
@@ -111,7 +122,7 @@ const STYLES = `
 `;
 
 /* ==================================================================
-   <CyberCard />
+   <CyberCard />  (glass card; becomes a link or a button when asked)
    ================================================================== */
 export interface CyberCardProps {
   children: ReactNode;
@@ -124,7 +135,7 @@ export interface CyberCardProps {
   clickSound?: SfxKind | false;     // default "tick"
   ariaLabel?: string;
   className?: string;
-  style?: CSSProperties;
+  style?: CSSProperties;            // extra styles, applied last so they win
 }
 
 export function CyberCard({
@@ -140,10 +151,10 @@ export function CyberCard({
   className = "",
   style,
 }: CyberCardProps) {
+  // Only cards with a link or click handler (and not locked) react to the player.
   const interactive = !locked && (Boolean(href) || Boolean(onClick));
 
-  const cardStyle = {
-    "--c": ACCENTS[accent],
+  const cardStyle = withAccent(ACCENTS[accent], {
     background: "color-mix(in srgb, #111329 72%, transparent)",
     border: "1px solid color-mix(in srgb, var(--c) 26%, transparent)",
     boxShadow:
@@ -154,8 +165,9 @@ export function CyberCard({
     filter: locked ? "grayscale(.7)" : undefined,
     cursor: interactive ? "pointer" : locked ? "not-allowed" : "default",
     ...style,
-  } as CSSProperties;
+  });
 
+  // Plain (non-clickable, unlocked) cards still get the hover glow.
   const classes = `cgi-card ${interactive || (!locked && !href && !onClick) ? "cgi-live" : ""} rounded-2xl text-[#f5f3ff] ${className}`;
 
   function handleClick() {
@@ -166,6 +178,7 @@ export function CyberCard({
   function handleEnter(e: PointerEvent<HTMLElement>) {
     if (interactive && e.pointerType === "mouse") playSound(hoverSound);
   }
+  /* Keyboard support: Enter or Space activates a card that acts as a button. */
   function handleKey(e: KeyboardEvent<HTMLElement>) {
     if (!onClick || !interactive) return;
     if (e.key === "Enter" || e.key === " ") {
@@ -183,6 +196,7 @@ export function CyberCard({
     </>
   );
 
+  // Link version (map nodes, dashboard tiles)
   if (href && !locked) {
     return (
       <Link
@@ -199,6 +213,7 @@ export function CyberCard({
     );
   }
 
+  // Button / plain / locked version
   return (
     <div
       className={classes}
@@ -218,12 +233,12 @@ export function CyberCard({
 }
 
 /* ==================================================================
-   <TerminalHeader />
+   <TerminalHeader />  (terminal title bar with status chips)
    ================================================================== */
 export interface TerminalHeaderProps {
   title?: string;                                    // e.g. "cyberguard@realm:~/missions"
   status?: "ONLINE" | "OFFLINE" | "ALERT" | "SECURE";
-  clearance?: string;                                // e.g. "TIER 1"
+  clearance?: string;                                // e.g. "AGENT" (age tiers were removed)
   accent?: Accent;
   right?: ReactNode;                                 // optional extra (XP, user name...)
   className?: string;
@@ -239,7 +254,7 @@ const STATUS_COLOR: Record<NonNullable<TerminalHeaderProps["status"]>, string> =
 export function TerminalHeader({
   title = "cyberguard@realm:~",
   status = "ONLINE",
-  clearance = "TIER 1",
+  clearance = "AGENT", // was "TIER 1"; the platform now has one audience
   accent = "cyan",
   right,
   className = "",
@@ -249,7 +264,7 @@ export function TerminalHeader({
   return (
     <header
       className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-t-2xl border border-white/10 bg-[#070711]/80 px-4 py-2.5 backdrop-blur ${className}`}
-      style={{ "--c": ACCENTS[accent], ...MONO } as CSSProperties}
+      style={withAccent(ACCENTS[accent], MONO)}
     >
       <style>{STYLES}</style>
 
@@ -260,11 +275,13 @@ export function TerminalHeader({
         <i className="h-3 w-3 rounded-full bg-[#4ade80]" />
       </span>
 
+      {/* prompt line with a blinking cursor */}
       <p className="min-w-0 flex-1 truncate text-xs text-[#b8b5c9]">
         <span style={{ color: "var(--c)" }}>$</span> {title}
         <span className="cgi-blink ms-0.5" style={{ color: "var(--c)" }} aria-hidden="true">_</span>
       </p>
 
+      {/* STATUS chip */}
       <p
         className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em]"
         style={{ color: statusColor }}
@@ -278,6 +295,7 @@ export function TerminalHeader({
         STATUS: {status}
       </p>
 
+      {/* CLEARANCE chip */}
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f6c453]">
         CLEARANCE: {clearance}
       </p>
@@ -288,7 +306,7 @@ export function TerminalHeader({
 }
 
 /* ==================================================================
-   <GlowButton />
+   <GlowButton />  (button or link with hover pulse and sound)
    ================================================================== */
 export interface GlowButtonProps {
   children: ReactNode;
@@ -326,13 +344,13 @@ export function GlowButton({
     fullWidth ? "w-full" : ""
   } ${disabled ? "cursor-not-allowed opacity-30" : ""} ${className}`;
 
-  const buttonStyle = {
-    "--c": color,
+  // solid = filled with the accent; outline = transparent with an accent border
+  const buttonStyle = withAccent(color, {
     ...MONO,
     ...(variant === "solid"
       ? { background: color, color: "#070711" }
       : { background: "transparent", color, border: `1px solid ${color}` }),
-  } as CSSProperties;
+  });
 
   function handleEnter(e: PointerEvent<HTMLElement>) {
     if (!disabled && e.pointerType === "mouse") playSound(hoverSound);
@@ -343,6 +361,7 @@ export function GlowButton({
     onClick?.();
   }
 
+  // Link version
   if (href && !disabled) {
     return (
       <Link href={href} className={classes} style={buttonStyle} onPointerEnter={handleEnter} onClick={handleClick}>
@@ -352,6 +371,7 @@ export function GlowButton({
     );
   }
 
+  // Button version
   return (
     <button
       type={type}
