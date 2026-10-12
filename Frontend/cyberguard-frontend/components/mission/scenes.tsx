@@ -2,35 +2,48 @@
   components/mission/scenes.tsx
   =============================
   EVERY picture in the game, drawn with SVG + CSS (no image files).
-  That means: nothing to download, it scales to any screen, it can be
-  recoloured by the mood, and every part can be animated.
+  Nothing to download, it scales to any screen, the mood can recolour it,
+  and every part can be animated.
 
-  When you have real art, replace the inside of ONE scene component
-  (for example RoomScene) and nothing else in the game needs to change.
+  Real art later? Replace the inside of ONE scene component (for example RoomScene)
+  and nothing else in the game needs to change.
 
-  Scenes (one per kind of moment):
-    room     Maya at her laptop, her phone buzzes with the alert
-    network  the "map" of her accounts, where the intruder spreads
-    arena    the vault vs the evil virus (laughs when you're wrong, dies when right)
+  Pictures drawn in THIS file (one per kind of moment):
+    room     Maya at her laptop; her phone buzzes with the alert
+    network  the map of her accounts, where the intruder spreads
+    arena    the vault vs the virus (laughs when you're wrong, dies when right)
     lab      the "intel" room for learning
     phone    the social media app, where the hands-on tasks happen
     sealed   the vault, safe
+  Pictures for Mission 2 live in ./mirageScenes.tsx:
+    inbox    the suspicious email
+    hook     the phishing hook
+
+  Classes such as shake, glow, spin-slow and spin-rev (used by the vault) are defined in MissionPlayer's CSS.
 */
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { Mood } from "@/lib/mission/types";
 import type { SceneKey } from "@/lib/mission/audio";
 import { HookScene, InboxScene } from "./mirageScenes";
 import type { InboxState } from "./mirageScenes";
 
-/* A "stage" is a picture the player can see. It is every audio SceneKey
-   plus the two new Mission 2 pictures. (Music for the new ones is mapped to
-   an existing track inside MissionPlayer, so audio.ts stays untouched.) */
+/* ====================================================================
+   TYPES
+   ==================================================================== */
+
+/* A "stage" is a picture the player can see: every audio SceneKey plus the two Mission 2 pictures.
+   (Music for the new ones is mapped to an existing track inside MissionPlayer, so audio.ts stays untouched.) */
 export type StageKey = SceneKey | "inbox" | "hook";
 
-/* ------------------------------------------------------------------
-   MOOD COLOURS (shared by the whole screen through the --c variable)
-   ------------------------------------------------------------------ */
+export type VirusState = "idle" | "laugh" | "dead";
+export type AppState = { pass: boolean; otp: boolean };
+
+/* ====================================================================
+   SHARED CONSTANTS
+   ==================================================================== */
+
+/* The mood colours. The whole screen is tinted through the --c CSS variable. */
 export const MOODS: Record<Mood, { label: string; color: string }> = {
   calm: { label: "VAULT STABLE", color: "#4cc9ff" },
   alert: { label: "ALERT", color: "#f6c453" },
@@ -40,12 +53,16 @@ export const MOODS: Record<Mood, { label: string; color: string }> = {
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-export type VirusState = "idle" | "laugh" | "dead";
-export type AppState = { pass: boolean; otp: boolean };
+/* Background + text colours for "good", "warning" and "bad" status badges. */
+const TONE = {
+  good: { bg: "#14532d", fg: "#4ade80" },
+  warn: { bg: "#4a3410", fg: "#f6c453" },
+  bad: { bg: "#4c1017", fg: "#fb4b5b" },
+};
 
-/* ------------------------------------------------------------------
-   ANIMATIONS used by the scenes. The player adds this to its <style>.
-   ------------------------------------------------------------------ */
+/* The animations used by the scenes. MissionPlayer adds this string to its <style>.
+   (.blink-dot is not used in this file. It is kept in case mirageScenes.tsx uses it:
+   delete it, and typeBlink, if a search for "blink-dot" finds nothing.) */
 export const SCENE_CSS = `
 @keyframes waveMove  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes floaty    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
@@ -75,10 +92,10 @@ export const SCENE_CSS = `
 .mp-root .svg-box   { transform-box: fill-box; transform-origin: center; }
 `;
 
-/* ==================================================================
+/* ====================================================================
    WAVES: layered, slowly moving water at the bottom of the screen.
    Tinted by the mood colour, so they turn red in a breach.
-   ================================================================== */
+   ==================================================================== */
 export function Waves() {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 overflow-hidden" aria-hidden>
@@ -89,12 +106,11 @@ export function Waves() {
           preserveAspectRatio="none"
           className="wave absolute h-full"
           style={{
-            width: "200%", // twice as wide as the screen, then we slide it half-way and loop
+            width: "200%", // twice as wide as the screen; we slide it half-way and loop
             bottom: -i * 10,
             opacity: 0.1 + i * 0.07,
             animationDuration: `${16 + i * 7}s`,
             animationDirection: i % 2 ? "reverse" : "normal",
-            transition: "fill 0.7s",
           }}
         >
           {/* two identical wave periods side by side, so the loop is seamless */}
@@ -105,31 +121,43 @@ export function Waves() {
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    VAULT: the hero lock. Used in the arena and the "sealed" scene.
-   ================================================================== */
+   ==================================================================== */
+
+/* Rotation of each of the 12 bolts around the outer ring. */
+const BOLT_ANGLES = Array.from({ length: 12 }, (_, i) => i * 30);
+
 export function VaultScene({ mood }: { mood: Mood }) {
   const { label, color } = MOODS[mood];
   const sealed = mood === "safe";
 
   return (
     <div
-      key={mood} // new key = the shake animation replays on every mood change
+      key={mood} // a new key makes the shake animation replay on every mood change
       className={`relative mx-auto w-full max-w-[300px] ${mood === "breach" ? "shake" : ""}`}
       style={{ "--c": color } as CSSProperties}
     >
       <svg viewBox="0 0 200 200" className="glow w-full" role="img" aria-label={`Vault status: ${label}`}>
         <circle cx="100" cy="100" r="92" fill="var(--c)" opacity="0.06" />
+
+        {/* outer ring with 12 bolts, turns slowly */}
         <g className="spin-slow">
           <circle cx="100" cy="100" r="88" fill="none" stroke="var(--c)" strokeWidth="1.5" opacity="0.7" />
-          {Array.from({ length: 12 }).map((_, i) => (
-            <rect key={i} x="97" y="6" width="6" height="14" rx="2" fill="var(--c)" opacity="0.85" transform={`rotate(${i * 30} 100 100)`} />
+          {BOLT_ANGLES.map((angle) => (
+            <rect key={angle} x="97" y="6" width="6" height="14" rx="2" fill="var(--c)" opacity="0.85" transform={`rotate(${angle} 100 100)`} />
           ))}
         </g>
+
+        {/* middle ring, dashed, turns the other way */}
         <g className="spin-rev">
           <circle cx="100" cy="100" r="68" fill="none" stroke="var(--c)" strokeWidth="1.5" strokeDasharray="4 8" opacity="0.8" />
         </g>
+
+        {/* inner door */}
         <circle cx="100" cy="100" r="50" fill="#0b1024" stroke="var(--c)" strokeWidth="2" />
+
+        {/* padlock: the shackle is open unless the vault is sealed */}
         <path
           d={sealed ? "M85 92 V82 a15 15 0 0 1 30 0 V92" : "M85 92 V82 a15 15 0 0 1 30 0 V74"}
           fill="none"
@@ -148,10 +176,14 @@ export function VaultScene({ mood }: { mood: Mood }) {
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    SCENE 1: ROOM. Maya at her laptop. When the mood is "alert" her
    phone buzzes and the notification pops up.
-   ================================================================== */
+   ==================================================================== */
+
+/* Positions of the twinkling stars outside the window. */
+const STARS: [number, number][] = [[130, 30], [146, 50], [160, 26], [172, 58], [136, 64]];
+
 function RoomScene({ alert }: { alert: boolean }) {
   return (
     <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="Maya at her laptop while her phone shows a security alert">
@@ -160,6 +192,7 @@ function RoomScene({ alert }: { alert: boolean }) {
           <stop offset="0" stopColor="#1b1740" />
           <stop offset="1" stopColor="#2a1f55" />
         </linearGradient>
+        {/* light from the laptop screen: red when alert, cyan otherwise */}
         <radialGradient id="screenGlow" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stopColor={alert ? "rgba(251,75,91,.35)" : "rgba(76,201,255,.4)"} />
           <stop offset="1" stopColor="rgba(0,0,0,0)" />
@@ -174,7 +207,7 @@ function RoomScene({ alert }: { alert: boolean }) {
       <rect x="118" y="16" width="84" height="62" rx="4" fill="#0b1030" stroke="#3b3470" strokeWidth="3" />
       <circle cx="184" cy="34" r="8" fill="#f5f3ff" />
       <circle cx="178" cy="31" r="7" fill="#0b1030" />
-      {[[130, 30], [146, 50], [160, 26], [172, 58], [136, 64]].map(([x, y], i) => (
+      {STARS.map(([x, y], i) => (
         <circle key={i} cx={x} cy={y} r="1.3" fill="#fff" className="twinkle" style={{ animationDelay: `${i * 0.4}s` }} />
       ))}
       <line x1="160" y1="16" x2="160" y2="78" stroke="#3b3470" strokeWidth="2" />
@@ -184,7 +217,7 @@ function RoomScene({ alert }: { alert: boolean }) {
       <rect x="246" y="22" width="54" height="44" rx="3" fill="#181a38" stroke="#4a4780" />
       <path d="M273 31 l13 5 v10 c0 8 -6 13 -13 16 c-7 -3 -13 -8 -13 -16 v-10 z" fill="none" stroke="#8b5cf6" strokeWidth="2" />
 
-      {/* chair, desk */}
+      {/* chair and desk */}
       <rect x="50" y="116" width="12" height="72" rx="5" fill="#2d2559" />
       <rect x="54" y="172" width="64" height="8" rx="4" fill="#2d2559" />
       <rect x="14" y="178" width="292" height="9" rx="2" fill="#3a2d6b" />
@@ -194,7 +227,7 @@ function RoomScene({ alert }: { alert: boolean }) {
       {/* screen light falling on Maya */}
       <ellipse cx="170" cy="140" rx="120" ry="76" fill="url(#screenGlow)" />
 
-      {/* MAYA: ponytail, hoodie, head, hair, eye, arm to the keyboard */}
+      {/* MAYA: ponytail, hoodie, neck, head, hair, eye, then the arm and hand reaching the keyboard */}
       <path d="M78 80 Q58 86 62 112 Q72 102 78 92 Z" fill="#2b1a2e" />
       <rect x="66" y="108" width="46" height="68" rx="16" fill="#8b5cf6" />
       <rect x="85" y="96" width="8" height="14" fill="#e9b99a" />
@@ -204,7 +237,7 @@ function RoomScene({ alert }: { alert: boolean }) {
       <path d="M104 124 Q128 148 152 168" stroke="#8b5cf6" strokeWidth="11" strokeLinecap="round" fill="none" />
       <circle cx="154" cy="169" r="6" fill="#f0c4a8" />
 
-      {/* LAPTOP: shows a red warning when alert, calm lines otherwise */}
+      {/* LAPTOP: a red warning triangle when alert, calm lines otherwise */}
       <rect x="150" y="112" width="80" height="58" rx="4" fill="#0b1024" stroke="#cfd3ee" strokeWidth="3" />
       {alert ? (
         <g>
@@ -221,16 +254,22 @@ function RoomScene({ alert }: { alert: boolean }) {
       )}
       <path d="M140 178 L240 178 L234 170 L146 170 Z" fill="#cfd3ee" />
 
-      {/* PHONE on the desk: buzzes and shows the notification when alert */}
+      {/* PHONE on the desk: buzzes and lights up when alert */}
       <g transform="translate(268 138)">
         <g className={alert ? "buzz svg-box" : "svg-box"} style={{ transform: "rotate(-8deg)" }}>
           <rect x="0" y="0" width="30" height="48" rx="5" fill="#0b0b18" stroke="#4a4780" strokeWidth="1.5" />
           <rect x="3" y="4" width="24" height="38" rx="3" fill={alert ? "#3a2410" : "#12122a"} />
-          {alert && <circle cx="15" cy="23" r="6" fill="#f6c453" />}
-          {alert && <rect x="14" y="19" width="2" height="6" rx="1" fill="#0b0b18" />}
-          {alert && <circle cx="15" cy="27" r="1" fill="#0b0b18" />}
+          {alert && (
+            <>
+              <circle cx="15" cy="23" r="6" fill="#f6c453" />
+              <rect x="14" y="19" width="2" height="6" rx="1" fill="#0b0b18" />
+              <circle cx="15" cy="27" r="1" fill="#0b0b18" />
+            </>
+          )}
         </g>
       </g>
+
+      {/* the notification that pops up above the phone */}
       {alert && (
         <g className="notif-in">
           <rect x="218" y="76" width="96" height="34" rx="7" fill="#111329" stroke="#f6c453" strokeWidth="1.5" />
@@ -244,21 +283,25 @@ function RoomScene({ alert }: { alert: boolean }) {
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    SCENE 2: NETWORK. Her accounts all share one password, so the
    intruder (red) can spread from one to every other.
-   ================================================================== */
+   ==================================================================== */
+
+/* The account bubbles: [name, x, y]. */
+const SITES: [string, number, number][] = [
+  ["gaming", 52, 62],
+  ["school", 268, 56],
+  ["email", 46, 188],
+  ["shop", 160, 30],
+  ["social", 262, 190],
+];
+
 function NetworkScene() {
-  const sites: [string, number, number][] = [
-    ["gaming", 52, 62],
-    ["school", 268, 56],
-    ["email", 46, 188],
-    ["shop", 160, 30],
-    ["social", 262, 190],
-  ];
   return (
     <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="Map of Maya's accounts with an intruder spreading between them">
       <rect width="320" height="250" fill="#0a1230" />
+
       {/* faint grid */}
       <g stroke="#4cc9ff" strokeOpacity="0.07">
         {Array.from({ length: 9 }).map((_, i) => (
@@ -269,13 +312,13 @@ function NetworkScene() {
         ))}
       </g>
 
-      {/* the intruder's red dashed paths, moving along each connection */}
-      {sites.map(([, x, y], i) => (
-        <line key={i} x1="160" y1="128" x2={x} y2={y} stroke="#fb4b5b" strokeWidth="2" strokeDasharray="6 6" className="dash" opacity="0.75" />
+      {/* the intruder's red dashed paths, moving from the centre to every account */}
+      {SITES.map(([name, x, y]) => (
+        <line key={name} x1="160" y1="128" x2={x} y2={y} stroke="#fb4b5b" strokeWidth="2" strokeDasharray="6 6" className="dash" opacity="0.75" />
       ))}
 
       {/* the account nodes */}
-      {sites.map(([name, x, y]) => (
+      {SITES.map(([name, x, y]) => (
         <g key={name}>
           <circle cx={x} cy={y} r="19" fill="#0b1024" stroke="#4cc9ff" strokeWidth="2" />
           <text x={x} y={y + 3} textAnchor="middle" fontSize="8" fill="#f5f3ff" style={MONO}>{name}</text>
@@ -293,18 +336,72 @@ function NetworkScene() {
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    SCENE 3: ARENA. The virus. It floats and glares, LAUGHS when the
    player is wrong, and explodes when the player is right.
-   ================================================================== */
-export function Virus({ state }: { state: VirusState }) {
-  const spikes = Array.from({ length: 10 });
-  // positions the death particles fly to
-  const sparks = Array.from({ length: 12 }).map((_, i) => {
-    const a = (i / 12) * Math.PI * 2;
-    return { dx: Math.cos(a) * 62, dy: Math.sin(a) * 62 };
-  });
+   ==================================================================== */
 
+/* Which animation class each virus state uses. */
+const VIRUS_ANIM: Record<VirusState, string> = { idle: "floaty", laugh: "jiggle", dead: "die" };
+
+/* Rotation of each of the 10 spikes. */
+const SPIKE_ANGLES = Array.from({ length: 10 }, (_, i) => i * 36);
+
+/* Where each of the 12 death sparks flies to (computed once, not on every render). */
+const SPARKS = Array.from({ length: 12 }, (_, i) => {
+  const angle = (i / 12) * Math.PI * 2;
+  return { dx: Math.cos(angle) * 62, dy: Math.sin(angle) * 62 };
+});
+
+/* The virus's eyes: crosses when dead, happy squints when laughing, angry glare otherwise. */
+function VirusEyes({ state }: { state: VirusState }) {
+  if (state === "dead") {
+    return (
+      <g stroke="#2b0a10" strokeWidth="4" strokeLinecap="round">
+        <path d="M58 66 l12 12 M70 66 l-12 12" />
+        <path d="M90 66 l12 12 M102 66 l-12 12" />
+      </g>
+    );
+  }
+  if (state === "laugh") {
+    return (
+      <g stroke="#2b0a10" strokeWidth="4.5" strokeLinecap="round" fill="none">
+        <path d="M57 76 Q65 62 73 76" />
+        <path d="M87 76 Q95 62 103 76" />
+      </g>
+    );
+  }
+  return (
+    <g>
+      <ellipse cx="65" cy="72" rx="8" ry="10" fill="#fff" />
+      <ellipse cx="95" cy="72" rx="8" ry="10" fill="#fff" />
+      <circle cx="67" cy="74" r="4" fill="#2b0a10" />
+      <circle cx="93" cy="74" r="4" fill="#2b0a10" />
+      {/* angry eyebrows */}
+      <path d="M54 58 L74 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
+      <path d="M106 58 L86 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
+    </g>
+  );
+}
+
+/* The virus's mouth: a flat wobble when dead, a wide laugh with teeth and tongue, or a jagged grin. */
+function VirusMouth({ state }: { state: VirusState }) {
+  if (state === "dead") {
+    return <path d="M64 100 Q72 94 80 100 T96 100" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" />;
+  }
+  if (state === "laugh") {
+    return (
+      <g>
+        <path d="M58 90 Q80 126 102 90 Z" fill="#2b0a10" />
+        <path d="M64 91 h8 v7 h-8 z M76 91 h8 v9 h-8 z M88 91 h8 v7 h-8 z" fill="#fff" />
+        <ellipse cx="80" cy="108" rx="9" ry="5" fill="#ff6b81" />
+      </g>
+    );
+  }
+  return <path d="M62 98 L70 92 L78 98 L86 92 L94 98" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+}
+
+export function Virus({ state }: { state: VirusState }) {
   return (
     <svg viewBox="0 0 160 160" className="block w-full overflow-visible" role="img" aria-label={`Virus: ${state}`}>
       <defs>
@@ -314,55 +411,19 @@ export function Virus({ state }: { state: VirusState }) {
         </radialGradient>
       </defs>
 
-      {/* the creature (hidden by its own "die" animation once destroyed) */}
-      <g className={`svg-box ${state === "laugh" ? "jiggle" : state === "dead" ? "die" : "floaty"}`}>
-        {/* spikes */}
-        {spikes.map((_, i) => (
-          <path key={i} d="M80 16 L88 38 L72 38 Z" fill="#fb4b5b" transform={`rotate(${i * 36} 80 80)`} />
+      {/* the creature (its own "die" animation hides it once destroyed) */}
+      <g className={`svg-box ${VIRUS_ANIM[state]}`}>
+        {SPIKE_ANGLES.map((angle) => (
+          <path key={angle} d="M80 16 L88 38 L72 38 Z" fill="#fb4b5b" transform={`rotate(${angle} 80 80)`} />
         ))}
-        {/* body */}
         <circle cx="80" cy="80" r="40" fill="url(#virusBody)" stroke="#ffa3ad" strokeWidth="2" />
-
-        {/* eyes */}
-        {state === "dead" ? (
-          <g stroke="#2b0a10" strokeWidth="4" strokeLinecap="round">
-            <path d="M58 66 l12 12 M70 66 l-12 12" />
-            <path d="M90 66 l12 12 M102 66 l-12 12" />
-          </g>
-        ) : state === "laugh" ? (
-          <g stroke="#2b0a10" strokeWidth="4.5" strokeLinecap="round" fill="none">
-            <path d="M57 76 Q65 62 73 76" />
-            <path d="M87 76 Q95 62 103 76" />
-          </g>
-        ) : (
-          <g>
-            <ellipse cx="65" cy="72" rx="8" ry="10" fill="#fff" />
-            <ellipse cx="95" cy="72" rx="8" ry="10" fill="#fff" />
-            <circle cx="67" cy="74" r="4" fill="#2b0a10" />
-            <circle cx="93" cy="74" r="4" fill="#2b0a10" />
-            {/* angry eyebrows */}
-            <path d="M54 58 L74 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
-            <path d="M106 58 L86 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
-          </g>
-        )}
-
-        {/* mouth */}
-        {state === "laugh" ? (
-          <g>
-            <path d="M58 90 Q80 126 102 90 Z" fill="#2b0a10" />
-            <path d="M64 91 h8 v7 h-8 z M76 91 h8 v9 h-8 z M88 91 h8 v7 h-8 z" fill="#fff" />
-            <ellipse cx="80" cy="108" rx="9" ry="5" fill="#ff6b81" />
-          </g>
-        ) : state === "dead" ? (
-          <path d="M64 100 Q72 94 80 100 T96 100" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" />
-        ) : (
-          <path d="M62 98 L70 92 L78 98 L86 92 L94 98" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        )}
+        <VirusEyes state={state} />
+        <VirusMouth state={state} />
       </g>
 
       {/* death sparks fly out in a ring */}
       {state === "dead" &&
-        sparks.map((s, i) => (
+        SPARKS.map((spark, i) => (
           <circle
             key={i}
             cx="80"
@@ -370,17 +431,22 @@ export function Virus({ state }: { state: VirusState }) {
             r="4"
             fill={i % 2 ? "#4ade80" : "#fff"}
             className="burst"
-            style={{ "--dx": `${s.dx}px`, "--dy": `${s.dy}px` } as CSSProperties}
+            style={{ "--dx": `${spark.dx}px`, "--dy": `${spark.dy}px` } as CSSProperties}
           />
         ))}
     </svg>
   );
 }
 
+/* The caption under the arena for each virus state. */
+const ARENA_CAPTION: Record<VirusState, { text: string; color: string }> = {
+  idle: { text: "MALWARE.EXE IS WATCHING", color: "#f6c453" },
+  laugh: { text: "HA HA HA! THAT'S WHAT I WANTED!", color: "#fb4b5b" },
+  dead: { text: "VIRUS DESTROYED", color: "#4ade80" },
+};
+
 function ArenaScene({ mood, virus }: { mood: Mood; virus: VirusState }) {
-  const caption =
-    virus === "laugh" ? "HA HA HA! THAT'S WHAT I WANTED!" : virus === "dead" ? "VIRUS DESTROYED" : "MALWARE.EXE IS WATCHING";
-  const captionColor = virus === "laugh" ? "#fb4b5b" : virus === "dead" ? "#4ade80" : "#f6c453";
+  const caption = ARENA_CAPTION[virus];
 
   return (
     <div className="p-4">
@@ -396,36 +462,43 @@ function ArenaScene({ mood, virus }: { mood: Mood; virus: VirusState }) {
           <Virus state={virus} />
         </div>
       </div>
-      <p className="mt-3 text-center text-[10px] font-bold tracking-[0.25em]" style={{ ...MONO, color: captionColor }}>
-        {caption}
+      <p className="mt-3 text-center text-[10px] font-bold tracking-[0.25em]" style={{ ...MONO, color: caption.color }}>
+        {caption.text}
       </p>
     </div>
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    SCENE 4: LAB. Where the "intel" (learning) happens.
-   ================================================================== */
+   ==================================================================== */
+
+/* Positions of the four twinkling dots along the bottom. */
+const LAB_DOTS: [number, number][] = [[40, 205], [120, 215], [200, 205], [280, 212]];
+
 function LabScene() {
   return (
     <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="A shield on a whiteboard in the learning lab">
       <rect width="320" height="250" fill="#07241f" />
+
       {/* whiteboard */}
       <rect x="24" y="22" width="272" height="150" rx="10" fill="#0d3a33" stroke="#2dd4bf" strokeWidth="3" />
-      {/* checklist lines being "written" */}
+
+      {/* three checklist lines: a tick and a bar each, every bar a little shorter */}
       {[0, 1, 2].map((i) => (
         <g key={i}>
           <path d={`M46 ${58 + i * 34} l7 7 l13 -15`} stroke="#4ade80" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           <rect x="80" y={52 + i * 34} width={150 - i * 22} height="8" rx="4" fill="#2dd4bf" opacity="0.55" />
         </g>
       ))}
-      {/* the big shield that floats */}
+
+      {/* the big floating shield */}
       <g className="floaty svg-box">
         <path d="M250 70 l30 11 v24 c0 18 -13 30 -30 37 c-17 -7 -30 -19 -30 -37 v-24 z" fill="#0b1024" stroke="#2dd4bf" strokeWidth="3" />
         <path d="M236 106 l11 11 l19 -22" stroke="#4ade80" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-      {/* floating keys / dots */}
-      {[[40, 205], [120, 215], [200, 205], [280, 212]].map(([x, y], i) => (
+
+      {LAB_DOTS.map(([x, y], i) => (
         <circle key={i} cx={x} cy={y} r="5" fill="#2dd4bf" className="twinkle" style={{ animationDelay: `${i * 0.5}s` }} />
       ))}
       <text x="160" y="240" textAnchor="middle" fontSize="9" fill="#2dd4bf" letterSpacing="3" style={MONO}>SECURITY INTEL</text>
@@ -433,73 +506,86 @@ function LabScene() {
   );
 }
 
-/* ==================================================================
-   SCENE 5: PHONE. A generic photo-sharing app ("Snapgram").
-   It is a look-alike with its own name and icon, so there is no
-   trademarked logo in your project. The profile changes as the player
-   completes the two hands-on tasks:
+/* ====================================================================
+   SCENE 5: PHONE. A generic photo-sharing app ("Snapgram"), a look-alike with
+   its own name and icon, so the project contains no trademarked logo.
+   The profile changes as the player completes the two hands-on tasks:
      1) changes the password   2) turns on 2FA
-   ================================================================== */
+   ==================================================================== */
+
+/* The gradient used by the wordmark and the avatar ring. */
+const APP_GRADIENT_90 = "linear-gradient(90deg,#f9ce34,#ee2a7b,#6228d7)";
+const APP_GRADIENT_135 = "linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)";
+
+/* The profile numbers, and the colours of the photo grid. */
+const PROFILE_STATS = [["128", "posts"], ["1.2k", "followers"], ["340", "following"]];
+const PHOTO_COLORS = ["#8b5cf6", "#ee2a7b", "#f6c453", "#4cc9ff", "#4ade80", "#fb4b5b"];
+
+/* The banner at the top of the profile, chosen from the two finished tasks. */
+function statusFor(app: AppState): { text: string; tone: { bg: string; fg: string } } {
+  if (app.pass && app.otp) return { text: "Account protected", tone: TONE.good };
+  if (app.pass) return { text: "Password updated. Add 2FA.", tone: TONE.warn };
+  return { text: "Someone is trying to log in!", tone: TONE.bad };
+}
+
+/* One small security badge, e.g. PASSWORD / WEAK. Green when done, red when not. */
+function SecurityChip({ label, on, onText, offText }: { label: string; on: boolean; onText: string; offText: string }) {
+  const tone = on ? TONE.good : TONE.bad;
+  return (
+    <div className="rounded-lg px-2 py-1.5 text-center" style={{ background: tone.bg, color: tone.fg }}>
+      {label}<br />{on ? onText : offText}
+    </div>
+  );
+}
+
 function AppProfile({ app }: { app: AppState }) {
-  const status = app.pass && app.otp
-    ? { text: "Account protected", bg: "#14532d", fg: "#4ade80" }
-    : app.pass
-    ? { text: "Password updated. Add 2FA.", bg: "#4a3410", fg: "#f6c453" }
-    : { text: "Someone is trying to log in!", bg: "#4c1017", fg: "#fb4b5b" };
+  const status = statusFor(app);
 
   return (
     <div className="space-y-2 p-3 text-[#f5f3ff]">
       {/* top bar with a made-up wordmark */}
       <p
         className="text-center text-lg font-bold italic"
-        style={{
-          background: "linear-gradient(90deg,#f9ce34,#ee2a7b,#6228d7)",
-          WebkitBackgroundClip: "text",
-          color: "transparent",
-        }}
+        style={{ background: APP_GRADIENT_90, WebkitBackgroundClip: "text", color: "transparent" }}
       >
         snapgram
       </p>
 
-      {/* live status banner */}
+      {/* live status banner (key = the text, so it animates in again whenever it changes) */}
       <div
         key={status.text}
         className="notif-in rounded-lg px-2 py-1.5 text-center text-[10px] font-bold tracking-wide"
-        style={{ background: status.bg, color: status.fg }}
+        style={{ background: status.tone.bg, color: status.tone.fg }}
       >
         {status.text}
       </div>
 
-      {/* profile header */}
+      {/* profile header: avatar + numbers */}
       <div className="flex items-center gap-3">
-        <div className="rounded-full p-[2px]" style={{ background: "linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)" }}>
+        <div className="rounded-full p-[2px]" style={{ background: APP_GRADIENT_135 }}>
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1b1740] text-lg font-bold">M</div>
         </div>
         <div className="grid flex-1 grid-cols-3 text-center text-[10px]">
-          {[["128", "posts"], ["1.2k", "followers"], ["340", "following"]].map(([n, l]) => (
-            <div key={l}>
-              <p className="text-sm font-bold">{n}</p>
-              <p className="text-[9px] text-[#b8b5c9]">{l}</p>
+          {PROFILE_STATS.map(([value, label]) => (
+            <div key={label}>
+              <p className="text-sm font-bold">{value}</p>
+              <p className="text-[9px] text-[#b8b5c9]">{label}</p>
             </div>
           ))}
         </div>
       </div>
       <p className="text-xs font-semibold">maya.snaps</p>
 
-      {/* the two security chips that the tasks change */}
+      {/* the two security chips that the tasks switch on */}
       <div className="grid grid-cols-2 gap-2 text-[10px] font-bold" style={MONO}>
-        <div className="rounded-lg px-2 py-1.5 text-center" style={{ background: app.pass ? "#14532d" : "#4c1017", color: app.pass ? "#4ade80" : "#fb4b5b" }}>
-          PASSWORD<br />{app.pass ? "STRONG" : "WEAK"}
-        </div>
-        <div className="rounded-lg px-2 py-1.5 text-center" style={{ background: app.otp ? "#14532d" : "#4c1017", color: app.otp ? "#4ade80" : "#fb4b5b" }}>
-          2FA<br />{app.otp ? "ON" : "OFF"}
-        </div>
+        <SecurityChip label="PASSWORD" on={app.pass} onText="STRONG" offText="WEAK" />
+        <SecurityChip label="2FA" on={app.otp} onText="ON" offText="OFF" />
       </div>
 
       {/* photo grid */}
       <div className="grid grid-cols-3 gap-1">
-        {["#8b5cf6", "#ee2a7b", "#f6c453", "#4cc9ff", "#4ade80", "#fb4b5b"].map((c, i) => (
-          <div key={i} className="aspect-square rounded" style={{ background: `linear-gradient(135deg, ${c}, #1b1740)` }} />
+        {PHOTO_COLORS.map((color) => (
+          <div key={color} className="aspect-square rounded" style={{ background: `linear-gradient(135deg, ${color}, #1b1740)` }} />
         ))}
       </div>
     </div>
@@ -519,9 +605,11 @@ function PhoneScene({ app }: { app: AppState }) {
   );
 }
 
-/* ==================================================================
+/* ====================================================================
    SCENE PICKER + FRAME
-   ================================================================== */
+   ==================================================================== */
+
+/* The caption under each picture. */
 const CAPTION: Record<StageKey, string> = {
   room: "MAYA'S ROOM",
   network: "THE NETWORK",
@@ -533,45 +621,52 @@ const CAPTION: Record<StageKey, string> = {
   hook: "THE HOOK",
 };
 
-export function SceneStage({
-  scene,
-  mood,
-  virus,
-  app,
-  inbox,
-}: {
+interface SceneStageProps {
   scene: StageKey;
   mood: Mood;
   virus: VirusState;
   app: AppState;
   inbox: InboxState;
-}): ReactNode {
-  return (
-    <div key={scene} className="scene-in overflow-hidden rounded-2xl border border-white/10 bg-[#0b1024]/70 shadow-2xl">
-      {scene === "room" && <RoomScene alert={mood === "alert"} />}
-      {scene === "network" && <NetworkScene />}
-      {scene === "arena" && <ArenaScene mood={mood} virus={virus} />}
-      {scene === "lab" && <LabScene />}
-      {scene === "phone" && <PhoneScene app={app} />}
-      {scene === "inbox" && <InboxScene state={inbox} />}
-      {scene === "hook" && <HookScene state={virus} />}
-      {scene === "sealed" && (
+}
+
+/* Chooses the picture for a stage. The switch covers every StageKey, so TypeScript
+   reports an error here if a new stage is added without a picture. */
+function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
+  switch (scene) {
+    case "room": return <RoomScene alert={mood === "alert"} />;
+    case "network": return <NetworkScene />;
+    case "arena": return <ArenaScene mood={mood} virus={virus} />;
+    case "lab": return <LabScene />;
+    case "phone": return <PhoneScene app={app} />;
+    case "inbox": return <InboxScene state={inbox} />;
+    case "hook": return <HookScene state={virus} />;
+    case "sealed":
+      return (
         <div className="p-6">
           <VaultScene mood="safe" />
         </div>
-      )}
+      );
+  }
+}
+
+/* The framed card on the left of the screen: the picture plus its caption. */
+export function SceneStage(props: SceneStageProps) {
+  return (
+    // key={scene}: the card fades in again every time the picture changes
+    <div key={props.scene} className="scene-in overflow-hidden rounded-2xl border border-white/10 bg-[#0b1024]/70 shadow-2xl">
+      <SceneBody {...props} />
       <p className="border-t border-white/10 py-2 text-center text-[10px] tracking-[0.35em] text-[#b8b5c9]" style={MONO}>
-        {CAPTION[scene]}
+        {CAPTION[props.scene]}
       </p>
     </div>
   );
 }
 
-/* ==================================================================
-   BACKDROP: the whole page's colour world. Every scene has its own
-   gradient. They all stay mounted and cross-fade, so the environment
+/* ====================================================================
+   BACKDROP: the colour world of the whole page. Every stage has its own
+   gradient. All of them stay mounted and cross-fade, so the environment
    melts from one mood into the next.
-   ================================================================== */
+   ==================================================================== */
 const BACKDROP: Record<StageKey, string> = {
   room: "radial-gradient(ellipse at 20% 15%, rgba(236,72,153,.24), transparent 55%), radial-gradient(ellipse at 85% 80%, rgba(139,92,246,.26), transparent 55%)",
   network: "radial-gradient(ellipse at 50% 15%, rgba(76,201,255,.24), transparent 55%), radial-gradient(ellipse at 10% 90%, rgba(30,64,175,.32), transparent 55%)",
@@ -583,17 +678,19 @@ const BACKDROP: Record<StageKey, string> = {
   hook: "radial-gradient(ellipse at 50% 10%, rgba(139,92,246,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(14,116,144,.3), transparent 55%)",
 };
 
+/* The list of stages, taken from BACKDROP so it can never get out of date. */
+const STAGE_KEYS = Object.keys(BACKDROP) as StageKey[];
+
 export function SceneBackdrop({ scene }: { scene: StageKey }) {
   return (
     <>
-      {(Object.keys(BACKDROP) as StageKey[]).map((k) => (
+      {STAGE_KEYS.map((key) => (
         <div
-          key={k}
+          key={key}
           className="pointer-events-none absolute inset-0 transition-opacity duration-1000"
-          style={{ background: BACKDROP[k], opacity: k === scene ? 1 : 0 }}
+          style={{ background: BACKDROP[key], opacity: key === scene ? 1 : 0 }}
         />
       ))}
     </>
   );
 }
-

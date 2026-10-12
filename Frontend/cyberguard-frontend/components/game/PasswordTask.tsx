@@ -59,12 +59,12 @@ const COMMON_PASSWORDS = [
   "password", "passw0rd", "123456", "12345678", "123456789", "qwerty", "qwertyuiop",
   "letmein", "iloveyou", "welcome", "admin", "monkey", "dragon", "football", "abc123",
 ];
+const COMMON_FRAGMENTS = ["password", "qwerty", "123456", "letmein"];
 
 /* NIST: screen against well-known bad values. */
 function isCommon(value: string): boolean {
   const flat = value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (COMMON_PASSWORDS.includes(flat)) return true;
-  return ["password", "qwerty", "123456", "letmein"].some((w) => flat.includes(w));
+  return COMMON_PASSWORDS.includes(flat) || COMMON_FRAGMENTS.some((w) => flat.includes(w));
 }
 
 /* Rough entropy estimate in bits (for teaching, not a guarantee). */
@@ -78,6 +78,12 @@ function estimateBits(value: string): number {
   const effectiveLength = Math.min(value.length, new Set(value).size * 2);
   return Math.round(effectiveLength * Math.log2(pool));
 }
+
+const BTN_PRIMARY =
+  "rounded-xl px-6 py-3 text-sm font-semibold tracking-wide text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30";
+const BTN_GHOST =
+  "rounded-xl border border-white/20 px-5 py-3 text-sm text-[#f5f3ff] transition hover:border-white/50 disabled:opacity-30";
+const CARD = "space-y-4 rounded-2xl border border-white/10 bg-[#181a38]/80 p-5";
 
 function Btn({
   children,
@@ -94,11 +100,7 @@ function Btn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={
-        ghost
-          ? "rounded-xl border border-white/20 px-5 py-3 text-sm text-[#f5f3ff] transition hover:border-white/50 disabled:opacity-30"
-          : "rounded-xl px-6 py-3 text-sm font-semibold tracking-wide text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-      }
+      className={ghost ? BTN_GHOST : BTN_PRIMARY}
       style={ghost ? undefined : { background: "var(--c)" }}
     >
       {children}
@@ -137,6 +139,8 @@ function SuccessBlock({ text, points, onContinue }: { text: string; points: numb
 /* ==================================================================
    PHRASE BUILDER (3 steps)
    ================================================================== */
+const STEP_NAMES = ["SENTENCE", "BUILD", "LOCK IN"];
+
 function PhraseBuilder({ prompt, minLength, personal, points, successText, onMood, onSuccess, onContinue }: PhraseBuilderProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [sentence, setSentence] = useState("");
@@ -158,12 +162,13 @@ function PhraseBuilder({ prompt, minLength, personal, points, successText, onMoo
       : words.map((w) => w[0]).join("");
 
   const hasPersonal = (text: string) => personal.some((p) => text.toLowerCase().includes(p.toLowerCase()));
-  const step1Ok = words.length >= 4 && !hasPersonal(sentence);
+  const sentenceClean = !hasPersonal(sentence);
+  const step1Ok = words.length >= 4 && sentenceClean;
   const step2Ok = mode === "words" ? picks.length >= 3 : candidate.length > 0;
 
   const checks = [
     { ok: candidate.length >= minLength, text: `At least ${minLength} characters (${candidate.length} so far)` },
-    { ok: !hasPersonal(candidate) && !hasPersonal(sentence), text: "Nothing personal (no names, birth years or school)" },
+    { ok: !hasPersonal(candidate) && sentenceClean, text: "Nothing personal (no names, birth years or school)" },
     ...(mode === "words" ? [{ ok: picks.length >= 3, text: "Built from at least 3 separate words" }] : []),
     { ok: !/(.)\1{3,}/.test(candidate), text: "No long repeated characters" },
     { ok: candidate.length === 0 || !isCommon(candidate), text: "Not a well-known common password" },
@@ -190,10 +195,8 @@ function PhraseBuilder({ prompt, minLength, personal, points, successText, onMoo
     onSuccess(points);
   }
 
-  const stepNames = ["SENTENCE", "BUILD", "LOCK IN"];
-
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-[#181a38]/80 p-5">
+    <div className={CARD}>
       <p className="text-[10px] font-bold tracking-[0.2em] text-[#ee2a7b]" style={MONO}>
         {prompt ?? "SNAPGRAM > SETTINGS > CHANGE PASSWORD"}
       </p>
@@ -204,7 +207,7 @@ function PhraseBuilder({ prompt, minLength, personal, points, successText, onMoo
         <>
           {/* step indicator */}
           <ol className="flex flex-wrap gap-2 text-[10px] tracking-[0.2em]" style={MONO} aria-label="Steps">
-            {stepNames.map((name, i) => {
+            {STEP_NAMES.map((name, i) => {
               const n = i + 1;
               const active = n === step;
               const finished = n < step;
@@ -254,8 +257,8 @@ function PhraseBuilder({ prompt, minLength, personal, points, successText, onMoo
                 <li className={words.length >= 4 ? "text-[#4ade80]" : "text-[#77748c]"}>
                   {words.length >= 4 ? "\u2713" : "\u25CB"} At least 4 words ({words.length} so far)
                 </li>
-                <li className={sentence && !hasPersonal(sentence) ? "text-[#4ade80]" : "text-[#77748c]"}>
-                  {sentence && !hasPersonal(sentence) ? "\u2713" : "\u25CB"} Nothing personal (names, birth years, school)
+                <li className={sentence && sentenceClean ? "text-[#4ade80]" : "text-[#77748c]"}>
+                  {sentence && sentenceClean ? "\u2713" : "\u25CB"} Nothing personal (names, birth years, school)
                 </li>
               </ul>
               <Btn onClick={() => setStep(2)} disabled={!step1Ok}>Next: build it</Btn>
@@ -438,8 +441,7 @@ function CodeTask({
     setBusy(true);
     setMessage("");
     try {
-      const correct = await onVerifyCode(code);
-      if (correct) {
+      if (await onVerifyCode(code)) {
         setDone(true);
         onMood("safe");
         onSuccess(points);
@@ -455,7 +457,7 @@ function CodeTask({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-[#181a38]/80 p-5">
+    <div className={CARD}>
       <p className="text-[10px] font-bold tracking-[0.2em] text-[#ee2a7b]" style={MONO}>
         {prompt ?? "SNAPGRAM > SETTINGS > SECURITY > TWO-FACTOR"}
       </p>
