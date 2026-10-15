@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-
-export default function VerifyOtpPage() {
+import { Suspense } from "react";
+function VerifyOtpInner() {
   const [code, setCode] = useState("");     // what the user is typing into the box
   const [error, setError] = useState("");   // holds an error message, if any
 
@@ -73,5 +73,17 @@ export default function VerifyOtpPage() {
         Resend code
       </button>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        Loading…
+      </main>
+    }>
+      <VerifyOtpInner />
+    </Suspense>
   );
 }
