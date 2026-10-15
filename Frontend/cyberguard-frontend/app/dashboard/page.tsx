@@ -1,7 +1,6 @@
 "use client";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { useTierTheme } from "@/context/TierThemeProvider";
 import Link from "next/link";
 
 export default function Dashboard() {

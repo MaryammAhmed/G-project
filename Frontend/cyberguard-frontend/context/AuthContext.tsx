@@ -7,7 +7,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 // Defines the shape/contract of the authentication state and functions available throughout the app.
 type AuthContextType = {
   token: string | null;       // JWT authentication token (null if logged out)
-  ageGroup: string | null;    // User's assigned age demographic tier (e.g., "A", "B", "C")
   email: string | null;       // User's verified email address (used in scenario labs/2FA practice)
   isLoggedIn: boolean;        // Convenience boolean indicating active authentication status
   isLoading: boolean;         // Prevents premature rendering while reading state from localStorage on startup
@@ -18,7 +17,6 @@ type AuthContextType = {
 // Initializes the React Context with default fallback values before the provider mounts.
 const AuthContext = createContext<AuthContextType>({
   token: null,
-  ageGroup: null,
   email: null,
   isLoggedIn: false,
   isLoading: true,
@@ -30,7 +28,6 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   // State variables for in-memory session data
   const [token, setToken] = useState<string | null>(null);
-  const [ageGroup, setAgeGroup] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   
   // Tracks initial session rehydration status to prevent flash of unauthenticated UI on page load
@@ -39,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Runs once on initial browser load to rehydrate state from persisted browser storage (localStorage)
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
-    const storedAgeGroup = localStorage.getItem("ageGroup");
     const storedEmail = localStorage.getItem("email");
 
     if (storedToken) setToken(storedToken);
@@ -75,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Exposes all context fields and actions to any descendant component inside <AuthProvider>
   return (
-    <AuthContext.Provider value={{ token, ageGroup, email, isLoggedIn, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ token, email, isLoggedIn, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

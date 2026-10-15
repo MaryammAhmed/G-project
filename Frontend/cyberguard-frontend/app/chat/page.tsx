@@ -11,8 +11,6 @@ type Message = {
 };
 
 export default function ChatPage() {
-  // Pulled straight from AuthContext — exactly the tier your backend needs.
-  const { ageGroup } = useAuth();
 
   // Grows as the conversation continues; starts empty.
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,7 +44,6 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.text,
-          tier: ageGroup,
           module: currentModule,
         }),
       });
