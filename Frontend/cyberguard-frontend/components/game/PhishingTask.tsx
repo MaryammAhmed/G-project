@@ -19,12 +19,12 @@
 */
 
 import { useEffect, useState } from "react";
-import type { MailPart, Mood } from "@/lib/mission/types";
+import type { EmailPart, Mood } from "@/lib/mission/types";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
 export interface PhishingTaskProps {
-  parts: MailPart[];                                 // the email, split into tappable parts
+  parts: EmailPart[];                                 // the email, split into tappable parts
   points: number;                                    // XP for each red flag found
   successText: string;                               // message shown when all flags are found
   onMood: (mood: Mood) => void;                      // changes the screen colour
@@ -58,7 +58,7 @@ export default function PhishingTask({
   }, [found, total]);
   useEffect(() => () => onProgress(0, 0), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function tap(part: MailPart) {
+  function tap(part: EmailPart) {
     if (tapped[part.id] || done) return; // each part counts once
     setTapped((t) => ({ ...t, [part.id]: part.flag ? "flag" : "ok" }));
     if (part.flag) {
@@ -70,7 +70,7 @@ export default function PhishingTask({
   }
 
   /* One tappable part of the email. */
-  function PartButton({ part }: { part: MailPart }) {
+  function PartButton({ part }: { part: EmailPart }) {
     const state = tapped[part.id];
     const style =
       state === "flag"

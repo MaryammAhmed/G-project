@@ -1,48 +1,94 @@
-// lib/mission/types.ts
-// The shape of any mission. The Vault is first; Mirage, Whisper and Oracle reuse the same shape.
+/*
+  lib/mission/types.ts
+  Shared mission contracts. DETERMINISTIC ONLY — the AI is never consulted here.
+
+  Design notes:
+    - Every beat has an optional `hint` (a soft nudge the player can reveal).
+    - Email parts use `flag?: string` (the reason it's suspicious) or
+      `note?: string` (why it's fine). A part is a red flag iff `flag` is set.
+    - Every Choice has a stable `id`, used as a React key and by the scoring.
+*/
 
 export type Mood = "calm" | "alert" | "breach" | "safe";
 
-// "correct" is decided HERE, by the game. The AI only explains why.
-// fallback is shown if the AI is slow, empty, or refuses, so the player never sees a blank bubble.
-export type Choice = { id: string; text: string; correct: boolean; fallback: string };
-export type Evidence = { id: string; title: string; shown: string; clue: string };
+export interface Choice {
+  id: string;           // stable key: "report", "click", "c1", ...
+  text: string;
+  correct: boolean;
+  fallback: string;     // shown if the AI is slow / unavailable
+}
 
-type Base = { id: string; say: string; mood?: Mood; hint?: string };
-
-/* One tappable piece of a fake email (the sender, the subject, a sentence, a link...). */
-export type MailPart = {
-  id: string;
-  label: string; // small tag above the text, e.g. "FROM", "SUBJECT", "BODY", "LINK", "ATTACHMENT"
-  text: string;  // what the player sees and can tap
-  flag?: string; // ONLY on red-flag parts: why it is suspicious (shown after the player finds it)
-  note?: string; // on normal parts: shown if the player taps it by mistake
-};
-
-/* HANDS-ON TASK for the phishing mission: find every red flag in a fake email. */
-export type EmailBeat = Base & {
-  type: "email";
-  success: string; // message shown when all red flags are found
-  parts: MailPart[];
-};
-
-export type Beat =
-  | (Base & { type: "story" })
-  | (Base & { type: "investigate"; items: Evidence[] })
-  | (Base & { type: "decision"; choices: Choice[] })
-  | (Base & { type: "learn"; title: string; points: string[] })
-  | (Base & { type: "passphrase"; minLength: number; personal: string[]; success: string })
-  | (Base & { type: "otp"; success: string })
-  | EmailBeat
-  | (Base & { type: "complete" });
-
-export type Mission = {
+export interface InvestigateItem {
   id: string;
   title: string;
-  place: string;
-  tier: "A" | "B" | "C";
+  shown: string;
+  clue: string;
+}
+
+/* One piece of an email. A part is a red flag iff `flag` is set;
+   if `note` is set instead, it's benign and the note explains why. */
+export interface EmailPart {
+  id: string;
+  label: string;        // "FROM", "SUBJECT", "BODY", "LINK PREVIEW", ...
+  text: string;
+  flag?: string;        // presence = red flag; value = the reason
+  note?: string;        // presence = benign; value = the reassurance
+}
+
+/* ---------- Spot-the-Phish case file ---------- */
+
+export interface PhishSignal {
+  id: string;
+  label: string;
+  isHook: boolean;
+  cue: string;
+  evidence: string[];
+  why: string;
+}
+
+export interface PhishEmail {
+  from_display: string;
+  from_address: string;
+  to: string;
+  subject: string;
+  greeting: string;
+  body: string;
+  deadline: string;
+  cta_text: string;
+  cta_href: string;
+  footer: string;
+}
+
+export interface PhishCase {
+  email: PhishEmail;
+  signals: PhishSignal[];
+  hookPoints: number;
+  precisionBonus: number;
+  precisionPenalty: number;
+  actionPoints: number;
+}
+
+/* ---------- Beats ----------
+   Every variant carries: id, say, optional hint, optional mood. */
+
+export type Beat =
+  | { type: "story";       id: string; say: string; hint?: string; mood?: Mood }
+  | { type: "investigate"; id: string; say: string; hint?: string; items: InvestigateItem[]; mood?: Mood }
+  | { type: "decision";    id: string; say: string; hint?: string; choices: Choice[]; mood?: Mood }
+  | { type: "learn";       id: string; say: string; hint?: string; title: string; points: string[]; mood?: Mood }
+  | { type: "passphrase";  id: string; say: string; hint?: string; minLength: number; personal: string[]; success: string; mood?: Mood }
+  | { type: "otp";         id: string; say: string; hint?: string; success: string; mood?: Mood }
+  | { type: "email";       id: string; say: string; hint?: string; parts: EmailPart[]; success: string; mood?: Mood }
+  | { type: "spot-phish";  id: string; say: string; hint?: string; caseFile: PhishCase; mood?: Mood }
+  | { type: "complete";    id: string; say: string; hint?: string; mood?: Mood };
+
+export interface Mission {
+  id: string;
   module: number;
-  incident: string; // sent to the AI so its feedback knows the situation
+  title: string;
+  place: string;
+  incident: string;
   badge: string;
+  tier?: string;
   beats: Beat[];
-};
+}

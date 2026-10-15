@@ -225,11 +225,18 @@ export function startMusic(scene: SceneKey) {
   if (!c) return;
   const track = TRACKS[scene];
 
+  if (!track) {
+    // scene isn't in TRACKS — either a typo or a new scene we haven't defined yet
+    console.warn("[audio] startMusic: no track for scene", scene);
+    return;
+  }
+
   const master = c.createGain();
   master.gain.setValueAtTime(0.0001, c.currentTime);
-  master.gain.linearRampToValueAtTime(0.5 * track.vol, c.currentTime + 1.2); // gentle fade-in
+  master.gain.linearRampToValueAtTime(0.5 * track.vol, c.currentTime + 1.2);
   master.connect(c.destination);
   musicGain = master;
+  // ...rest unchanged
 
   const stepSec = 60 / track.bpm / 2; // one step = an eighth note
   let step = 0;

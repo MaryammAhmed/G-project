@@ -218,8 +218,6 @@ function RoomScene({ alert }: { alert: boolean }) {
       <path d="M273 31 l13 5 v10 c0 8 -6 13 -13 16 c-7 -3 -13 -8 -13 -16 v-10 z" fill="none" stroke="#8b5cf6" strokeWidth="2" />
 
       {/* chair and desk */}
-      <rect x="50" y="116" width="12" height="72" rx="5" fill="#2d2559" />
-      <rect x="54" y="172" width="64" height="8" rx="4" fill="#2d2559" />
       <rect x="14" y="178" width="292" height="9" rx="2" fill="#3a2d6b" />
       <rect x="30" y="187" width="6" height="30" fill="#2d2559" />
       <rect x="284" y="187" width="6" height="30" fill="#2d2559" />
@@ -228,14 +226,99 @@ function RoomScene({ alert }: { alert: boolean }) {
       <ellipse cx="170" cy="140" rx="120" ry="76" fill="url(#screenGlow)" />
 
       {/* MAYA: ponytail, hoodie, neck, head, hair, eye, then the arm and hand reaching the keyboard */}
-      <path d="M78 80 Q58 86 62 112 Q72 102 78 92 Z" fill="#2b1a2e" />
-      <rect x="66" y="108" width="46" height="68" rx="16" fill="#8b5cf6" />
-      <rect x="85" y="96" width="8" height="14" fill="#e9b99a" />
-      <circle cx="94" cy="86" r="16" fill="#f0c4a8" />
-      <path d="M77 88 A17 17 0 0 1 111 84 Q100 70 86 75 Q78 80 77 88 Z" fill="#2b1a2e" />
-      <circle cx="103" cy="87" r="1.8" fill="#2b1a2e" />
-      <path d="M104 124 Q128 148 152 168" stroke="#8b5cf6" strokeWidth="11" strokeLinecap="round" fill="none" />
-      <circle cx="154" cy="169" r="6" fill="#f0c4a8" />
+      {/* MAYA: the skeleton hacktivist. Paste this in place of the empty line under the
+          "MAYA: ponytail, hoodie..." comment (after the screenGlow ellipse, before the LAPTOP). */}
+      <defs>
+        <filter id="boneGlow" x="-40%" y="-20%" width="180%" height="140%">
+          <feDropShadow in="SourceGraphic" dx="-2" dy="0" stdDeviation="2" floodColor="#5b7cff" floodOpacity="0.85" result="blue" />
+          <feDropShadow in="SourceGraphic" dx="2" dy="0" stdDeviation="2" floodColor="#ee2a7b" floodOpacity="0.45" result="pink" />
+          <feMerge>
+            <feMergeNode in="blue" />
+            <feMergeNode in="pink" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g filter="url(#boneGlow)" stroke="#efecff" strokeLinecap="round" strokeLinejoin="round" fill="none">
+        {/* legs: pelvis to knees to ankles */}
+        <path d="M79 172 L77 200 L73 228" strokeWidth="4.5" />
+        <path d="M97 172 L99 200 L103 228" strokeWidth="4.5" />
+        <circle cx="77" cy="200" r="4" fill="#efecff" stroke="none" />
+        <circle cx="99" cy="200" r="4" fill="#efecff" stroke="none" />
+        {/* feet */}
+        <path d="M72 227 Q64 229 59 235 L58 238 L74 238 Q76 232 72 227 Z" fill="#efecff" stroke="none" />
+        <path d="M104 227 Q112 229 117 235 L118 238 L102 238 Q100 232 104 227 Z" fill="#efecff" stroke="none" />
+
+        {/* pelvis */}
+        <path d="M74 160 Q88 150 102 160 Q100 172 94 176 Q88 170 82 176 Q76 172 74 160 Z" fill="#efecff" stroke="#b9b3e6" strokeWidth="1" />
+        <circle cx="79" cy="172" r="3.2" fill="#efecff" stroke="none" />
+        <circle cx="97" cy="172" r="3.2" fill="#efecff" stroke="none" />
+
+        {/* lower spine */}
+        <ellipse cx="88" cy="148" rx="4" ry="2.2" fill="#efecff" stroke="none" />
+        <ellipse cx="88" cy="153" rx="4.4" ry="2.2" fill="#efecff" stroke="none" />
+        <ellipse cx="88" cy="158" rx="4.8" ry="2.2" fill="#efecff" stroke="none" />
+
+        {/* ribcage: dark chest, sternum, ribs */}
+        <ellipse cx="88" cy="128" rx="19" ry="17" fill="#1a1640" opacity="0.55" stroke="none" />
+        <path d="M88 111 V143" strokeWidth="3" />
+        <path d="M88 114 C78 111 69 115 69 121 M88 114 C98 111 107 115 107 121" strokeWidth="2.2" />
+        <path d="M88 121 C78 118 70 122 70 128 M88 121 C98 118 106 122 106 128" strokeWidth="2.2" />
+        <path d="M88 128 C79 125 72 129 72 134 M88 128 C97 125 104 129 104 134" strokeWidth="2.2" />
+        <path d="M88 135 C81 133 75 136 75 140 M88 135 C95 133 101 136 101 140" strokeWidth="2.2" />
+        <path d="M88 141 C83 140 79 142 79 145 M88 141 C93 140 97 142 97 145" strokeWidth="2.2" />
+
+        {/* collar bones and shoulder joints */}
+        <path d="M88 110 L72 102 M88 110 L104 102" strokeWidth="3.4" />
+        <circle cx="72" cy="102" r="3.8" fill="#efecff" stroke="none" />
+        <circle cx="104" cy="102" r="3.8" fill="#efecff" stroke="none" />
+
+        {/* neck vertebrae */}
+        <ellipse cx="88" cy="99" rx="4" ry="2.2" fill="#efecff" stroke="none" />
+        <ellipse cx="88" cy="104" rx="4" ry="2.2" fill="#efecff" stroke="none" />
+
+        {/* arms: elbows out, hands clutching the head */}
+        <path d="M72 102 L44 100 L68 68" strokeWidth="4" />
+        <path d="M104 102 L132 100 L108 68" strokeWidth="4" />
+        <circle cx="44" cy="100" r="3.6" fill="#efecff" stroke="none" />
+        <circle cx="132" cy="100" r="3.6" fill="#efecff" stroke="none" />
+        {/* hands and fingers */}
+        <ellipse cx="68" cy="68" rx="5" ry="6" fill="#efecff" stroke="none" />
+        <ellipse cx="108" cy="68" rx="5" ry="6" fill="#efecff" stroke="none" />
+        <path d="M66 64 L63 53 M69 63 L69 51 M72 64 L74 53" strokeWidth="1.9" />
+        <path d="M110 64 L113 53 M107 63 L107 51 M104 64 L102 53" strokeWidth="1.9" />
+
+        {/* skull: cranium, dark eye sockets, nose, open mouth and dropped jaw */}
+        <path
+          d="M70 66 C70 48 80 42 88 42 C96 42 106 48 106 66 C106 72 103 76 100 79 L76 79 C73 76 70 72 70 66 Z"
+          fill="#efecff"
+          stroke="#b9b3e6"
+          strokeWidth="1"
+        />
+        <path d="M77 79 L99 79 L97 91 Q88 95 79 91 Z" fill="#1a1640" stroke="none" />
+        <ellipse cx="80" cy="64" rx="4.6" ry="5.6" fill="#1a1640" stroke="none" />
+        <ellipse cx="96" cy="64" rx="4.6" ry="5.6" fill="#1a1640" stroke="none" />
+        <circle cx="79" cy="62.5" r="1.3" fill="#7c8cff" stroke="none" />
+        <circle cx="95" cy="62.5" r="1.3" fill="#7c8cff" stroke="none" />
+        <path d="M88 69 L85.4 76 H90.6 Z" fill="#1a1640" stroke="none" />
+        <path d="M79 81.5 H97" strokeWidth="4" strokeDasharray="2.6 1.2" />
+        <path d="M75 79 L78 95 Q88 101 98 95 L101 79" strokeWidth="3.4" />
+        <path d="M80 91 H96" strokeWidth="2.6" strokeDasharray="2 1.2" />
+      </g>
+
+      {/* shock lines around the head when the alert goes off */}
+      {alert && (
+        <g stroke="#4cc9ff" strokeWidth="2" strokeLinecap="round">
+          <line x1="56" y1="40" x2="62" y2="46" className="twinkle" />
+          <line x1="50" y1="53" x2="58" y2="56" className="twinkle" style={{ animationDelay: "0.3s" }} />
+          <line x1="62" y1="28" x2="67" y2="36" className="twinkle" style={{ animationDelay: "0.6s" }} />
+          <line x1="120" y1="40" x2="114" y2="46" className="twinkle" style={{ animationDelay: "0.2s" }} />
+          <line x1="126" y1="53" x2="118" y2="56" className="twinkle" style={{ animationDelay: "0.5s" }} />
+          <line x1="114" y1="28" x2="109" y2="36" className="twinkle" style={{ animationDelay: "0.8s" }} />
+        </g>
+      )}
+
+    
 
       {/* LAPTOP: a red warning triangle when alert, calm lines otherwise */}
       <rect x="150" y="112" width="80" height="58" rx="4" fill="#0b1024" stroke="#cfd3ee" strokeWidth="3" />
@@ -611,7 +694,7 @@ function PhoneScene({ app }: { app: AppState }) {
 
 /* The caption under each picture. */
 const CAPTION: Record<StageKey, string> = {
-  room: "MAYA'S ROOM",
+  room: "THE ROOM",
   network: "THE NETWORK",
   arena: "THE ARENA",
   lab: "THE LAB",

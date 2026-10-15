@@ -7,14 +7,15 @@
   mission state (beat index, XP, shields, mood, sound) and renders ONE beat
   at a time using the components in components/game/:
 
-    story       -> DialogueBox + Continue
-    investigate -> DialogueBox + InvestigateTask (inline)
-    decision    -> DialogueBox + DecisionPanel
-    learn       -> DialogueBox + LearnPoints (inline)
-    passphrase  -> DialogueBox + PasswordTask kind="phrase-builder"
-    otp         -> DialogueBox + PasswordTask kind="code"
-    email       -> DialogueBox + PhishingTask (spot the red flags)
-    complete    -> DialogueBox + XpRewardModal
+    story        -> DialogueBox + Continue
+    investigate  -> DialogueBox + InvestigateTask (inline)
+    decision     -> DialogueBox + DecisionPanel
+    learn        -> DialogueBox + LearnPoints (inline)
+    passphrase   -> DialogueBox + PasswordTask kind="phrase-builder"
+    otp          -> DialogueBox + PasswordTask kind="code"
+    email        -> DialogueBox + PhishingTask (spot the red flags)
+    spot-phish   -> DialogueBox + SpotThePhish (forensic viewer)
+    complete     -> DialogueBox + XpRewardModal
 
   The GAME decides if a choice is correct (choice.correct). The AI only explains.
   Privacy (DR-01): the typed passphrase never leaves the browser.
@@ -33,6 +34,9 @@ import type { DecisionFeedback } from "@/components/game/DecisionPanel";
 import PasswordTask from "@/components/game/PasswordTask";
 import PhishingTask from "@/components/game/PhishingTask";
 import XpRewardModal from "@/components/game/XpRewardModal";
+// ⬅ FIX: import SpotThePhish + its findings type for the new "spot-phish" beat
+import SpotThePhish from "@/components/phish/SpotThePhish";
+import type { PhishFindings } from "@/components/phish/SpotThePhish";
 import { MOODS, SCENE_CSS, SceneBackdrop, SceneStage, Waves } from "./scenes";
 import type { AppState, StageKey, VirusState } from "./scenes";
 import type { InboxState } from "./mirageScenes";
@@ -41,7 +45,18 @@ import type { InboxState } from "./mirageScenes";
 
 const API = "http://127.0.0.1:8000"; // backend address
 
-const XP = { clue: 5, correctChoice: 20, passphrase: 30, otp: 30, redFlag: 8 }; // rebalance the game here
+// ⬅ FIX: added spot-phish scoring knobs (mirrored from the SpotThePhish component)
+const XP = {
+  clue: 5,
+  correctChoice: 20,
+  passphrase: 30,
+  otp: 30,
+  redFlag: 8,
+  phishHook: 20,   // per hook found in spot-phish
+  phishBonus: 10,  // precision bonus
+  phishAction: 30, // action points for cutting the line
+};
+
 const SHIELDS = 3; // every wrong decision cracks one; nobody is kicked out
 
 type BeatOf<T extends Beat["type"]> = Extract<Beat, { type: T }>;
@@ -50,14 +65,17 @@ type BeatOf<T extends Beat["type"]> = Extract<Beat, { type: T }>;
 function sceneFor(beat: Beat, module: number): StageKey {
   const phishing = module === 2; // Mission 2 uses its own pictures
   switch (beat.type) {
-    case "story": return "room";
+    case "story":       return "room";
     case "investigate": return phishing ? "inbox" : "network";
-    case "decision": return phishing ? "hook" : "arena";
-    case "learn": return "lab";
-    case "email": return "inbox";
+    case "decision":    return phishing ? "hook"  : "arena";
+    case "learn":       return "lab";
+    case "email":       return "inbox";
+    // ⬅ FIX: new beat type needs a scene. Reuse "inbox" (the quarantine viewer).
+    case "spot-phish":  return phishing ? "inbox" : "arena";
     case "passphrase":
-    case "otp": return "phone";
-    case "complete": return "sealed";
+    case "otp":         return "phone";
+    case "complete":    return "sealed";
+    // ⬅ FIX: no default needed — every Beat.type has a case above, so TS is happy
   }
 }
 
@@ -74,16 +92,18 @@ const FLASH: Record<number, { good: string; bad: string }> = {
   2: { good: "BAIT IGNORED", bad: "SHIELD CRACKED: you took the bait" },
 };
 
-/* Small tag above each beat, so the player knows what stage they're in. */
+/* Small tag above each beat, so the player knows what stage they're in.
+   ⬅ FIX: added "spot-phish" — Record<Beat["type"], string> requires every key. */
 const STAGE: Record<Beat["type"], string> = {
-  story: "STORY",
-  investigate: "INVESTIGATE",
-  decision: "DECISION POINT",
-  learn: "INTEL",
-  email: "SPOT THE RED FLAGS",
-  passphrase: "HANDS-ON TASK",
-  otp: "HANDS-ON TASK",
-  complete: "MISSION COMPLETE",
+  story:        "STORY",
+  investigate:  "INVESTIGATE",
+  decision:     "DECISION POINT",
+  learn:        "INTEL",
+  email:        "SPOT THE RED FLAGS",
+  "spot-phish": "FORENSIC ANALYSIS",
+  passphrase:   "HANDS-ON TASK",
+  otp:          "HANDS-ON TASK",
+  complete:     "MISSION COMPLETE",
 };
 
 const DISPLAY = { fontFamily: "var(--font-display), system-ui, sans-serif" };
@@ -125,8 +145,6 @@ const CSS = `
    If the AI is slow (8s), errors, or answers empty, we use the choice's
    `fallback` so the player never sees a blank bubble. */
 async function getFeedback(mission: Mission, beat: BeatOf<"decision">, choice: Choice): Promise<DecisionFeedback> {
-  /* The AI gets the question, the right answer and THE LESSON (the verified
-     teaching point written in the scenario), plus strict rules to stay on topic. */
   const right = beat.choices.find((c) => c.correct);
   const context = [
     mission.incident,
@@ -274,11 +292,18 @@ interface ViewProps {
   onResult: (correct: boolean) => void;
   onTaskDone: (task: "passphrase" | "otp") => void;
   onPhish: (found: number, total: number) => void;
+  // ⬅ FIX: new callback — the spot-phish task hands back a score + findings
+  onSpotPhish: (score: number, findings: PhishFindings) => void;
   onNext: () => void;
   onRestart: () => void;
 }
 
-function BeatView({ beat, mission, xp, shields, onAward, onMood, onResult, onTaskDone, onPhish, onNext, onRestart }: ViewProps) {
+function BeatView({
+  beat, mission, xp, shields,
+  onAward, onMood, onResult, onTaskDone, onPhish,
+  onSpotPhish,          // ⬅ FIX: receive the new prop
+  onNext, onRestart,
+}: ViewProps) {
   const { email } = useAuth();
   const [lineDone, setLineDone] = useState(false); // true when the line has finished typing
 
@@ -313,10 +338,13 @@ function BeatView({ beat, mission, xp, shields, onAward, onMood, onResult, onTas
         {STAGE[beat.type]}
       </p>
 
+      {/* ⬅ FIX: guard hint access. Only SOME beats declare `hint`, so reading
+          beat.hint directly is a type error. `"hint" in beat` narrows it.
+          (Alternatively: put hint?: string on every Beat variant in types.ts.) */}
       <DialogueBox
         speakerName="Maya"
         dialogueText={beat.say}
-        hint={beat.hint}
+        hint={"hint" in beat ? beat.hint : undefined}
         onTypingDone={() => setLineDone(true)}
       />
 
@@ -353,6 +381,17 @@ function BeatView({ beat, mission, xp, shields, onAward, onMood, onResult, onTas
             onAward={onAward}
             onProgress={onPhish}
             onContinue={onNext}
+          />
+        )}
+
+        {/* ⬅ FIX: new spot-phish beat. Pass the case file from the beat data,
+            hide the internal header (the HUD above already shows where we are),
+            and forward the score + findings to the container. */}
+        {beat.type === "spot-phish" && (
+          <SpotThePhish
+            caseFile={beat.caseFile}
+            showHeader={false}
+            onComplete={(score, findings) => onSpotPhish(score, findings)}
           />
         )}
 
@@ -434,19 +473,30 @@ export default function MissionPlayer({
   const shields = Math.max(0, SHIELDS - mistakes);
   const beat = mission.beats[index];
   const mood: Mood = override ?? beat.mood ?? "calm";
-  const progress = (index / (mission.beats.length - 1)) * 100;
+  const progress = (mission.beats.length > 1)
+    ? (index / (mission.beats.length - 1)) * 100
+    : 100; // ⬅ FIX: guard divide-by-zero if a mission has exactly 1 beat
   const scene = sceneFor(beat, mission.module);
 
-  /* Maximum XP in this mission, for the "account security" meter. */
+  /* Maximum XP in this mission, for the "account security" meter.
+     ⬅ FIX: added "spot-phish" — max = hookPoints*#hooks + precisionBonus + actionPoints.
+     We compute it from the case file so missions with different scoring stay correct. */
   const maxXp = mission.beats.reduce((sum, b) => {
     if (b.type === "investigate") return sum + b.items.length * XP.clue;
-    if (b.type === "decision") return sum + XP.correctChoice;
-    if (b.type === "passphrase") return sum + XP.passphrase;
-    if (b.type === "otp") return sum + XP.otp;
-    if (b.type === "email") return sum + b.parts.filter((p) => p.flag).length * XP.redFlag;
+    if (b.type === "decision")    return sum + XP.correctChoice;
+    if (b.type === "passphrase")  return sum + XP.passphrase;
+    if (b.type === "otp")         return sum + XP.otp;
+    if (b.type === "email")       return sum + b.parts.filter((p) => p.flag).length * XP.redFlag;
+    if (b.type === "spot-phish") {
+      const hooks = b.caseFile.signals.filter((s) => s.isHook).length;
+      return sum + hooks * b.caseFile.hookPoints + b.caseFile.precisionBonus + b.caseFile.actionPoints;
+    }
     return sum;
   }, 0);
-  const security = Math.min(100, Math.round(10 + 90 * (xp / maxXp)));
+  // ⬅ FIX: guard divide-by-zero on the security meter
+  const security = maxXp > 0
+    ? Math.min(100, Math.round(10 + 90 * (xp / maxXp)))
+    : 10;
 
   /* Refs mirror the toggles so effects and timeouts always read the latest value. */
   useEffect(() => {
@@ -505,8 +555,14 @@ export default function MissionPlayer({
     if (!mutedRef.current) speak(beat.say);
     if (index === 0 && beat.mood === "alert") setTimeout(() => play("buzz"), 500); // the phone buzzes
 
-    /* DR-03 made visible: hands-on tasks are announced as UNLOCKED after the story. */
-    if (beat.type === "passphrase" || beat.type === "otp" || beat.type === "email") {
+    /* DR-03 made visible: hands-on tasks are announced as UNLOCKED after the story.
+       ⬅ FIX: added "spot-phish" — it's a hands-on task too. */
+    if (
+      beat.type === "passphrase" ||
+      beat.type === "otp" ||
+      beat.type === "email" ||
+      beat.type === "spot-phish"
+    ) {
       play("unlock");
       showFlash("HANDS-ON TASK UNLOCKED", "#4cc9ff");
     }
@@ -622,6 +678,13 @@ export default function MissionPlayer({
             onResult={handleResult}
             onTaskDone={(task) => setApp((a) => ({ ...a, [task === "passphrase" ? "pass" : "otp"]: true }))}
             onPhish={(found, total) => setPhish({ found, total })}
+            // ⬅ FIX: translate the phish task's 0-100 score + findings into
+            // XP, mood, and the shared result handler so it feels like any other beat.
+            onSpotPhish={(score, findings) => {
+              onAwardSafe(score, setXp, play);
+              setOverride(findings.action === "cut" ? "safe" : "breach");
+              handleResult(findings.action === "cut");
+            }}
             onNext={next}
             onRestart={restart}
           />
@@ -629,4 +692,12 @@ export default function MissionPlayer({
       </main>
     </div>
   );
+
+  // ⬅ FIX: small helper — SpotThePhish returns 0-100, we convert to XP
+  // (~1 XP per 4 score points). Kept inline so the reader sees the mapping.
+  function onAwardSafe(score: number, setXpFn: typeof setXp, playFn: (k: SfxKind) => void) {
+    const gained = Math.round(score / 4);
+    setXpFn((x) => x + gained);
+    playFn("tick");
+  }
 }
