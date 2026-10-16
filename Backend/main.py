@@ -13,14 +13,14 @@ import re
 from datetime import datetime, timedelta
 
 import requests
-from dotenv import load_dotenv  # loads secrets from your .env file
-from fastapi import Depends, FastAPI, HTTPException  # Depends injects database sessions
-from fastapi.middleware.cors import CORSMiddleware  # lets the Next.js frontend talk to this API
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from jose import jwt  # creates JWT login tokens
-from passlib.context import CryptContext  # bcrypt hashing for passwords and OTP codes
-from pydantic import BaseModel  # validates request bodies
-from sqlalchemy.ext.asyncio import AsyncSession  # async PostgreSQL session
+from jose import jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from database import get_db
@@ -29,21 +29,34 @@ from models import User
 load_dotenv()
 app = FastAPI()
 
-# Frontend (different port) may call this API; any localhost port is accepted.
+
+# =============================================================
+# CORS — allow any localhost / 127.0.0.1 port in development.
+# Using a regex avoids having to update this list every time the
+# frontend picks a different port.
+# =============================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# =============================================================
+# HEALTH CHECK — used to confirm the browser can reach this server.
+# Hit it from the address bar: http://127.0.0.1:8000/api/health
+# =============================================================
+@app.get("/api/health")
+async def health():
+    return {"ok": True, "service": "cyberguard-backend"}
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
-# The ONE audience of the platform, used in the AI mentor prompts.
 AUDIENCE = "a high school student (ages 16-18)"
 
 
@@ -62,7 +75,6 @@ PASSWORD_RULES = [
 
 
 def validate_password_strength(password: str) -> None:
-    """Checks every rule in order, raises on the first one that fails."""
     for pattern, message in PASSWORD_RULES:
         if not re.search(pattern, password):
             raise ValueError(message)
@@ -108,12 +120,11 @@ class LoginPayload(BaseModel):
 @app.post("/api/login")
 async def login(payload: LoginPayload, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == payload.username))
-    # Same error for "no user" and "wrong password" so usernames don't leak
     if not user or not pwd_context.verify(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     await generate_and_send_otp(user, db)
-    return {"otp_required": True, "username": user.username}  # no token until OTP passes
+    return {"otp_required": True, "username": user.username}
 
 
 # =============================================================
@@ -125,8 +136,6 @@ BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL")
 
 
 def send_brevo_email(to_email: str, sender_name: str, subject: str, html: str) -> None:
-    """Sends one email via Brevo. Raises unless Brevo answers 201,
-    so a failed send never looks like it succeeded."""
     response = requests.post(
         "https://api.brevo.com/v3/smtp/email",
         headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
@@ -154,8 +163,6 @@ def send_otp_email(to_email: str, otp_code: str) -> None:
 
 
 async def generate_and_send_otp(user: User, db: AsyncSession) -> None:
-    """Shared by /api/login and /api/resend-otp: makes a code, stores
-    only its hash + expiry, then sends it."""
     otp_code = str(random.randint(100000, 999999))
     user.otp_code_hash = pwd_context.hash(otp_code)
     user.otp_expires_at = datetime.utcnow() + timedelta(minutes=5)
@@ -178,7 +185,6 @@ async def verify_otp(payload: OtpVerifyPayload, db: AsyncSession = Depends(get_d
     if not pwd_context.verify(payload.code, user.otp_code_hash):
         raise HTTPException(status_code=400, detail="Incorrect code")
 
-    # Success: clear the OTP so this exact code can't be reused
     user.otp_code_hash = None
     user.otp_expires_at = None
     await db.commit()
@@ -229,7 +235,6 @@ MODULE_CORE_GUIDANCE = {
 
 
 def module_context(module: int) -> dict:
-    """Standard + core guidance for a module, with safe defaults."""
     return {
         "audience": AUDIENCE,
         "module": module,
@@ -285,8 +290,6 @@ async def chat(payload: ChatPayload):
 # =============================================================
 # SCENARIO FEEDBACK (after each in-game choice)
 # =============================================================
-# max_tokens + reasoning_effort keep replies fast; refusal/empty detection
-# retries once, then falls back to a safe line.
 
 SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to the in-game decision of
 {audience} during Module {module}, grounded in {standard}.
@@ -320,7 +323,6 @@ class ScenarioFeedbackPayload(BaseModel):
     correct: bool
 
 
-# If the reply contains any of these, or is empty, we don't show it.
 REFUSAL_MARKERS = ["i'm sorry", "i am sorry", "can't comply", "cannot comply", "i cannot assist", "i can't assist"]
 
 
@@ -339,7 +341,6 @@ async def scenario_feedback(payload: ScenarioFeedbackPayload):
         {"role": "user", "content": "Give the feedback now."},
     ]
 
-    # Up to 2 attempts: Groq sometimes returns empty content or a refusal.
     for _ in range(2):
         response = groq_client.chat.completions.create(
             model="openai/gpt-oss-20b",
@@ -351,17 +352,14 @@ async def scenario_feedback(payload: ScenarioFeedbackPayload):
         if not looks_like_refusal(content):
             return {"feedback": content}
 
-    # Both attempts failed: a safe fallback so the player never sees a blank bubble.
     return {"feedback": "This choice has real security consequences — consider how it affects account safety and apply the standard's guidance here."}
 
 
 # =============================================================
 # PRACTICE OTP (in-mission 2FA exercise, NOT the real login)
 # =============================================================
-# Own in-memory store, so a practice code can never collide with or clear a
-# real pending login OTP. Codes are hashed, never stored raw.
 
-practice_otp_store: dict[str, dict] = {}  # email -> {"hash": str, "expires": datetime}
+practice_otp_store: dict[str, dict] = {}
 
 
 def send_practice_otp_email(to_email: str, otp_code: str) -> None:
@@ -406,5 +404,5 @@ async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
 
     correct = pwd_context.verify(payload.code, entry["hash"])
     if correct:
-        practice_otp_store.pop(payload.email, None)  # one-time use
+        practice_otp_store.pop(payload.email, None)
     return {"correct": correct}

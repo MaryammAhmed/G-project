@@ -14,9 +14,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # Points at your Docker container "cg-db", which maps host port 5435 -> container 5432
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5435/cyberguard"
+    "postgresql+asyncpg://postgres:postgres@127.0.0.1:5435/cyberguard"
 )
-
 # The engine that drives the connection
 engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 
