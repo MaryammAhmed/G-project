@@ -33,7 +33,7 @@ function VerifyOtpInner() {
       // Correct code — backend sent back token, age_group, and email.
       // login(...) stores all three centrally.
       login(data.token, data.email); // UPDATED: passing email from response
-      router.push("/dashboard"); // send the user into the app
+      router.push("/map"); // send the user into the app
     } else {
       // Wrong/expired code — show whatever message the backend gave us
       setError(data.detail || "Invalid code");
