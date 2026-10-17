@@ -62,7 +62,7 @@ const MISSIONS: Realm[] = [
     guideline:
       "Check sender identity, inspect destinations, and verify unexpected requests before acting.",
     badge: "MIRAGE SEER",
-    href: "/mission/mirage",
+    href: "/mission/spot-the-phish",
     status: "available",
     color: "#4cc9ff",
     x: 370,

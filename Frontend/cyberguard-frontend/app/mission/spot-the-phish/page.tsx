@@ -1,13 +1,14 @@
-// app/mission/mirage/page.tsx
-// Route: /mission/mirage. Hands the Mirage mission (phishing) to the same engine as the Vault.
-// No TierGate, same as the Vault page. Add the gate (or a "finished the Vault first" check) before shipping.
+// app/mission/spot-the-phish/page.tsx
+// Route: /mission/spot-the-phish. Renders the Spot the Phish mission (phishing, module 2)
+// through the shared MissionPlayer — the same engine that plays the Vault.
+// No TierGate yet. Add one before shipping if you want to gate progression.
 
 import MissionPlayer from "@/components/mission/MissionPlayer";
-import { mirage } from "@/lib/mission/mirage";
+import { spotThePhishMission } from "@/lib/mission/spotThePhish";
 import { missionFontClass } from "@/lib/mission/fonts";
 
-export const metadata = { title: "The Mirage | CyberGuard" };
+export const metadata = { title: "Spot the Phish | CyberGuard" };
 
-export default function MiragePage() {
-  return <MissionPlayer mission={mirage} fontClass={missionFontClass} />;
+export default function SpotThePhishPage() {
+  return <MissionPlayer mission={spotThePhishMission} fontClass={missionFontClass} />;
 }
