@@ -34,7 +34,7 @@ import type { InboxState } from "./mirageScenes";
 
 /* A "stage" is a picture the player can see: every audio SceneKey plus the two Mission 2 pictures.
    (Music for the new ones is mapped to an existing track inside MissionPlayer, so audio.ts stays untouched.) */
-export type StageKey = SceneKey | "inbox" | "hook";
+export type StageKey = SceneKey | "inbox" | "hook" | "pond";
 
 export type VirusState = "idle" | "laugh" | "dead";
 export type AppState = { pass: boolean; otp: boolean };
@@ -702,6 +702,7 @@ const CAPTION: Record<StageKey, string> = {
   sealed: "VAULT SEALED",
   inbox: "THE INBOX",
   hook: "THE HOOK",
+  pond: "THE POND", 
 };
 
 interface SceneStageProps {
@@ -723,6 +724,7 @@ function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
     case "phone": return <PhoneScene app={app} />;
     case "inbox": return <InboxScene state={inbox} />;
     case "hook": return <HookScene state={virus} />;
+    case "pond":   return <PondScene mood={mood} />;
     case "sealed":
       return (
         <div className="p-6">
@@ -730,6 +732,104 @@ function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
         </div>
       );
   }
+}
+
+/* ====================================================================
+   POND. Module 2's forensic setting — the phishing metaphor made visible.
+   Green palette (deliberately different from Vault's cyan), water
+   surface, a taut line dropping from off-screen, and a fish circling
+   below the hook. Uses the shared .ping, .floaty, .svg-box classes.
+   ==================================================================== */
+function PondScene({ mood }: { mood: Mood }) {
+  // In an alert or breach, the line goes amber (danger). Otherwise green.
+  const tense = mood === "alert" || mood === "breach";
+  const lineColor = tense ? "#f6c453" : "#4ade80";
+
+  return (
+    <svg
+      viewBox="0 0 320 250"
+      className="block w-full"
+      role="img"
+      aria-label="A fishing line over dark water"
+    >
+      <defs>
+        {/* sky gradient — deep green, not cyan */}
+        <linearGradient id="pondSky2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#051c14" />
+          <stop offset="1" stopColor="#0a3325" />
+        </linearGradient>
+      </defs>
+
+      <rect width="320" height="250" fill="url(#pondSky2)" />
+
+      {/* moon (offset crescent) */}
+      <circle cx="252" cy="48" r="14" fill="#f5f3ff" opacity="0.85" />
+      <circle cx="246" cy="45" r="13" fill="#051c14" />
+
+      {/* two overlapping water layers for depth */}
+      <path d="M0 188 Q80 168 160 184 T320 176 V250 H0 Z" fill="#0a2a1d" />
+      <path d="M0 198 Q80 182 160 196 T320 190 V250 H0 Z" fill="#051912" />
+
+      {/* three ripple rows — fainter as they recede */}
+      {[214, 228, 240].map((y, i) => (
+        <path
+          key={y}
+          d={`M8 ${y} Q 60 ${y - 6} 120 ${y} T 236 ${y} T 312 ${y}`}
+          stroke="#4ade80"
+          strokeOpacity={0.2 - i * 0.05}
+          fill="none"
+        />
+      ))}
+
+      {/* the taut fishing line from off-screen top to the water */}
+      <path
+        d="M22 8 Q72 88 120 148 Q142 174 150 194"
+        stroke={lineColor}
+        strokeWidth="1.6"
+        fill="none"
+        opacity="0.9"
+      />
+
+      {/* ping ring where the line enters the water */}
+      <circle
+        cx="150"
+        cy="194"
+        r="4"
+        fill="none"
+        stroke={lineColor}
+        className="ping svg-box"
+      />
+      <circle cx="150" cy="194" r="2.4" fill={lineColor} />
+
+      {/* the fish circling under the hook */}
+      <g className="floaty svg-box" style={{ animationDelay: "0.4s" }}>
+        <path
+          d="M184 216 Q202 204 220 216 Q202 228 184 216 Z"
+          fill="#4ade80"
+          opacity="0.85"
+        />
+        <path
+          d="M184 216 L174 210 L174 222 Z"
+          fill="#4ade80"
+          opacity="0.85"
+        />
+        <circle cx="212" cy="214" r="1.6" fill="#051912" />
+      </g>
+
+      {/* caption */}
+      <text
+        x="160"
+        y="240"
+        textAnchor="middle"
+        fontSize="9"
+        fill="#4ade80"
+        letterSpacing="3"
+        style={MONO}
+      >
+        QUIET WATER · SOMETHING BELOW
+      </text>
+    </svg>
+  );
 }
 
 /* The framed card on the left of the screen: the picture plus its caption. */
@@ -759,6 +859,7 @@ const BACKDROP: Record<StageKey, string> = {
   sealed: "radial-gradient(ellipse at 50% 20%, rgba(74,222,128,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(76,201,255,.18), transparent 55%)",
   inbox: "radial-gradient(ellipse at 20% 20%, rgba(76,201,255,.22), transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(251,75,91,.2), transparent 55%)",
   hook: "radial-gradient(ellipse at 50% 10%, rgba(139,92,246,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(14,116,144,.3), transparent 55%)",
+   pond: "radial-gradient(ellipse at 20% 20%, rgba(74,222,128,.2), transparent 55%), radial-gradient(ellipse at 80% 85%, rgba(20,110,80,.32), transparent 55%)"
 };
 
 /* The list of stages, taken from BACKDROP so it can never get out of date. */
