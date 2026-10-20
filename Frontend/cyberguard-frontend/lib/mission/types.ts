@@ -3,9 +3,20 @@
   Shared mission contracts. DETERMINISTIC ONLY — the AI is never consulted here.
 */
 
-import { CueFamily } from "../phish/types";
+// CHANGED: "import type" (the type is erased at build time, so it can't create a runtime
+// import cycle with ../phish/types). Behaviour is the same.
+import type { CueFamily } from "../phish/types";
 
 export type Mood = "calm" | "alert" | "breach" | "safe";
+
+// NEW: the five hands-on tasks of Mission 3 ("The Whisper").
+// A "se-task" beat picks one with its `task` field. Used by components/game/SETasks.tsx.
+export type SETaskId = "tactics" | "chat" | "recon" | "gauntlet" | "call";
+
+// EDIT A: add next to SETaskId
+// The five hands-on tasks of Mission 4 ("The Oracle"). A "ai-task" beat picks one with `task`.
+export type AITaskId = "redact" | "verify" | "askbot" | "twins" | "gauntlet";
+
 
 export interface Choice {
   id: string;
@@ -79,28 +90,30 @@ export interface PhishCase {
 
 /* =====================================================================
    BEAT UNION
+   Each member is ONE kind of step in a mission. `type` decides what the
+   player sees and does (MissionPlayer.tsx switches on it).
    ===================================================================== */
 export type Beat =
-// Add these inside the `Beat` union in lib/mission/types.ts
-  | { 
-      type: "phish-scale"; 
-      id: string; 
-      say: string; 
-      hint?: string; 
-      mood?: Mood 
+  // ---- Module 2 (phishing) extras ----
+  | {
+      type: "phish-scale";
+      id: string;
+      say: string;
+      hint?: string;
+      mood?: Mood;
     }
-  | { 
-      type: "damage-control"; 
-      id: string; 
-      say: string; 
-      hint?: string; 
-      mood?: Mood 
+  | {
+      type: "damage-control";
+      id: string;
+      say: string;
+      hint?: string;
+      mood?: Mood;
     }
-  | { 
-      type: "live-inspector"; 
-      id: string; 
-      say: string; 
-      hint?: string; 
+  | {
+      type: "live-inspector";
+      id: string;
+      say: string;
+      hint?: string;
       mood?: Mood;
       parts: {
         id: string;
@@ -110,6 +123,7 @@ export type Beat =
         explanation: string;
       }[];
     }
+  // ---- shared beats used by every module ----
   | { type: "story";        id: string; say: string; hint?: string; mood?: Mood }
   | { type: "investigate";  id: string; say: string; hint?: string; items: InvestigateItem[]; mood?: Mood }
   | { type: "decision";     id: string; say: string; hint?: string; choices: Choice[]; mood?: Mood }
@@ -119,19 +133,25 @@ export type Beat =
   | { type: "otp";          id: string; say: string; hint?: string; success: string; mood?: Mood }
   | { type: "email";        id: string; say: string; hint?: string; parts: EmailPart[]; success: string; mood?: Mood }
   | { type: "spot-phish";   id: string; say: string; hint?: string; caseFile: PhishCase; mood?: Mood }
-  // NEW: The CSI Investigation beat
-  | { 
-      type: "csi-investigate"; 
-      id: string; 
-      say: string; 
-      hint?: string; 
+  // ---- Module 3 (social engineering) ----
+  // CHANGED: added `task` (which of the 5 hands-on tasks to play; defaults to "gauntlet" in
+  // MissionPlayer) and `hint` (so the dialogue box can show a hint here too, like other beats).
+  | { type: "se-task"; id: string; say: string; hint?: string; task?: SETaskId; mood?: Mood }
+  // ---- Module 4 (safe AI) ----
+  | { type: "ai-task"; id: string; say: string; hint?: string; task?: AITaskId; mood?: Mood }
+  // ---- CSI Investigation beat (Module 2) ----
+  | {
+      type: "csi-investigate";
+      id: string;
+      say: string;
+      hint?: string;
       mood?: Mood;
-      files: { 
-        id: string; 
-        name: string; 
-        type: "email" | "social" | "file"; 
-        content: string; 
-        isThreat: boolean; 
+      files: {
+        id: string;
+        name: string;
+        type: "email" | "social" | "file";
+        content: string;
+        isThreat: boolean;
         explanation: string;
       }[];
     }
