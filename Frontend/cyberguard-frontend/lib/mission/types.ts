@@ -13,6 +13,11 @@ export type Mood = "calm" | "alert" | "breach" | "safe";
 // A "se-task" beat picks one with its `task` field. Used by components/game/SETasks.tsx.
 export type SETaskId = "tactics" | "chat" | "recon" | "gauntlet" | "call";
 
+// EDIT A: add next to SETaskId
+// The five hands-on tasks of Mission 4 ("The Oracle"). A "ai-task" beat picks one with `task`.
+export type AITaskId = "redact" | "verify" | "askbot" | "twins" | "gauntlet";
+
+
 export interface Choice {
   id: string;
   text: string;
@@ -133,7 +138,7 @@ export type Beat =
   // MissionPlayer) and `hint` (so the dialogue box can show a hint here too, like other beats).
   | { type: "se-task"; id: string; say: string; hint?: string; task?: SETaskId; mood?: Mood }
   // ---- Module 4 (safe AI) ----
-  | { type: "ai-task"; id: string; say: string; mood?: Mood }
+  | { type: "ai-task"; id: string; say: string; hint?: string; task?: AITaskId; mood?: Mood }
   // ---- CSI Investigation beat (Module 2) ----
   | {
       type: "csi-investigate";

@@ -68,7 +68,12 @@ import SETask, { SE_TASK_MAX_XP } from "@/components/game/SETasks";
 import WhisperIntro from "@/components/mission/intros/WhisperIntro";
 import { WhisperBackdrop, WhisperStage, whisperSceneFor, WHISPER_CSS } from "./whisperScenes";
 import { WHISPER_CHECKPOINTS } from "@/lib/mission/socialEngineering";
-import AISortTask from "@/components/game/AISortTask";
+// (the old `import AISortTask from "@/components/game/AITask";` line was DELETED)
+// ADDED for Module 4 (the Oracle):
+import AITask, { AI_TASK_MAX_XP } from "@/components/game/AITasks";            // the 5 hands-on AI tasks
+import OracleIntro from "@/components/mission/intros/OracleIntro";              // Mission 4 cutscene (same folder as WhisperIntro; adjust if yours is elsewhere)
+import { OracleBackdrop, OracleStage, oracleSceneFor, ORACLE_CSS } from "./oracleScenes";
+import { ORACLE_CHECKPOINTS } from "@/lib/mission/safeAI";
 
 /* ======================================================================
    1. CONSTANTS
@@ -89,8 +94,9 @@ const MAX_SHIELDS = 3; // player starts with 3 shields, each mistake removes one
 
 // ───────────── EDIT 2 · CONSTANTS ─────────────
 // HARD MODULES: reaching 0 shields ends the attempt. The value is the list of checkpoint
-// beat ids: "Retry chapter" returns to the last one reached. Add module 4 here later.
-const HARD_MODULES: Record<number, string[]> = { 3: WHISPER_CHECKPOINTS };
+// beat ids: "Retry chapter" returns to the last one reached.
+// Module 3 (The Whisper) and Module 4 (The Oracle) are hard modules.
+const HARD_MODULES: Record<number, string[]> = { 3: WHISPER_CHECKPOINTS, 4: ORACLE_CHECKPOINTS };
 
 // Helper type: pick one specific beat type, e.g. BeatOf<"decision">
 // Beat is a union of many shapes; Extract<> narrows it to just the one whose `type` matches T.
@@ -464,47 +470,42 @@ function BeatView({ beat, mission, xp, shields, mood, onAward, onMood, onResult,
               />
             )}
 
-            {/* NEW TASK: Module 4 Safe AI Sort */}
+            {/* NEW TASK: Module 4 (The Oracle) hands-on AI tasks */}
+            {/* ───────────── EDIT 3 (Module 4) · BeatView: REPLACE the old ai-task block ───────────── */}
             {beat.type === "ai-task" && (
-              <AISortTask onComplete={(score) => { onAward(score); onNext(); }} />
+              <AITask
+                task={beat.task ?? "gauntlet"}   // which of the 5 hands-on tasks this beat plays
+                onMood={onMood}
+                onComplete={(xpEarned, mistakes) => {
+                  onAward(xpEarned);                                    // XP for the task
+                  for (let i = 0; i < mistakes; i++) onResult(false);   // every UNSAFE decision cracks a shield
+                  onMood(mistakes === 0 ? "safe" : "breach");           // companion reacts
+                  onNext();
+                }}
+              />
             )}
             
             {/* CSI investigation: show it first, then a feedback card */}
             {/* CSI investigation */}
             {/* Stage 1: csiScore is null -> the player is still sorting files */}
+            {/* CSI investigation */}
             {beat.type === "csi-investigate" && csiScore === null && (
               <CSIInvestigation
                 files={beat.files}
-                // Called when the player finishes. `score` is a percentage, `results` is one entry per file.
-                onComplete={async (score, results) => {
-                  onAward(Math.round(score / 2));          // XP = half the percentage score
-                  onMood(score > 70 ? "safe" : "breach");  // happy companion if score is over 70
-                  setCsiScore(score);                      // switches the UI to the result screen
-                  setCsiFeedback(null);                    // show the loading skeleton while the AI thinks
-                  
-                  // Build a detailed report of every choice they made
-                  const choiceDetails = results.map(r => {
-                    const actual = r.isThreat ? "a THREAT" : "SAFE";                   // what the file really was
-                    const guessed = r.playerGuessed === "threat" ? "Threat" : "Safe"; // what the player said
-                    return `- File: "${r.name}" | Actual: ${actual} | Player Guessed: ${guessed} | ${r.isCorrect ? "CORRECT" : "WRONG"}`;
-                  }).join("\n");
+                onComplete={async (score) => {
+                  onAward(Math.round(score / 2));
+                  onMood(score > 70 ? "safe" : "breach");
+                  setCsiScore(score);
+                  setCsiFeedback(null);
 
-                  // The instructions we send to the AI (a "prompt"), including the report above
                   const prompt = `
                     You are an expert cybersecurity mentor teaching a high school student.
                     The player just completed a forensic CSI investigation where they had to classify files as Safe or Threat.
-                    
-                    Here is exactly what they did:
-                    ${choiceDetails}
-                    
-                    Write a 3-4 sentence debrief. 
-                    RULE 1: Explain exactly WHY the choices they got wrong are wrong. (e.g., if they marked the IT email as Safe, explain why it's a Threat because of the fake domain).
-                    RULE 2: Validate the choices they got right, specifically mentioning the technical clues (fake links, weird addresses).
-                    RULE 3: Do not just give a grade. Teach the reasoning.
+
+                    They scored ${score}%. Write a concise debrief that teaches how to inspect sender details, links, and file behavior when deciding whether something is safe or a threat. Do not just give a grade.
                   `;
 
                   try {
-                    // Same backend endpoint as getFeedback(), but module is hard-coded to 2 here
                     const res = await fetch(`${API}/api/scenario-feedback`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -517,25 +518,13 @@ function BeatView({ beat, mission, xp, shields, mood, onAward, onMood, onResult,
                     });
                     const data = await res.json();
                     if (data.feedback) {
-                      setCsiFeedback(data.feedback); // show the AI text on screen
-                      speak(data.feedback); // Read it out loud
+                      setCsiFeedback(data.feedback);
+                      speak(data.feedback);
                     } else {
-                      throw new Error("No feedback"); // go to the fallback below
+                      throw new Error("No feedback");
                     }
                   } catch {
-                    // Fallback if the backend is down
-                    const wrongChoices = results.filter(r => !r.isCorrect); // only the mistakes
-                    if (wrongChoices.length === 0) {
-                      // Perfect score -> a fixed congratulation message
-                      setCsiFeedback("Perfect score! You correctly identified that the IT email and Art Club emails were phishing attempts because of their fake domains, while recognizing that the text from Mom and the PDF were safe.");
-                    } else {
-                      // Otherwise explain just the FIRST mistake with a generic reason
-                      const firstWrong = wrongChoices[0];
-                      const reason = firstWrong.isThreat 
-                        ? "it contained a fake link and a false sense of urgency" 
-                        : "it was actually a normal message with no dangerous links";
-                      setCsiFeedback(`You got a few wrong, like "${firstWrong.name}". You marked it as ${firstWrong.playerGuessed}, but it was actually ${firstWrong.isThreat ? "a Threat" : "Safe"} because ${reason}. Always inspect the sender address and links before trusting a file.`);
-                    }
+                    setCsiFeedback(`You scored ${score}%. Check sender addresses, inspect links before opening them, and consider whether a file's behavior matches its claimed purpose. These clues help distinguish suspicious files from safe ones.`);
                   }
                 }}
               />
@@ -705,6 +694,9 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
   // ───────────── EDIT 4 (continued) ─────────────
   const isWhisper = mission.module === 3;                  // Mission 3 has its own SVG world
   const wScene = whisperSceneFor(beat);                    // which Whisper scene to draw
+  // ───────────── EDIT 4 (Module 4) · derived values ─────────────
+  const isOracle = mission.module === 4;                   // Mission 4 has its own SVG world
+  const oScene = oracleSceneFor(beat);                     // which Oracle scene to draw
   const hardCheckpoints: string[] | undefined = HARD_MODULES[mission.module];
   const defeated = !!hardCheckpoints && shields === 0;     // all 3 shields gone in a hard module
 
@@ -722,6 +714,8 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
     if (b.type === "live-inspector")  return sum + 50;
     // ───────────── EDIT 5 · maxXp reduce: add one line ─────────────
     if (b.type === "se-task") return sum + SE_TASK_MAX_XP[b.task ?? "gauntlet"];
+    // ───────────── EDIT 5 (Module 4) · maxXp reduce: add one line ─────────────
+    if (b.type === "ai-task") return sum + AI_TASK_MAX_XP[b.task ?? "gauntlet"];
     return sum; // beats that give no XP
   }, 0); // 0 = starting value of the sum
 
@@ -783,8 +777,8 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
     if (index === 0 && beat.mood === "alert") setTimeout(() => play("buzz"), 500);
     // Hands-on beats get an "unlocked" sound and banner
     // ───────────── EDIT 6 · the per-beat useEffect ([beat]) ─────────────
-    // (a) in the hands-on array add "se-task":
-    if (["passphrase", "otp", "email", "spot-phish", "csi-investigate", "live-inspector", "damage-control", "se-task"].includes(beat.type)) {
+    // (a) in the hands-on array add "se-task" and "ai-task" (Module 4):
+    if (["passphrase", "otp", "email", "spot-phish", "csi-investigate", "live-inspector", "damage-control", "se-task", "ai-task"].includes(beat.type)) {
       play("unlock");
       showFlash("HANDS-ON TASK UNLOCKED", "#4cc9ff");
     }
@@ -821,10 +815,11 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
   // Show the intro cutscene first
   // (An early return: while showIntro is true, nothing below is drawn.)
   // ───────────── EDIT 8 · the intro ─────────────
+  // ───────────── EDIT 7 (Module 4) · the intro (replaces the Module 3 version) ─────────────
   if (showIntro) {
-    return isWhisper
-      ? <WhisperIntro onDone={() => setShowIntro(false)} />                     // Mission 3 cutscene
-      : <IntroScene module={mission.module} onDone={() => setShowIntro(false)} />; // missions 1 and 2
+    if (isWhisper) return <WhisperIntro onDone={() => setShowIntro(false)} />;   // Mission 3 cutscene
+    if (isOracle) return <OracleIntro onDone={() => setShowIntro(false)} />;     // Mission 4 cutscene
+    return <IntroScene module={mission.module} onDone={() => setShowIntro(false)} />; // missions 1 and 2
   }
 
   // Shared style for the small toggle buttons in the header
@@ -838,11 +833,15 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
     >
       {/* Inject the animation CSS (section 3) plus the scene CSS from ./scenes */}
       {/* ───────────── EDIT 9 · render: styles, backdrop, stage ───────────── */}
-      <style>{CSS + SCENE_CSS + (isWhisper ? WHISPER_CSS : "")}</style>
+      {/* ───────────── EDIT 8 (Module 4) · render: styles ───────────── */}
+      <style>{CSS + SCENE_CSS + (isWhisper ? WHISPER_CSS : "") + (isOracle ? ORACLE_CSS : "")}</style>
 
       {/* Background layers */}
+      {/* ───────────── EDIT 8 (Module 4) · backdrop: 3-way choice ───────────── */}
       {isWhisper ? (
         <WhisperBackdrop scene={wScene} />
+      ) : isOracle ? (
+        <OracleBackdrop scene={oScene} />
       ) : (
         <>
           <SceneBackdrop scene={scene} />
@@ -865,6 +864,7 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
 
       {/* ───────────── EDIT 10 · "all shields lost" overlay ───────────── */}
       {/* Paste right after the closing tag of the big flash banner ({flash && (...)}), inside the root <div>: */}
+      {/* (Generic: it works for Module 3 AND Module 4 because both are listed in HARD_MODULES) */}
       {defeated && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-[#070711]/90 p-6 backdrop-blur" role="alertdialog" aria-label="All shields lost">
           <div
@@ -926,8 +926,11 @@ export default function MissionPlayer({ mission, fontClass = "" }: { mission: Mi
         <div className="space-y-4 lg:sticky lg:top-28">
           {/* The animated scene: changes with the beat, mood, virus state, app progress, and inbox progress */}
           {/* ───────────── EDIT 9 (continued) ───────────── */}
+          {/* ───────────── EDIT 8 (Module 4) · stage: 3-way choice ───────────── */}
           {isWhisper ? (
             <WhisperStage scene={wScene} mood={mood} />
+          ) : isOracle ? (
+            <OracleStage scene={oScene} mood={mood} />
           ) : (
             <SceneStage scene={scene} mood={mood} virus={virus} app={app} inbox={phish} />
           )}
