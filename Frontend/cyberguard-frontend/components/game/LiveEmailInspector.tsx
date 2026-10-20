@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
+import { speak, stopSpeaking } from "@/lib/speech";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const API = "http://127.0.0.1:8000"; // FastAPI backend
@@ -67,6 +68,7 @@ export default function LiveEmailInspector({
   }
 
   async function getAIFeedback() {
+    stopSpeaking(); // Stop the dialogue box voice from overlapping
     setGameState("debrief");
     setAiText(null);
     
@@ -86,21 +88,17 @@ export default function LiveEmailInspector({
       return "";
     });
 
-    const prompt = `
-      You are an AI cybersecurity mentor.
-      The player analyzed a phishing email. The real red flags were:
-      - Sender: support@elmwood-helpdesk.com (Fake)
-      - Urgency: "expires today" (Pressure)
-      - Link: http://elmwood-portal.verify-login.top/auth (Malicious)
+        const prompt = `
+      You are an expert cybersecurity mentor teaching a high school student.
+      The player just analyzed a phishing email. Here is what they clicked:
+      - Real Red Flags they found: ${foundNames.length > 0 ? foundNames.join(", ") : "None"}.
+      - Safe/False Alarms they clicked: ${safeNames.length > 0 ? safeNames.join(", ") : "None"}.
       
-      The player flagged: ${foundNames.length > 0 ? foundNames.join(", ") : "Nothing"}.
-      The player also clicked these normal elements: ${safeNames.length > 0 ? safeNames.join(", ") : "Nothing"}.
-      
-      Write a 2-3 sentence response. 
-      Do NOT just say "Correct". 
-      Explain why the flags they found ARE dangerous. 
-      If they clicked normal elements, gently explain why those parts are actually standard and not the threat.
-      Focus on reasoning and education.
+      Write a 3-sentence response directly to the player.
+      RULE 1: If they found the fake sender or fake link, praise them for checking the technical details. If they missed them, explain that the attacker changed the domain (elmwood-helpdesk.com instead of elmwood.edu).
+      RULE 2: If they clicked "safe" things (like the footer or date), gently explain that while it's good to be careful, those parts are standard, and the real danger is the link.
+      RULE 3: End by explaining that the attacker used urgency ("expires today") to make them panic.
+      Do not just give a grade. Explain the reasoning.
     `;
 
     try {
@@ -118,19 +116,29 @@ export default function LiveEmailInspector({
       const data = await res.json();
       if (data.feedback) {
         setAiText(data.feedback);
+        speak(data.feedback); // <--- ADDED THIS LINE
         return;
       }
-    } catch {
-      // Smart fallback based on their clicks
+     let fallbackText = "";
       if (foundFlags.length === 0) {
-        setAiText("You didn't flag anything dangerous. Attackers rely on this—look at the sender's domain and the hidden link. Real IT uses @elmwood.edu.");
+        fallbackText = "You didn't flag anything dangerous. Attackers rely on this—look at the sender's domain and the hidden link. Real IT uses @elmwood.edu.";
       } else if (!foundFlags.includes("link") || !foundFlags.includes("sender")) {
-        setAiText("You caught the story, but the technical clues are how you actually stop the attack. Check the sender's email and where the link really goes.");
+        fallbackText = "You caught the story, but the technical clues are how you actually stop the attack. Check the sender's email and where the link really goes.";
       } else {
-        setAiText("You found the technical indicators—the fake domain and the malicious link. Attackers use urgency so you don't stop to inspect the URL. Catching that is how you break the chain.");
+        fallbackText = "You found the technical indicators—the fake domain and the malicious link. Attackers use urgency so you don't stop to inspect the URL. Catching that is how you break the chain.";
       }
+      
+      setAiText(fallbackText);
+      speak(fallbackText);
+    } catch (error) {
+      const fallbackText =
+        "I couldn't reach the AI mentor, but the danger signs are clear: the sender is fake and the link is malicious. Report the email and do not click it.";
+      setAiText(fallbackText);
+      speak(fallbackText);
     }
   }
+  
+
 
   function finish(action: "report" | "click") {
     // Score = 100 - (15 points per real flag missed) - (5 points per safe click) - (50 points if they clicked the link)

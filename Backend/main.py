@@ -260,7 +260,7 @@ Your feedback style:
 - Explain the underlying mechanism — why this matters, not just what to do
 - Never be condescending; treat the user as capable of understanding real technical detail
 - Keep examples relatable to a teenager's world (school, games, social media)
-- Keep responses to a MAXIMUM of 4 sentences, no exceptions
+- Keep responses to a MAXIMUM of 3 sentences
 
 Respond to the user's specific message or decision below, addressing what they
 actually did, not a generic script."""

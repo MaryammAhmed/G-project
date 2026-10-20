@@ -6,9 +6,9 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const CUE_GROUPS = [
   { 
     id: "errors", 
-    title: "Mistakes", 
-    short: "Spelling, grammar, odd formatting", 
-    detail: "Real companies proofread. Typos, strange capital letters and broken sentences are warning signs. But careful scammers fix these, so a clean message does NOT mean a safe one.",
+    title: "Sloppy Mistakes", 
+    short: "Spelling and grammar", 
+    detail: "Real companies proofread. Typos and broken sentences are warning signs. But careful scammers fix these, so a clean message does NOT mean it's safe.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-red-400 mb-2">
         <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -17,9 +17,9 @@ const CUE_GROUPS = [
   },
   { 
     id: "technical", 
-    title: "Technical clues", 
-    short: "The sender address, links and attachments", 
-    detail: "Look at the real sender address, not just the display name. Check where a link really goes before you tap it. These clues are hard to fake well.",
+    title: "The Real Address", 
+    short: "Sender emails and hidden links", 
+    detail: "Look at the actual email address, not just the name. Check where a link really goes before you click. These clues are the hardest for scammers to fake.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-cyan-400 mb-2">
         <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -28,9 +28,9 @@ const CUE_GROUPS = [
   },
   { 
     id: "look", 
-    title: "Look and feel", 
-    short: "Logos, colours, layout", 
-    detail: "A blurry logo, wrong colours or a missing footer can give a fake away. But logos are easy to copy, so a perfect-looking message proves nothing.",
+    title: "Bad Design", 
+    short: "Logos, colors, layout", 
+    detail: "A blurry logo or wrong colors can give a fake away. But logos are easy to copy, so a perfect-looking message proves nothing.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-purple-400 mb-2">
         <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -40,9 +40,9 @@ const CUE_GROUPS = [
   },
   { 
     id: "words", 
-    title: "Words and tone", 
-    short: "Pressure, threats, generic greetings", 
-    detail: "Scammers want you to act before you think. Watch for deadlines, threats, offers that are too good to be true, and greetings like Dear user.",
+    title: "Scary Words", 
+    short: "Urgency and threats", 
+    detail: "Scammers want you to act before you think. Watch for deadlines, threats, and offers that are too good to be true.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-amber-400 mb-2">
         <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/>

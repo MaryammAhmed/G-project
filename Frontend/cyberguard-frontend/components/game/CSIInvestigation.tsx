@@ -1,13 +1,23 @@
 "use client";
 import { useState } from "react";
+import { speak } from "@/lib/speech";
+
+const API = "http://127.0.0.1:8000";
 
 type FileItem = {
   id: string;
   name: string;
-  type: "email" | "social" | "file";
+  type: string;
   content: string;
   isThreat: boolean;
-  explanation: string;
+  explanation?: string; 
+};
+
+type FileResult = {
+  name: string;
+  isThreat: boolean;
+  playerGuessed: "safe" | "threat";
+  isCorrect: boolean;
 };
 
 export default function CSIInvestigation({ 
@@ -15,15 +25,75 @@ export default function CSIInvestigation({
   onComplete 
 }: { 
   files: FileItem[]; 
-  onComplete: (score: number) => void; 
+  onComplete: (score: number, results: FileResult[]) => void; 
 }) {
   const [activeFile, setActiveFile] = useState<FileItem | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, "safe" | "threat">>({});
+  
+  const [feedbackState, setFeedbackState] = useState<{
+    file: FileItem;
+    guessed: "safe" | "threat";
+    isCorrect: boolean;
+    aiText: string | null;
+  } | null>(null);
 
-  const handleVerdict = (verdict: "safe" | "threat") => {
+  const handleVerdict = async (verdict: "safe" | "threat") => {
     if (!activeFile) return;
+    
+    const isCorrect = (verdict === "threat" && activeFile.isThreat) || (verdict === "safe" && !activeFile.isThreat);
+    
     setVerdicts((prev) => ({ ...prev, [activeFile.id]: verdict }));
-    setTimeout(() => setActiveFile(null), 600); 
+    setFeedbackState({ file: activeFile, guessed: verdict, isCorrect, aiText: null });
+    setActiveFile(null);
+
+    // THIS IS THE NEW, SPECIFIC PROMPT
+        // THIS IS THE NEW, SPECIFIC PROMPT
+    const prompt = `
+      You are a cybersecurity mentor teaching a high school student.
+      The player just read this file:
+      ---
+      FILE: ${activeFile.name}
+      CONTENT: ${activeFile.content}
+      ACTUAL TRUTH: This is ${activeFile.isThreat ? "A THREAT" : "SAFE"}. (Why: ${activeFile.explanation || "N/A"})
+      ---
+      The player guessed: ${verdict === "threat" ? "Threat" : "Safe"}.
+      They were ${isCorrect ? "CORRECT" : "WRONG"}.
+      
+      RULES FOR YOUR RESPONSE:
+      1. Write exactly 1 sentence directly to the player.
+      2. NEVER use generic phrases like "verify sender addresses", "report suspicious messages", or "security consequences".
+      3. don't keep saying "good job" or "well done" or "nice catch". Instead, explain why the choice was correct or incorrect. 
+      3. If they are WRONG: Point out the EXACT text or sender address they missed. If there is a prize or reward, you MUST use the phrase "too good to be true".
+      4. If they are RIGHT: Validate why it was correct.
+    `;
+
+    try {
+      const res = await fetch(`${API}/api/scenario-feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          module: 2,
+          incident: prompt,
+          choice_text: verdict,
+          correct: isCorrect,
+        }),
+      });
+      const data = await res.json();
+      
+      if (data.feedback) {
+        setFeedbackState((prev) => prev ? { ...prev, aiText: data.feedback } : null);
+        speak(data.feedback); // <-- The AI reads its feedback out loud!
+      } else {
+        throw new Error("No feedback");
+      }
+    } catch {
+      // Only used if the backend crashes
+      const fallback = isCorrect 
+        ? `Good catch! You correctly identified that this was ${verdict}.` 
+        : `Actually, this was ${activeFile.isThreat ? "a Threat" : "Safe"}. ${activeFile.explanation}`;
+      
+      setFeedbackState((prev) => prev ? { ...prev, aiText: fallback } : null);
+    }
   };
 
   const reviewedCount = Object.keys(verdicts).length;
@@ -97,18 +167,65 @@ export default function CSIInvestigation({
         </div>
       )}
 
+      {/* AI Feedback Modal */}
+      {feedbackState && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className={`w-full max-w-md rounded-xl border p-6 shadow-2xl bg-[#111329] ${
+            feedbackState.isCorrect ? "border-green-500/50" : "border-red-500/50"
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">{feedbackState.isCorrect ? "✅" : "❌"}</span>
+              <h3 className="text-lg font-bold text-[#f5f3ff]">
+                {feedbackState.isCorrect ? "Correct Call!" : "Wait, look closer..."}
+              </h3>
+            </div>
+            
+            <div className="rounded-xl border border-[#8b5cf6]/30 bg-[#8b5cf6]/5 p-4 mb-6">
+              <p className="text-xs font-bold tracking-widest text-[#8b5cf6] uppercase mb-2" style={{ fontFamily: "var(--font-mono)" }}>🤖 AI Mentor</p>
+              {feedbackState.aiText === null ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-3 bg-white/10 rounded w-full"></div>
+                  <div className="h-3 bg-white/10 rounded w-5/6"></div>
+                </div>
+              ) : (
+                <p className="text-sm text-[#f5f3ff] leading-relaxed whitespace-pre-wrap">{feedbackState.aiText}</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => setFeedbackState(null)}
+              disabled={feedbackState.aiText === null}
+              className="w-full rounded-xl bg-cyan-500 px-6 py-3 font-bold text-[#070711] hover:bg-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              {feedbackState.aiText === null ? "Thinking..." : "Continue Review"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Finish Button */}
-      {allReviewed && !activeFile && (
+      {allReviewed && !activeFile && !feedbackState && (
         <div className="p-4 border-t border-white/10 bg-[#070711] text-center animate-in slide-in-from-bottom-4">
           <button 
             onClick={() => {
               let score = 0;
+              const results: FileResult[] = [];
+              
               files.forEach(f => {
-                if ((verdicts[f.id] === "threat" && f.isThreat) || (verdicts[f.id] === "safe" && !f.isThreat)) {
-                  score += 100 / files.length;
-                }
+                const guessed = verdicts[f.id];
+                const isCorrect = (guessed === "threat" && f.isThreat) || (guessed === "safe" && !f.isThreat);
+                
+                if (isCorrect) score += 100 / files.length;
+                
+                results.push({
+                  name: f.name,
+                  isThreat: f.isThreat,
+                  playerGuessed: guessed,
+                  isCorrect
+                });
               });
-              onComplete(score);
+              
+              onComplete(score, results);
             }}
             className="rounded-xl bg-cyan-400 px-8 py-3 text-sm font-bold text-[#070711] hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)]"
           >

@@ -20,11 +20,11 @@ export const spotThePhishMission: Mission = {
       say: "Hey, I'm glad you're here. Sarah, a junior at Elmwood, just got her Snapgram account stolen. The hacker is messaging her friends. We need to look at her recent messages to figure out how they got in.",
     },
 
-    {
+        {
       id: "m2",
       type: "csi-investigate",
       mood: "calm",
-      say: "I've pulled her recent files into this sandbox. Review each one carefully. If it looks like a trap, flag it. If it's a normal message, approve it.",
+      say: "I've pulled her recent files into this sandbox. Review each one carefully. If it looks like a trap, flag it.",
       files: [
         {
           id: "f1",
@@ -32,7 +32,7 @@ export const spotThePhishMission: Mission = {
           type: "email",
           isThreat: true,
           content: "From: Elmwood IT Support <admin@elmwood-secure-update.com>\nSubject: URGENT: Password Expiry\n\nYour school password expires today. You must update it immediately or lose access. Click here: http://elmwood.verify-login.top",
-          explanation: "This is a fake sender. Elmwood's real domain is elmwood.edu. The link is also fake. They use urgency ('expires today') to make you panic."
+          explanation: "This is a threat. Elmwood's real domain is elmwood.edu. The domain here is a fake look-alike."
         },
         {
           id: "f2",
@@ -40,7 +40,7 @@ export const spotThePhishMission: Mission = {
           type: "social",
           isThreat: false,
           content: "From: Mom\nHey, remember to pick up milk on your way home. Love you!",
-          explanation: "A normal text. No links, no weird requests."
+          explanation: "This is safe. It's a normal text with no links or weird requests."
         },
         {
           id: "f3",
@@ -48,7 +48,7 @@ export const spotThePhishMission: Mission = {
           type: "email",
           isThreat: true,
           content: "From: Elmwood Art Club <elmwoodartclub@gmail.com>\nSubject: You won the $50 gift card!\n\nCongratulations! You were selected to win a $50 Amazon card. Reply with your full name and student ID to claim your prize.",
-          explanation: "Why would the Art Club use a Gmail address instead of the school email? And real clubs don't ask for your ID over email. This is a trap."
+          explanation: "This is a threat. The Art Club is using a Gmail address instead of the school email, and they are asking for personal info."
         },
         {
           id: "f4",
@@ -56,7 +56,7 @@ export const spotThePhishMission: Mission = {
           type: "social",
           isThreat: true,
           content: "From: @Omar_Games\nYo check out this free V-Bucks generator! It actually works. Login with your school account here: bit.ly/free-vbucks",
-          explanation: "Omar's account was likely hacked. Hackers send links to friends because friends trust each other. Never log into anything using a shortened link like bit.ly."
+          explanation: "This is a threat. Hackers send links to friends. Never log in using a shortened bit.ly link."
         },
         {
           id: "f5",
@@ -64,11 +64,11 @@ export const spotThePhishMission: Mission = {
           type: "file",
           isThreat: false,
           content: "Elmwood High - Period 1: Math, Period 2: Biology, Period 3: History.",
-          explanation: "Just a normal PDF schedule."
+          explanation: "This is safe. Just a normal PDF schedule."
         }
       ]
     },
-
+    
     {
       id: "m3",
       type: "phish-scale",
@@ -76,10 +76,10 @@ export const spotThePhishMission: Mission = {
       say: "Let's break down what you just found. The NIST Phish Scale uses 5 categories to help us spot these traps.",
     },
 
-    {
+     {
       id: "m4",
       type: "decision",
-      mood: "alert",
+      mood: "calm", // CHANGED from "alert" so the screen doesn't flash red
       say: "We found the entry point. Sarah clicked the fake IT link and typed her password. The hacker is now trying to use that same password on her other accounts. What's the safest move?",
       choices: [
         {
@@ -115,7 +115,7 @@ export const spotThePhishMission: Mission = {
       id: "m6",
       type: "complete",
       mood: "safe",
-      say: "Investigation complete. You didn't just dodge the bait; you read the water. Sarah's accounts are secure. You're ready for the real world.",
+      say: "Mission accomplished. You spotted the technical tricks, secured Sarah's accounts, and broke the attack chain. The hacker is locked out.",
     },
   ],
 };

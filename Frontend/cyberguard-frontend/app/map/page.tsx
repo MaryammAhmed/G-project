@@ -79,7 +79,7 @@ const MISSIONS: Realm[] = [
     guideline:
       "Pause under pressure and verify unusual requests through a trusted, independent channel.",
     badge: "MIND SHIELD",
-    href: "/mission/whisper",
+    href: "/mission/social-engineering",
     status: "locked",
     color: "#fb7185",
     x: 625,
@@ -96,7 +96,7 @@ const MISSIONS: Realm[] = [
     guideline:
       "Minimize sensitive information shared with AI and verify important outputs independently.",
     badge: "ORACLE KEEPER",
-    href: "/mission/oracle",
+    href: "/mission/safe-ai",
     status: "locked",
     color: "#a78bfa",
     x: 850,
