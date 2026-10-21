@@ -14,17 +14,20 @@ from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
-from jose import jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from database import get_db
-from models import User
+
+from typing import Optional                                  # NEW (used by get_current_user)
+
+from fastapi import Depends, FastAPI, Header, HTTPException  # CHANGED: added Header
+from jose import JWTError, jwt                               # CHANGED: added JWTError
+from pydantic import BaseModel, Field                        # CHANGED: added Field
+from models import User, UserProgress                        # CHANGED: added UserProgress
 
 load_dotenv()
 app = FastAPI()
@@ -406,3 +409,169 @@ async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
     if correct:
         practice_otp_store.pop(payload.email, None)
     return {"correct": correct}
+# =============================================================
+# PROGRESS TRACKING + MODULE GATING (NEW)
+#
+# Report requirements covered:
+#   - save completion status and scores in PostgreSQL
+#   - keep completion logs (completed_at, attempts)
+#   - restrict access until the previous scenario is finished (sequential unlock)
+#
+# RULE: module 1 (The Vault) is always open. Module N unlocks only after module N-1
+# is completed. The SERVER enforces this, so editing the browser can't skip ahead.
+#
+# KNOWN LIMIT: the score is reported by the browser, so a determined user could fake
+# it. That's fine for a learning game (the field is capped below); don't use it for grading.
+# =============================================================
+
+# Which mission id belongs to which module (must match mission.id in the frontend files).
+MODULE_SCENARIOS = {1: "vault", 2: "spot-the-phish", 3: "social-engineering", 4: "safe-ai"}
+
+
+async def get_current_user(
+    authorization: Optional[str] = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Reads 'Authorization: Bearer <token>' (the JWT from /api/verify-otp) and returns the user."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id = int(data["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+def unlocked_modules(done: set) -> list:
+    """Module 1 is always open; module N opens when module N-1 is completed."""
+    return [1] + [m for m in (2, 3, 4) if (m - 1) in done]
+
+
+async def load_progress(db: AsyncSession, user_id: int) -> list:
+    result = await db.scalars(select(UserProgress).where(UserProgress.user_id == user_id))
+    return list(result.all())
+
+
+def progress_snapshot(rows: list) -> dict:
+    """The shape the frontend map and mission pages read."""
+    by_module = {r.module: r for r in rows}
+    done = {m for m, r in by_module.items() if r.completed}
+    unlocked = unlocked_modules(done)
+    modules = []
+    for m in (1, 2, 3, 4):
+        r = by_module.get(m)
+        modules.append({
+            "module": m,
+            "scenario": MODULE_SCENARIOS[m],
+            "completed": bool(r and r.completed),
+            "best_score": r.best_score if r else 0,
+            "attempts": r.attempts if r else 0,
+            "unlocked": m in unlocked,
+        })
+    return {"modules": modules, "unlocked": unlocked, "total_score": sum(x["best_score"] for x in modules)}
+
+
+class ProgressStartPayload(BaseModel):
+    module: int = Field(ge=1, le=4)
+    scenario: str
+
+
+class ProgressCompletePayload(ProgressStartPayload):
+    score: int = Field(ge=0, le=5000)   # capped so a faked score can't be absurd
+
+
+def check_module_request(module: int, scenario: str, rows: list) -> None:
+    """Shared guard: the scenario must match the module, and the module must be unlocked."""
+    if MODULE_SCENARIOS.get(module) != scenario:
+        raise HTTPException(status_code=400, detail="Scenario does not match module")
+    done = {r.module for r in rows if r.completed}
+    if module not in unlocked_modules(done):
+        raise HTTPException(status_code=403, detail="Module locked: finish the previous module first")
+
+
+async def get_or_create_row(db: AsyncSession, rows: list, user: User, module: int, scenario: str) -> UserProgress:
+    for r in rows:
+        if r.module == module:
+            return r
+    row = UserProgress(user_id=user.id, module=module, scenario=scenario)
+    db.add(row)
+    rows.append(row)
+    return row
+
+
+@app.get("/api/progress")
+async def get_progress(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """What the map page reads: every module's status, best score and whether it's unlocked."""
+    return progress_snapshot(await load_progress(db, user.id))
+
+
+@app.post("/api/progress/start")
+async def progress_start(
+    payload: ProgressStartPayload,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Called when a mission opens. 403 if the module is still locked; otherwise counts one attempt."""
+    rows = await load_progress(db, user.id)
+    check_module_request(payload.module, payload.scenario, rows)
+    row = await get_or_create_row(db, rows, user, payload.module, payload.scenario)
+    row.attempts = (row.attempts or 0) + 1
+    await db.commit()
+    return {"allowed": True, "attempts": row.attempts}
+
+
+@app.post("/api/progress/complete")
+async def progress_complete(
+    payload: ProgressCompletePayload,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Called on the mission's final beat. Marks it complete, keeps the best score, and returns the new unlocks."""
+    rows = await load_progress(db, user.id)
+    check_module_request(payload.module, payload.scenario, rows)
+    row = await get_or_create_row(db, rows, user, payload.module, payload.scenario)
+    row.completed = True
+    row.last_score = payload.score
+    row.best_score = max(row.best_score or 0, payload.score)
+    if row.completed_at is None:
+        row.completed_at = datetime.utcnow()      # the completion log: first completion time
+    await db.commit()
+    return progress_snapshot(rows)
+
+# =============================================================
+# SWAGGER UI CONFIGURATION (Enables the Authorize button in /docs)
+# This does NOT change how your app works, it just tells the Swagger 
+# UI to show the green padlock so you can paste your token.
+# =============================================================
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="CyberGuard API",
+        version="1.0.0",
+        description="API for the CyberGuard game",
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            if path.startswith("/api/progress") or path.startswith("/api/user"):
+                openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+                
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
