@@ -63,6 +63,9 @@ import type { AppState, StageKey, VirusState } from "./scenes";
 import type { InboxState } from "./mirageScenes";
 import CompanionSkeleton from "./CompanionSkeleton"; // the animated companion character
 
+import Link from "next/link";
+import { saveCompletion, startAttempt } from "@/lib/progress";
+
 // ───────────── EDIT 1 · IMPORTS ─────────────
 import SETask, { SE_TASK_MAX_XP } from "@/components/game/SETasks";
 import WhisperIntro from "@/components/mission/intros/WhisperIntro";
@@ -758,6 +761,10 @@ export default function MissionPlayer({
   const sfxRef = useRef(sfxOn);
   const checkpoint = useRef({ index: 0, xp: 0 });
 
+  const { token } = useAuth();
+  const [access, setAccess] = useState<"checking" | "ok" | "locked">("checking");
+  const startedFor = useRef<string | null>(null); // remembers which login already counted this attempt
+
   const shields = Math.max(0, MAX_SHIELDS - mistakes);
   const beat = mission.beats[index];
   const mood: Mood = override ?? beat.mood ?? "calm";
@@ -797,6 +804,13 @@ export default function MissionPlayer({
   }, 0);
 
   const security = maxXp > 0 ? Math.min(100, Math.round(10 + 90 * (xp / maxXp))) : 10;
+
+  useEffect(() => {
+    if (!token) { setAccess("ok"); return; }          // preview mode / not logged in: nothing saved, nothing locked
+    if (startedFor.current === token) return;          // already counted (also stops React dev double-run)
+    startedFor.current = token;
+    startAttempt(token, mission.module, mission.id).then(setAccess);
+  }, [token, mission.module, mission.id]);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -860,7 +874,10 @@ export default function MissionPlayer({
       play("unlock");
       showFlash("HANDS-ON TASK UNLOCKED", "#4cc9ff");
     }
-    if (beat.type === "complete") play("win");
+        if (beat.type === "complete") {
+      play("win");
+      saveCompletion(token, mission.module, mission.id, xp); // NEW: store completion + score in PostgreSQL
+    }
     if (hardCheckpoints?.includes(beat.id)) checkpoint.current = { index, xp };
     return () => stopSpeaking();
   }, [beat]);
@@ -880,6 +897,8 @@ export default function MissionPlayer({
     setPhish({ found: 0, total: 0 });
     setShowIntro(true);
     checkpoint.current = { index: 0, xp: 0 };
+    // ALSO inside restart() add this line (a replay counts as a new attempt):
+    startAttempt(token, mission.module, mission.id);
   }
   
   function retry() {
@@ -893,6 +912,27 @@ export default function MissionPlayer({
   function toggleMute() {
     setMuted((m) => !m);
     stopSpeaking();
+  }
+
+// While the server answers, show a short loading screen. If the previous module isn't finished, show a lock screen.
+  if (access === "checking") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#070711] text-xs tracking-[0.3em] text-[#b8b5c9]" style={MONO}>
+        CHECKING CLEARANCE...
+      </div>
+    );
+  }
+  if (access === "locked") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#070711] p-6 text-[#f5f3ff]">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border-2 border-[#fb4b5b] bg-[#111329] p-6 text-center" style={{ boxShadow: "0 0 50px rgba(251,75,91,.35)" }}>
+          <p className="text-4xl" aria-hidden="true">&#128274;</p>
+          <h1 className="text-2xl font-bold text-[#fb4b5b]" style={MONO}>ACCESS DENIED</h1>
+          <p className="text-sm text-[#b8b5c9]">{mission.title} is locked. Finish the previous mission first to unlock it.</p>
+          <Link href="/map" className="inline-block rounded-xl bg-[#4cc9ff] px-6 py-3 text-sm font-semibold text-[#070711]">Back to the map</Link>
+        </div>
+      </div>
+    );
   }
 
   // ───────────── EDIT 10 · the intro ─────────────

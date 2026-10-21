@@ -12,6 +12,11 @@ import {
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 
+// ───────────── MAP EDIT 1 · imports ─────────────
+import { useAuth } from "@/context/AuthContext";
+import { fetchProgress } from "@/lib/progress";
+import type { ProgressSnapshot } from "@/lib/progress";
+
 const MONO = {
   fontFamily: "var(--font-mono), ui-monospace, monospace",
 };
@@ -34,7 +39,8 @@ interface Realm {
   symbol: string;
 }
 
-const MISSIONS: Realm[] = [
+// ───────────── MAP EDIT 2 · renamed static list ─────────────
+const BASE_MISSIONS: Realm[] = [
   {
     id: "vault",
     order: 1,
@@ -104,6 +110,8 @@ const MISSIONS: Realm[] = [
     symbol: "🤖",
   },
 ];
+
+const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 }; // map id -> module number
 
 const STATUS_TEXT: Record<Status, string> = {
   completed: "REALM SECURED",
@@ -304,6 +312,20 @@ export default function MissionMapPage() {
   const [reduced, setReduced] = useState(false);
   const gesture = useRef(false);
   const deniedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ───────────── MAP EDIT 3 · inside the page component ─────────────
+  const { token } = useAuth();
+  const [snap, setSnap] = useState<ProgressSnapshot | null>(null);
+  
+  useEffect(() => {
+    fetchProgress(token).then(setSnap);
+  }, [token]);
+
+  const MISSIONS: Realm[] = BASE_MISSIONS.map((m) => {
+    const p = snap?.modules.find((x) => x.module === MODULE_OF[m.id]);
+    if (!p) return m;
+    return { ...m, status: p.completed ? "completed" : p.unlocked ? "available" : "locked" };
+  });
 
   const unlockedCount = MISSIONS.filter(isUnlocked).length;
   const selected = MISSIONS.find((realm) => realm.id === hovered) ?? null;
