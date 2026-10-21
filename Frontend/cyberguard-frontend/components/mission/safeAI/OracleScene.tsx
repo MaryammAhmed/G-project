@@ -1,7 +1,7 @@
 "use client";
 
 /*
-  components/mission/oracleScenes.tsx
+  components/mission/safeAI/OracleScene.tsx
   ===================================
   The visual world of Mission 4: a warm gold "glowing machine" backdrop and FIVE animated
   SVG scenes. Each scene reacts to the mood:

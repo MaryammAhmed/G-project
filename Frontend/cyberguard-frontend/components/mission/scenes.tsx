@@ -98,7 +98,10 @@ export const SCENE_CSS = `
    ==================================================================== */
 export function Waves() {
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 overflow-hidden" aria-hidden>
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-44 overflow-hidden"
+      aria-hidden
+    >
       {[0, 1, 2].map((i) => (
         <svg
           key={i}
@@ -114,7 +117,10 @@ export function Waves() {
           }}
         >
           {/* two identical wave periods side by side, so the loop is seamless */}
-          <path d="M0 60 Q 200 8 400 60 T 800 60 T 1200 60 T 1600 60 V120 H0 Z" fill="var(--c)" />
+          <path
+            d="M0 60 Q 200 8 400 60 T 800 60 T 1200 60 T 1600 60 V120 H0 Z"
+            fill="var(--c)"
+          />
         </svg>
       ))}
     </div>
@@ -138,28 +144,71 @@ export function VaultScene({ mood }: { mood: Mood }) {
       className={`relative mx-auto w-full max-w-[300px] ${mood === "breach" ? "shake" : ""}`}
       style={{ "--c": color } as CSSProperties}
     >
-      <svg viewBox="0 0 200 200" className="glow w-full" role="img" aria-label={`Vault status: ${label}`}>
+      <svg
+        viewBox="0 0 200 200"
+        className="glow w-full"
+        role="img"
+        aria-label={`Vault status: ${label}`}
+      >
         <circle cx="100" cy="100" r="92" fill="var(--c)" opacity="0.06" />
 
         {/* outer ring with 12 bolts, turns slowly */}
         <g className="spin-slow">
-          <circle cx="100" cy="100" r="88" fill="none" stroke="var(--c)" strokeWidth="1.5" opacity="0.7" />
+          <circle
+            cx="100"
+            cy="100"
+            r="88"
+            fill="none"
+            stroke="var(--c)"
+            strokeWidth="1.5"
+            opacity="0.7"
+          />
           {BOLT_ANGLES.map((angle) => (
-            <rect key={angle} x="97" y="6" width="6" height="14" rx="2" fill="var(--c)" opacity="0.85" transform={`rotate(${angle} 100 100)`} />
+            <rect
+              key={angle}
+              x="97"
+              y="6"
+              width="6"
+              height="14"
+              rx="2"
+              fill="var(--c)"
+              opacity="0.85"
+              transform={`rotate(${angle} 100 100)`}
+            />
           ))}
         </g>
 
         {/* middle ring, dashed, turns the other way */}
         <g className="spin-rev">
-          <circle cx="100" cy="100" r="68" fill="none" stroke="var(--c)" strokeWidth="1.5" strokeDasharray="4 8" opacity="0.8" />
+          <circle
+            cx="100"
+            cy="100"
+            r="68"
+            fill="none"
+            stroke="var(--c)"
+            strokeWidth="1.5"
+            strokeDasharray="4 8"
+            opacity="0.8"
+          />
         </g>
 
         {/* inner door */}
-        <circle cx="100" cy="100" r="50" fill="#0b1024" stroke="var(--c)" strokeWidth="2" />
+        <circle
+          cx="100"
+          cy="100"
+          r="50"
+          fill="#0b1024"
+          stroke="var(--c)"
+          strokeWidth="2"
+        />
 
         {/* padlock: the shackle is open unless the vault is sealed */}
         <path
-          d={sealed ? "M85 92 V82 a15 15 0 0 1 30 0 V92" : "M85 92 V82 a15 15 0 0 1 30 0 V74"}
+          d={
+            sealed
+              ? "M85 92 V82 a15 15 0 0 1 30 0 V92"
+              : "M85 92 V82 a15 15 0 0 1 30 0 V74"
+          }
           fill="none"
           stroke="var(--c)"
           strokeWidth="5"
@@ -169,7 +218,10 @@ export function VaultScene({ mood }: { mood: Mood }) {
         <circle cx="100" cy="108" r="5" fill="#0b1024" />
         <rect x="98" y="110" width="4" height="10" rx="2" fill="#0b1024" />
       </svg>
-      <p className="mt-3 text-center text-xs tracking-[0.35em]" style={{ ...MONO, color: "var(--c)" }}>
+      <p
+        className="mt-3 text-center text-xs tracking-[0.35em]"
+        style={{ ...MONO, color: "var(--c)" }}
+      >
         {label}
       </p>
     </div>
@@ -182,11 +234,22 @@ export function VaultScene({ mood }: { mood: Mood }) {
    ==================================================================== */
 
 /* Positions of the twinkling stars outside the window. */
-const STARS: [number, number][] = [[130, 30], [146, 50], [160, 26], [172, 58], [136, 64]];
+const STARS: [number, number][] = [
+  [130, 30],
+  [146, 50],
+  [160, 26],
+  [172, 58],
+  [136, 64],
+];
 
 function RoomScene({ alert }: { alert: boolean }) {
   return (
-    <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="Maya at her laptop while her phone shows a security alert">
+    <svg
+      viewBox="0 0 320 250"
+      className="block w-full"
+      role="img"
+      aria-label="Maya at her laptop while her phone shows a security alert"
+    >
       <defs>
         <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#1b1740" />
@@ -194,7 +257,10 @@ function RoomScene({ alert }: { alert: boolean }) {
         </linearGradient>
         {/* light from the laptop screen: red when alert, cyan otherwise */}
         <radialGradient id="screenGlow" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor={alert ? "rgba(251,75,91,.35)" : "rgba(76,201,255,.4)"} />
+          <stop
+            offset="0"
+            stopColor={alert ? "rgba(251,75,91,.35)" : "rgba(76,201,255,.4)"}
+          />
           <stop offset="1" stopColor="rgba(0,0,0,0)" />
         </radialGradient>
       </defs>
@@ -204,18 +270,62 @@ function RoomScene({ alert }: { alert: boolean }) {
       <rect y="214" width="320" height="36" fill="#120f2b" />
 
       {/* window with night sky, moon and twinkling stars */}
-      <rect x="118" y="16" width="84" height="62" rx="4" fill="#0b1030" stroke="#3b3470" strokeWidth="3" />
+      <rect
+        x="118"
+        y="16"
+        width="84"
+        height="62"
+        rx="4"
+        fill="#0b1030"
+        stroke="#3b3470"
+        strokeWidth="3"
+      />
       <circle cx="184" cy="34" r="8" fill="#f5f3ff" />
       <circle cx="178" cy="31" r="7" fill="#0b1030" />
       {STARS.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="1.3" fill="#fff" className="twinkle" style={{ animationDelay: `${i * 0.4}s` }} />
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r="1.3"
+          fill="#fff"
+          className="twinkle"
+          style={{ animationDelay: `${i * 0.4}s` }}
+        />
       ))}
-      <line x1="160" y1="16" x2="160" y2="78" stroke="#3b3470" strokeWidth="2" />
-      <line x1="118" y1="47" x2="202" y2="47" stroke="#3b3470" strokeWidth="2" />
+      <line
+        x1="160"
+        y1="16"
+        x2="160"
+        y2="78"
+        stroke="#3b3470"
+        strokeWidth="2"
+      />
+      <line
+        x1="118"
+        y1="47"
+        x2="202"
+        y2="47"
+        stroke="#3b3470"
+        strokeWidth="2"
+      />
 
       {/* poster */}
-      <rect x="246" y="22" width="54" height="44" rx="3" fill="#181a38" stroke="#4a4780" />
-      <path d="M273 31 l13 5 v10 c0 8 -6 13 -13 16 c-7 -3 -13 -8 -13 -16 v-10 z" fill="none" stroke="#8b5cf6" strokeWidth="2" />
+      <rect
+        x="246"
+        y="22"
+        width="54"
+        height="44"
+        rx="3"
+        fill="#181a38"
+        stroke="#4a4780"
+      />
+      <path
+        d="M273 31 l13 5 v10 c0 8 -6 13 -13 16 c-7 -3 -13 -8 -13 -16 v-10 z"
+        fill="none"
+        stroke="#8b5cf6"
+        strokeWidth="2"
+      />
 
       {/* chair and desk */}
       <rect x="14" y="178" width="292" height="9" rx="2" fill="#3a2d6b" />
@@ -230,8 +340,24 @@ function RoomScene({ alert }: { alert: boolean }) {
           "MAYA: ponytail, hoodie..." comment (after the screenGlow ellipse, before the LAPTOP). */}
       <defs>
         <filter id="boneGlow" x="-40%" y="-20%" width="180%" height="140%">
-          <feDropShadow in="SourceGraphic" dx="-2" dy="0" stdDeviation="2" floodColor="#5b7cff" floodOpacity="0.85" result="blue" />
-          <feDropShadow in="SourceGraphic" dx="2" dy="0" stdDeviation="2" floodColor="#ee2a7b" floodOpacity="0.45" result="pink" />
+          <feDropShadow
+            in="SourceGraphic"
+            dx="-2"
+            dy="0"
+            stdDeviation="2"
+            floodColor="#5b7cff"
+            floodOpacity="0.85"
+            result="blue"
+          />
+          <feDropShadow
+            in="SourceGraphic"
+            dx="2"
+            dy="0"
+            stdDeviation="2"
+            floodColor="#ee2a7b"
+            floodOpacity="0.45"
+            result="pink"
+          />
           <feMerge>
             <feMergeNode in="blue" />
             <feMergeNode in="pink" />
@@ -239,34 +365,97 @@ function RoomScene({ alert }: { alert: boolean }) {
         </filter>
       </defs>
 
-      <g filter="url(#boneGlow)" stroke="#efecff" strokeLinecap="round" strokeLinejoin="round" fill="none">
+      <g
+        filter="url(#boneGlow)"
+        stroke="#efecff"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      >
         {/* legs: pelvis to knees to ankles */}
         <path d="M79 172 L77 200 L73 228" strokeWidth="4.5" />
         <path d="M97 172 L99 200 L103 228" strokeWidth="4.5" />
         <circle cx="77" cy="200" r="4" fill="#efecff" stroke="none" />
         <circle cx="99" cy="200" r="4" fill="#efecff" stroke="none" />
         {/* feet */}
-        <path d="M72 227 Q64 229 59 235 L58 238 L74 238 Q76 232 72 227 Z" fill="#efecff" stroke="none" />
-        <path d="M104 227 Q112 229 117 235 L118 238 L102 238 Q100 232 104 227 Z" fill="#efecff" stroke="none" />
+        <path
+          d="M72 227 Q64 229 59 235 L58 238 L74 238 Q76 232 72 227 Z"
+          fill="#efecff"
+          stroke="none"
+        />
+        <path
+          d="M104 227 Q112 229 117 235 L118 238 L102 238 Q100 232 104 227 Z"
+          fill="#efecff"
+          stroke="none"
+        />
 
         {/* pelvis */}
-        <path d="M74 160 Q88 150 102 160 Q100 172 94 176 Q88 170 82 176 Q76 172 74 160 Z" fill="#efecff" stroke="#b9b3e6" strokeWidth="1" />
+        <path
+          d="M74 160 Q88 150 102 160 Q100 172 94 176 Q88 170 82 176 Q76 172 74 160 Z"
+          fill="#efecff"
+          stroke="#b9b3e6"
+          strokeWidth="1"
+        />
         <circle cx="79" cy="172" r="3.2" fill="#efecff" stroke="none" />
         <circle cx="97" cy="172" r="3.2" fill="#efecff" stroke="none" />
 
         {/* lower spine */}
-        <ellipse cx="88" cy="148" rx="4" ry="2.2" fill="#efecff" stroke="none" />
-        <ellipse cx="88" cy="153" rx="4.4" ry="2.2" fill="#efecff" stroke="none" />
-        <ellipse cx="88" cy="158" rx="4.8" ry="2.2" fill="#efecff" stroke="none" />
+        <ellipse
+          cx="88"
+          cy="148"
+          rx="4"
+          ry="2.2"
+          fill="#efecff"
+          stroke="none"
+        />
+        <ellipse
+          cx="88"
+          cy="153"
+          rx="4.4"
+          ry="2.2"
+          fill="#efecff"
+          stroke="none"
+        />
+        <ellipse
+          cx="88"
+          cy="158"
+          rx="4.8"
+          ry="2.2"
+          fill="#efecff"
+          stroke="none"
+        />
 
         {/* ribcage: dark chest, sternum, ribs */}
-        <ellipse cx="88" cy="128" rx="19" ry="17" fill="#1a1640" opacity="0.55" stroke="none" />
+        <ellipse
+          cx="88"
+          cy="128"
+          rx="19"
+          ry="17"
+          fill="#1a1640"
+          opacity="0.55"
+          stroke="none"
+        />
         <path d="M88 111 V143" strokeWidth="3" />
-        <path d="M88 114 C78 111 69 115 69 121 M88 114 C98 111 107 115 107 121" strokeWidth="2.2" />
-        <path d="M88 121 C78 118 70 122 70 128 M88 121 C98 118 106 122 106 128" strokeWidth="2.2" />
-        <path d="M88 128 C79 125 72 129 72 134 M88 128 C97 125 104 129 104 134" strokeWidth="2.2" />
-        <path d="M88 135 C81 133 75 136 75 140 M88 135 C95 133 101 136 101 140" strokeWidth="2.2" />
-        <path d="M88 141 C83 140 79 142 79 145 M88 141 C93 140 97 142 97 145" strokeWidth="2.2" />
+        <path
+          d="M88 114 C78 111 69 115 69 121 M88 114 C98 111 107 115 107 121"
+          strokeWidth="2.2"
+        />
+        <path
+          d="M88 121 C78 118 70 122 70 128 M88 121 C98 118 106 122 106 128"
+          strokeWidth="2.2"
+        />
+        <path
+          d="M88 128 C79 125 72 129 72 134 M88 128 C97 125 104 129 104 134"
+          strokeWidth="2.2"
+        />
+        <path
+          d="M88 135 C81 133 75 136 75 140 M88 135 C95 133 101 136 101 140"
+          strokeWidth="2.2"
+        />
+        <path
+          d="M88 141 C83 140 79 142 79 145 M88 141 C93 140 97 142 97 145"
+          strokeWidth="2.2"
+        />
 
         {/* collar bones and shoulder joints */}
         <path d="M88 110 L72 102 M88 110 L104 102" strokeWidth="3.4" />
@@ -275,7 +464,14 @@ function RoomScene({ alert }: { alert: boolean }) {
 
         {/* neck vertebrae */}
         <ellipse cx="88" cy="99" rx="4" ry="2.2" fill="#efecff" stroke="none" />
-        <ellipse cx="88" cy="104" rx="4" ry="2.2" fill="#efecff" stroke="none" />
+        <ellipse
+          cx="88"
+          cy="104"
+          rx="4"
+          ry="2.2"
+          fill="#efecff"
+          stroke="none"
+        />
 
         {/* arms: elbows out, hands clutching the head */}
         <path d="M72 102 L44 100 L68 68" strokeWidth="4" />
@@ -286,7 +482,10 @@ function RoomScene({ alert }: { alert: boolean }) {
         <ellipse cx="68" cy="68" rx="5" ry="6" fill="#efecff" stroke="none" />
         <ellipse cx="108" cy="68" rx="5" ry="6" fill="#efecff" stroke="none" />
         <path d="M66 64 L63 53 M69 63 L69 51 M72 64 L74 53" strokeWidth="1.9" />
-        <path d="M110 64 L113 53 M107 63 L107 51 M104 64 L102 53" strokeWidth="1.9" />
+        <path
+          d="M110 64 L113 53 M107 63 L107 51 M104 64 L102 53"
+          strokeWidth="1.9"
+        />
 
         {/* skull: cranium, dark eye sockets, nose, open mouth and dropped jaw */}
         <path
@@ -295,9 +494,27 @@ function RoomScene({ alert }: { alert: boolean }) {
           stroke="#b9b3e6"
           strokeWidth="1"
         />
-        <path d="M77 79 L99 79 L97 91 Q88 95 79 91 Z" fill="#1a1640" stroke="none" />
-        <ellipse cx="80" cy="64" rx="4.6" ry="5.6" fill="#1a1640" stroke="none" />
-        <ellipse cx="96" cy="64" rx="4.6" ry="5.6" fill="#1a1640" stroke="none" />
+        <path
+          d="M77 79 L99 79 L97 91 Q88 95 79 91 Z"
+          fill="#1a1640"
+          stroke="none"
+        />
+        <ellipse
+          cx="80"
+          cy="64"
+          rx="4.6"
+          ry="5.6"
+          fill="#1a1640"
+          stroke="none"
+        />
+        <ellipse
+          cx="96"
+          cy="64"
+          rx="4.6"
+          ry="5.6"
+          fill="#1a1640"
+          stroke="none"
+        />
         <circle cx="79" cy="62.5" r="1.3" fill="#7c8cff" stroke="none" />
         <circle cx="95" cy="62.5" r="1.3" fill="#7c8cff" stroke="none" />
         <path d="M88 69 L85.4 76 H90.6 Z" fill="#1a1640" stroke="none" />
@@ -310,22 +527,71 @@ function RoomScene({ alert }: { alert: boolean }) {
       {alert && (
         <g stroke="#4cc9ff" strokeWidth="2" strokeLinecap="round">
           <line x1="56" y1="40" x2="62" y2="46" className="twinkle" />
-          <line x1="50" y1="53" x2="58" y2="56" className="twinkle" style={{ animationDelay: "0.3s" }} />
-          <line x1="62" y1="28" x2="67" y2="36" className="twinkle" style={{ animationDelay: "0.6s" }} />
-          <line x1="120" y1="40" x2="114" y2="46" className="twinkle" style={{ animationDelay: "0.2s" }} />
-          <line x1="126" y1="53" x2="118" y2="56" className="twinkle" style={{ animationDelay: "0.5s" }} />
-          <line x1="114" y1="28" x2="109" y2="36" className="twinkle" style={{ animationDelay: "0.8s" }} />
+          <line
+            x1="50"
+            y1="53"
+            x2="58"
+            y2="56"
+            className="twinkle"
+            style={{ animationDelay: "0.3s" }}
+          />
+          <line
+            x1="62"
+            y1="28"
+            x2="67"
+            y2="36"
+            className="twinkle"
+            style={{ animationDelay: "0.6s" }}
+          />
+          <line
+            x1="120"
+            y1="40"
+            x2="114"
+            y2="46"
+            className="twinkle"
+            style={{ animationDelay: "0.2s" }}
+          />
+          <line
+            x1="126"
+            y1="53"
+            x2="118"
+            y2="56"
+            className="twinkle"
+            style={{ animationDelay: "0.5s" }}
+          />
+          <line
+            x1="114"
+            y1="28"
+            x2="109"
+            y2="36"
+            className="twinkle"
+            style={{ animationDelay: "0.8s" }}
+          />
         </g>
       )}
 
-    
-
       {/* LAPTOP: a red warning triangle when alert, calm lines otherwise */}
-      <rect x="150" y="112" width="80" height="58" rx="4" fill="#0b1024" stroke="#cfd3ee" strokeWidth="3" />
+      <rect
+        x="150"
+        y="112"
+        width="80"
+        height="58"
+        rx="4"
+        fill="#0b1024"
+        stroke="#cfd3ee"
+        strokeWidth="3"
+      />
       {alert ? (
         <g>
           <path d="M190 124 l14 24 h-28 z" fill="#fb4b5b" />
-          <rect x="188.5" y="132" width="3" height="9" rx="1.5" fill="#0b1024" />
+          <rect
+            x="188.5"
+            y="132"
+            width="3"
+            height="9"
+            rx="1.5"
+            fill="#0b1024"
+          />
           <circle cx="190" cy="145" r="1.8" fill="#0b1024" />
         </g>
       ) : (
@@ -339,9 +605,28 @@ function RoomScene({ alert }: { alert: boolean }) {
 
       {/* PHONE on the desk: buzzes and lights up when alert */}
       <g transform="translate(268 138)">
-        <g className={alert ? "buzz svg-box" : "svg-box"} style={{ transform: "rotate(-8deg)" }}>
-          <rect x="0" y="0" width="30" height="48" rx="5" fill="#0b0b18" stroke="#4a4780" strokeWidth="1.5" />
-          <rect x="3" y="4" width="24" height="38" rx="3" fill={alert ? "#3a2410" : "#12122a"} />
+        <g
+          className={alert ? "buzz svg-box" : "svg-box"}
+          style={{ transform: "rotate(-8deg)" }}
+        >
+          <rect
+            x="0"
+            y="0"
+            width="30"
+            height="48"
+            rx="5"
+            fill="#0b0b18"
+            stroke="#4a4780"
+            strokeWidth="1.5"
+          />
+          <rect
+            x="3"
+            y="4"
+            width="24"
+            height="38"
+            rx="3"
+            fill={alert ? "#3a2410" : "#12122a"}
+          />
           {alert && (
             <>
               <circle cx="15" cy="23" r="6" fill="#f6c453" />
@@ -355,11 +640,33 @@ function RoomScene({ alert }: { alert: boolean }) {
       {/* the notification that pops up above the phone */}
       {alert && (
         <g className="notif-in">
-          <rect x="218" y="76" width="96" height="34" rx="7" fill="#111329" stroke="#f6c453" strokeWidth="1.5" />
+          <rect
+            x="218"
+            y="76"
+            width="96"
+            height="34"
+            rx="7"
+            fill="#111329"
+            stroke="#f6c453"
+            strokeWidth="1.5"
+          />
           <circle cx="231" cy="93" r="6" fill="#f6c453" />
-          <text x="231" y="96" textAnchor="middle" fontSize="9" fontWeight="700" fill="#111329">!</text>
-          <text x="242" y="90" fontSize="7" fontWeight="700" fill="#f5f3ff">New login alert</text>
-          <text x="242" y="101" fontSize="6" fill="#b8b5c9">Unknown device</text>
+          <text
+            x="231"
+            y="96"
+            textAnchor="middle"
+            fontSize="9"
+            fontWeight="700"
+            fill="#111329"
+          >
+            !
+          </text>
+          <text x="242" y="90" fontSize="7" fontWeight="700" fill="#f5f3ff">
+            New login alert
+          </text>
+          <text x="242" y="101" fontSize="6" fill="#b8b5c9">
+            Unknown device
+          </text>
         </g>
       )}
     </svg>
@@ -382,7 +689,12 @@ const SITES: [string, number, number][] = [
 
 function NetworkScene() {
   return (
-    <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="Map of Maya's accounts with an intruder spreading between them">
+    <svg
+      viewBox="0 0 320 250"
+      className="block w-full"
+      role="img"
+      aria-label="Map of Maya's accounts with an intruder spreading between them"
+    >
       <rect width="320" height="250" fill="#0a1230" />
 
       {/* faint grid */}
@@ -397,24 +709,94 @@ function NetworkScene() {
 
       {/* the intruder's red dashed paths, moving from the centre to every account */}
       {SITES.map(([name, x, y]) => (
-        <line key={name} x1="160" y1="128" x2={x} y2={y} stroke="#fb4b5b" strokeWidth="2" strokeDasharray="6 6" className="dash" opacity="0.75" />
+        <line
+          key={name}
+          x1="160"
+          y1="128"
+          x2={x}
+          y2={y}
+          stroke="#fb4b5b"
+          strokeWidth="2"
+          strokeDasharray="6 6"
+          className="dash"
+          opacity="0.75"
+        />
       ))}
 
       {/* the account nodes */}
       {SITES.map(([name, x, y]) => (
         <g key={name}>
-          <circle cx={x} cy={y} r="19" fill="#0b1024" stroke="#4cc9ff" strokeWidth="2" />
-          <text x={x} y={y + 3} textAnchor="middle" fontSize="8" fill="#f5f3ff" style={MONO}>{name}</text>
+          <circle
+            cx={x}
+            cy={y}
+            r="19"
+            fill="#0b1024"
+            stroke="#4cc9ff"
+            strokeWidth="2"
+          />
+          <text
+            x={x}
+            y={y + 3}
+            textAnchor="middle"
+            fontSize="8"
+            fill="#f5f3ff"
+            style={MONO}
+          >
+            {name}
+          </text>
         </g>
       ))}
 
       {/* Maya's password at the centre: the one key to everything */}
-      <circle cx="160" cy="128" r="26" fill="none" stroke="#fb4b5b" strokeWidth="2" className="ping svg-box" />
-      <circle cx="160" cy="128" r="24" fill="#1c0f1f" stroke="#fb4b5b" strokeWidth="2.5" />
-      <text x="160" y="125" textAnchor="middle" fontSize="7.5" fill="#f5f3ff" style={MONO}>maya</text>
-      <text x="160" y="136" textAnchor="middle" fontSize="7.5" fill="#fb4b5b" style={MONO}>2008</text>
+      <circle
+        cx="160"
+        cy="128"
+        r="26"
+        fill="none"
+        stroke="#fb4b5b"
+        strokeWidth="2"
+        className="ping svg-box"
+      />
+      <circle
+        cx="160"
+        cy="128"
+        r="24"
+        fill="#1c0f1f"
+        stroke="#fb4b5b"
+        strokeWidth="2.5"
+      />
+      <text
+        x="160"
+        y="125"
+        textAnchor="middle"
+        fontSize="7.5"
+        fill="#f5f3ff"
+        style={MONO}
+      >
+        maya
+      </text>
+      <text
+        x="160"
+        y="136"
+        textAnchor="middle"
+        fontSize="7.5"
+        fill="#fb4b5b"
+        style={MONO}
+      >
+        2008
+      </text>
 
-      <text x="160" y="238" textAnchor="middle" fontSize="9" fill="#fb4b5b" letterSpacing="3" style={MONO}>ONE PASSWORD, EVERY DOOR</text>
+      <text
+        x="160"
+        y="238"
+        textAnchor="middle"
+        fontSize="9"
+        fill="#fb4b5b"
+        letterSpacing="3"
+        style={MONO}
+      >
+        ONE PASSWORD, EVERY DOOR
+      </text>
     </svg>
   );
 }
@@ -425,7 +807,11 @@ function NetworkScene() {
    ==================================================================== */
 
 /* Which animation class each virus state uses. */
-const VIRUS_ANIM: Record<VirusState, string> = { idle: "floaty", laugh: "jiggle", dead: "die" };
+const VIRUS_ANIM: Record<VirusState, string> = {
+  idle: "floaty",
+  laugh: "jiggle",
+  dead: "die",
+};
 
 /* Rotation of each of the 10 spikes. */
 const SPIKE_ANGLES = Array.from({ length: 10 }, (_, i) => i * 36);
@@ -461,8 +847,18 @@ function VirusEyes({ state }: { state: VirusState }) {
       <circle cx="67" cy="74" r="4" fill="#2b0a10" />
       <circle cx="93" cy="74" r="4" fill="#2b0a10" />
       {/* angry eyebrows */}
-      <path d="M54 58 L74 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
-      <path d="M106 58 L86 66" stroke="#2b0a10" strokeWidth="4" strokeLinecap="round" />
+      <path
+        d="M54 58 L74 66"
+        stroke="#2b0a10"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M106 58 L86 66"
+        stroke="#2b0a10"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
     </g>
   );
 }
@@ -470,23 +866,48 @@ function VirusEyes({ state }: { state: VirusState }) {
 /* The virus's mouth: a flat wobble when dead, a wide laugh with teeth and tongue, or a jagged grin. */
 function VirusMouth({ state }: { state: VirusState }) {
   if (state === "dead") {
-    return <path d="M64 100 Q72 94 80 100 T96 100" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" />;
+    return (
+      <path
+        d="M64 100 Q72 94 80 100 T96 100"
+        stroke="#2b0a10"
+        strokeWidth="3.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+    );
   }
   if (state === "laugh") {
     return (
       <g>
         <path d="M58 90 Q80 126 102 90 Z" fill="#2b0a10" />
-        <path d="M64 91 h8 v7 h-8 z M76 91 h8 v9 h-8 z M88 91 h8 v7 h-8 z" fill="#fff" />
+        <path
+          d="M64 91 h8 v7 h-8 z M76 91 h8 v9 h-8 z M88 91 h8 v7 h-8 z"
+          fill="#fff"
+        />
         <ellipse cx="80" cy="108" rx="9" ry="5" fill="#ff6b81" />
       </g>
     );
   }
-  return <path d="M62 98 L70 92 L78 98 L86 92 L94 98" stroke="#2b0a10" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+  return (
+    <path
+      d="M62 98 L70 92 L78 98 L86 92 L94 98"
+      stroke="#2b0a10"
+      strokeWidth="3.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  );
 }
 
 export function Virus({ state }: { state: VirusState }) {
   return (
-    <svg viewBox="0 0 160 160" className="block w-full overflow-visible" role="img" aria-label={`Virus: ${state}`}>
+    <svg
+      viewBox="0 0 160 160"
+      className="block w-full overflow-visible"
+      role="img"
+      aria-label={`Virus: ${state}`}
+    >
       <defs>
         <radialGradient id="virusBody" cx="0.4" cy="0.35" r="0.8">
           <stop offset="0" stopColor="#ff7a8a" />
@@ -497,9 +918,21 @@ export function Virus({ state }: { state: VirusState }) {
       {/* the creature (its own "die" animation hides it once destroyed) */}
       <g className={`svg-box ${VIRUS_ANIM[state]}`}>
         {SPIKE_ANGLES.map((angle) => (
-          <path key={angle} d="M80 16 L88 38 L72 38 Z" fill="#fb4b5b" transform={`rotate(${angle} 80 80)`} />
+          <path
+            key={angle}
+            d="M80 16 L88 38 L72 38 Z"
+            fill="#fb4b5b"
+            transform={`rotate(${angle} 80 80)`}
+          />
         ))}
-        <circle cx="80" cy="80" r="40" fill="url(#virusBody)" stroke="#ffa3ad" strokeWidth="2" />
+        <circle
+          cx="80"
+          cy="80"
+          r="40"
+          fill="url(#virusBody)"
+          stroke="#ffa3ad"
+          strokeWidth="2"
+        />
         <VirusEyes state={state} />
         <VirusMouth state={state} />
       </g>
@@ -514,7 +947,12 @@ export function Virus({ state }: { state: VirusState }) {
             r="4"
             fill={i % 2 ? "#4ade80" : "#fff"}
             className="burst"
-            style={{ "--dx": `${spark.dx}px`, "--dy": `${spark.dy}px` } as CSSProperties}
+            style={
+              {
+                "--dx": `${spark.dx}px`,
+                "--dy": `${spark.dy}px`,
+              } as CSSProperties
+            }
           />
         ))}
     </svg>
@@ -538,14 +976,20 @@ function ArenaScene({ mood, virus }: { mood: Mood; virus: VirusState }) {
         <div className="relative">
           {/* speech bubble while the virus is laughing */}
           {virus === "laugh" && (
-            <div className="notif-in absolute -top-3 end-0 z-10 rounded-xl bg-[#fb4b5b] px-3 py-1 text-xs font-extrabold tracking-wider text-white shadow-lg" style={MONO}>
+            <div
+              className="notif-in absolute -top-3 end-0 z-10 rounded-xl bg-[#fb4b5b] px-3 py-1 text-xs font-extrabold tracking-wider text-white shadow-lg"
+              style={MONO}
+            >
               HA HA HA!
             </div>
           )}
           <Virus state={virus} />
         </div>
       </div>
-      <p className="mt-3 text-center text-[10px] font-bold tracking-[0.25em]" style={{ ...MONO, color: caption.color }}>
+      <p
+        className="mt-3 text-center text-[10px] font-bold tracking-[0.25em]"
+        style={{ ...MONO, color: caption.color }}
+      >
         {caption.text}
       </p>
     </div>
@@ -557,34 +1001,98 @@ function ArenaScene({ mood, virus }: { mood: Mood; virus: VirusState }) {
    ==================================================================== */
 
 /* Positions of the four twinkling dots along the bottom. */
-const LAB_DOTS: [number, number][] = [[40, 205], [120, 215], [200, 205], [280, 212]];
+const LAB_DOTS: [number, number][] = [
+  [40, 205],
+  [120, 215],
+  [200, 205],
+  [280, 212],
+];
 
 function LabScene() {
   return (
-    <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="A shield on a whiteboard in the learning lab">
+    <svg
+      viewBox="0 0 320 250"
+      className="block w-full"
+      role="img"
+      aria-label="A shield on a whiteboard in the learning lab"
+    >
       <rect width="320" height="250" fill="#07241f" />
 
       {/* whiteboard */}
-      <rect x="24" y="22" width="272" height="150" rx="10" fill="#0d3a33" stroke="#2dd4bf" strokeWidth="3" />
+      <rect
+        x="24"
+        y="22"
+        width="272"
+        height="150"
+        rx="10"
+        fill="#0d3a33"
+        stroke="#2dd4bf"
+        strokeWidth="3"
+      />
 
       {/* three checklist lines: a tick and a bar each, every bar a little shorter */}
       {[0, 1, 2].map((i) => (
         <g key={i}>
-          <path d={`M46 ${58 + i * 34} l7 7 l13 -15`} stroke="#4ade80" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="80" y={52 + i * 34} width={150 - i * 22} height="8" rx="4" fill="#2dd4bf" opacity="0.55" />
+          <path
+            d={`M46 ${58 + i * 34} l7 7 l13 -15`}
+            stroke="#4ade80"
+            strokeWidth="4"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <rect
+            x="80"
+            y={52 + i * 34}
+            width={150 - i * 22}
+            height="8"
+            rx="4"
+            fill="#2dd4bf"
+            opacity="0.55"
+          />
         </g>
       ))}
 
       {/* the big floating shield */}
       <g className="floaty svg-box">
-        <path d="M250 70 l30 11 v24 c0 18 -13 30 -30 37 c-17 -7 -30 -19 -30 -37 v-24 z" fill="#0b1024" stroke="#2dd4bf" strokeWidth="3" />
-        <path d="M236 106 l11 11 l19 -22" stroke="#4ade80" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M250 70 l30 11 v24 c0 18 -13 30 -30 37 c-17 -7 -30 -19 -30 -37 v-24 z"
+          fill="#0b1024"
+          stroke="#2dd4bf"
+          strokeWidth="3"
+        />
+        <path
+          d="M236 106 l11 11 l19 -22"
+          stroke="#4ade80"
+          strokeWidth="5"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </g>
 
       {LAB_DOTS.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="5" fill="#2dd4bf" className="twinkle" style={{ animationDelay: `${i * 0.5}s` }} />
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r="5"
+          fill="#2dd4bf"
+          className="twinkle"
+          style={{ animationDelay: `${i * 0.5}s` }}
+        />
       ))}
-      <text x="160" y="240" textAnchor="middle" fontSize="9" fill="#2dd4bf" letterSpacing="3" style={MONO}>SECURITY INTEL</text>
+      <text
+        x="160"
+        y="240"
+        textAnchor="middle"
+        fontSize="9"
+        fill="#2dd4bf"
+        letterSpacing="3"
+        style={MONO}
+      >
+        SECURITY INTEL
+      </text>
     </svg>
   );
 }
@@ -601,22 +1109,52 @@ const APP_GRADIENT_90 = "linear-gradient(90deg,#f9ce34,#ee2a7b,#6228d7)";
 const APP_GRADIENT_135 = "linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)";
 
 /* The profile numbers, and the colours of the photo grid. */
-const PROFILE_STATS = [["128", "posts"], ["1.2k", "followers"], ["340", "following"]];
-const PHOTO_COLORS = ["#8b5cf6", "#ee2a7b", "#f6c453", "#4cc9ff", "#4ade80", "#fb4b5b"];
+const PROFILE_STATS = [
+  ["128", "posts"],
+  ["1.2k", "followers"],
+  ["340", "following"],
+];
+const PHOTO_COLORS = [
+  "#8b5cf6",
+  "#ee2a7b",
+  "#f6c453",
+  "#4cc9ff",
+  "#4ade80",
+  "#fb4b5b",
+];
 
 /* The banner at the top of the profile, chosen from the two finished tasks. */
-function statusFor(app: AppState): { text: string; tone: { bg: string; fg: string } } {
-  if (app.pass && app.otp) return { text: "Account protected", tone: TONE.good };
+function statusFor(app: AppState): {
+  text: string;
+  tone: { bg: string; fg: string };
+} {
+  if (app.pass && app.otp)
+    return { text: "Account protected", tone: TONE.good };
   if (app.pass) return { text: "Password updated. Add 2FA.", tone: TONE.warn };
   return { text: "Someone is trying to log in!", tone: TONE.bad };
 }
 
 /* One small security badge, e.g. PASSWORD / WEAK. Green when done, red when not. */
-function SecurityChip({ label, on, onText, offText }: { label: string; on: boolean; onText: string; offText: string }) {
+function SecurityChip({
+  label,
+  on,
+  onText,
+  offText,
+}: {
+  label: string;
+  on: boolean;
+  onText: string;
+  offText: string;
+}) {
   const tone = on ? TONE.good : TONE.bad;
   return (
-    <div className="rounded-lg px-2 py-1.5 text-center" style={{ background: tone.bg, color: tone.fg }}>
-      {label}<br />{on ? onText : offText}
+    <div
+      className="rounded-lg px-2 py-1.5 text-center"
+      style={{ background: tone.bg, color: tone.fg }}
+    >
+      {label}
+      <br />
+      {on ? onText : offText}
     </div>
   );
 }
@@ -629,7 +1167,11 @@ function AppProfile({ app }: { app: AppState }) {
       {/* top bar with a made-up wordmark */}
       <p
         className="text-center text-lg font-bold italic"
-        style={{ background: APP_GRADIENT_90, WebkitBackgroundClip: "text", color: "transparent" }}
+        style={{
+          background: APP_GRADIENT_90,
+          WebkitBackgroundClip: "text",
+          color: "transparent",
+        }}
       >
         snapgram
       </p>
@@ -645,8 +1187,13 @@ function AppProfile({ app }: { app: AppState }) {
 
       {/* profile header: avatar + numbers */}
       <div className="flex items-center gap-3">
-        <div className="rounded-full p-[2px]" style={{ background: APP_GRADIENT_135 }}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1b1740] text-lg font-bold">M</div>
+        <div
+          className="rounded-full p-[2px]"
+          style={{ background: APP_GRADIENT_135 }}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1b1740] text-lg font-bold">
+            M
+          </div>
         </div>
         <div className="grid flex-1 grid-cols-3 text-center text-[10px]">
           {PROFILE_STATS.map(([value, label]) => (
@@ -660,15 +1207,27 @@ function AppProfile({ app }: { app: AppState }) {
       <p className="text-xs font-semibold">maya.snaps</p>
 
       {/* the two security chips that the tasks switch on */}
-      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold" style={MONO}>
-        <SecurityChip label="PASSWORD" on={app.pass} onText="STRONG" offText="WEAK" />
+      <div
+        className="grid grid-cols-2 gap-2 text-[10px] font-bold"
+        style={MONO}
+      >
+        <SecurityChip
+          label="PASSWORD"
+          on={app.pass}
+          onText="STRONG"
+          offText="WEAK"
+        />
         <SecurityChip label="2FA" on={app.otp} onText="ON" offText="OFF" />
       </div>
 
       {/* photo grid */}
       <div className="grid grid-cols-3 gap-1">
         {PHOTO_COLORS.map((color) => (
-          <div key={color} className="aspect-square rounded" style={{ background: `linear-gradient(135deg, ${color}, #1b1740)` }} />
+          <div
+            key={color}
+            className="aspect-square rounded"
+            style={{ background: `linear-gradient(135deg, ${color}, #1b1740)` }}
+          />
         ))}
       </div>
     </div>
@@ -702,7 +1261,7 @@ const CAPTION: Record<StageKey, string> = {
   sealed: "VAULT SEALED",
   inbox: "THE INBOX",
   hook: "THE HOOK",
-  pond: "THE POND", 
+  pond: "THE POND",
 };
 
 interface SceneStageProps {
@@ -717,14 +1276,22 @@ interface SceneStageProps {
    reports an error here if a new stage is added without a picture. */
 function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
   switch (scene) {
-    case "room": return <RoomScene alert={mood === "alert"} />;
-    case "network": return <NetworkScene />;
-    case "arena": return <ArenaScene mood={mood} virus={virus} />;
-    case "lab": return <LabScene />;
-    case "phone": return <PhoneScene app={app} />;
-    case "inbox": return <InboxScene state={inbox} />;
-    case "hook": return <HookScene state={virus} />;
-    case "pond":   return <PondScene mood={mood} />;
+    case "room":
+      return <RoomScene alert={mood === "alert"} />;
+    case "network":
+      return <NetworkScene />;
+    case "arena":
+      return <ArenaScene mood={mood} virus={virus} />;
+    case "lab":
+      return <LabScene />;
+    case "phone":
+      return <PhoneScene app={app} />;
+    case "inbox":
+      return <InboxScene state={inbox} />;
+    case "hook":
+      return <HookScene state={virus} />;
+    case "pond":
+      return <PondScene mood={mood} />;
     case "sealed":
       return (
         <div className="p-6">
@@ -808,11 +1375,7 @@ function PondScene({ mood }: { mood: Mood }) {
           fill="#4ade80"
           opacity="0.85"
         />
-        <path
-          d="M184 216 L174 210 L174 222 Z"
-          fill="#4ade80"
-          opacity="0.85"
-        />
+        <path d="M184 216 L174 210 L174 222 Z" fill="#4ade80" opacity="0.85" />
         <circle cx="212" cy="214" r="1.6" fill="#051912" />
       </g>
 
@@ -836,9 +1399,15 @@ function PondScene({ mood }: { mood: Mood }) {
 export function SceneStage(props: SceneStageProps) {
   return (
     // key={scene}: the card fades in again every time the picture changes
-    <div key={props.scene} className="scene-in overflow-hidden rounded-2xl border border-white/10 bg-[#0b1024]/70 shadow-2xl">
+    <div
+      key={props.scene}
+      className="scene-in overflow-hidden rounded-2xl border border-white/10 bg-[#0b1024]/70 shadow-2xl"
+    >
       <SceneBody {...props} />
-      <p className="border-t border-white/10 py-2 text-center text-[10px] tracking-[0.35em] text-[#b8b5c9]" style={MONO}>
+      <p
+        className="border-t border-white/10 py-2 text-center text-[10px] tracking-[0.35em] text-[#b8b5c9]"
+        style={MONO}
+      >
         {CAPTION[props.scene]}
       </p>
     </div>
@@ -852,14 +1421,19 @@ export function SceneStage(props: SceneStageProps) {
    ==================================================================== */
 const BACKDROP: Record<StageKey, string> = {
   room: "radial-gradient(ellipse at 20% 15%, rgba(236,72,153,.24), transparent 55%), radial-gradient(ellipse at 85% 80%, rgba(139,92,246,.26), transparent 55%)",
-  network: "radial-gradient(ellipse at 50% 15%, rgba(76,201,255,.24), transparent 55%), radial-gradient(ellipse at 10% 90%, rgba(30,64,175,.32), transparent 55%)",
-  arena: "radial-gradient(ellipse at 75% 25%, rgba(251,75,91,.26), transparent 55%), radial-gradient(ellipse at 15% 85%, rgba(139,92,246,.22), transparent 55%)",
+  network:
+    "radial-gradient(ellipse at 50% 15%, rgba(76,201,255,.24), transparent 55%), radial-gradient(ellipse at 10% 90%, rgba(30,64,175,.32), transparent 55%)",
+  arena:
+    "radial-gradient(ellipse at 75% 25%, rgba(251,75,91,.26), transparent 55%), radial-gradient(ellipse at 15% 85%, rgba(139,92,246,.22), transparent 55%)",
   lab: "radial-gradient(ellipse at 30% 20%, rgba(45,212,191,.22), transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(76,201,255,.16), transparent 55%)",
-  phone: "radial-gradient(ellipse at 80% 15%, rgba(236,72,153,.28), transparent 55%), radial-gradient(ellipse at 15% 80%, rgba(245,158,11,.2), transparent 55%)",
-  sealed: "radial-gradient(ellipse at 50% 20%, rgba(74,222,128,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(76,201,255,.18), transparent 55%)",
-  inbox: "radial-gradient(ellipse at 20% 20%, rgba(76,201,255,.22), transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(251,75,91,.2), transparent 55%)",
+  phone:
+    "radial-gradient(ellipse at 80% 15%, rgba(236,72,153,.28), transparent 55%), radial-gradient(ellipse at 15% 80%, rgba(245,158,11,.2), transparent 55%)",
+  sealed:
+    "radial-gradient(ellipse at 50% 20%, rgba(74,222,128,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(76,201,255,.18), transparent 55%)",
+  inbox:
+    "radial-gradient(ellipse at 20% 20%, rgba(76,201,255,.22), transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(251,75,91,.2), transparent 55%)",
   hook: "radial-gradient(ellipse at 50% 10%, rgba(139,92,246,.26), transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(14,116,144,.3), transparent 55%)",
-   pond: "radial-gradient(ellipse at 20% 20%, rgba(74,222,128,.2), transparent 55%), radial-gradient(ellipse at 80% 85%, rgba(20,110,80,.32), transparent 55%)"
+  pond: "radial-gradient(ellipse at 20% 20%, rgba(74,222,128,.2), transparent 55%), radial-gradient(ellipse at 80% 85%, rgba(20,110,80,.32), transparent 55%)",
 };
 
 /* The list of stages, taken from BACKDROP so it can never get out of date. */

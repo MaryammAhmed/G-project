@@ -3,215 +3,200 @@
 /*
   components/mission/intros/PhishIntro.tsx
   =========================================
-  6-second cold open for Module 2 (phishing).
-
-  A fisherman in a small boat drifts across a glitchy cyber ocean,
-  drops a line, and waits. The phishing metaphor made literal:
-  bait, hook, line, cut.
-
-  Palette: green (#4ade80) + amber (#f6c453).
-  Deliberately different from Vault's cyan so the two episodes
-  never feel like the same game.
-
-  Timeline:
-    0.0s  matrix-green rain falls; scan line sweeps; boat starts drifting
-    4.2s  caption fades in ("SOMETHING IS ALWAYS BITING.")
-    6.5s  calls onDone() → IntroScene fades out → beat 0 begins
-
-  Reduced motion: users with prefers-reduced-motion get a static scene.
-  The caption still appears and onDone still fires on schedule.
-
-  Dependencies:
-    Reuses `waveMove`, `dashMove`, `pingRing` keyframes from
-    components/mission/scenes.tsx (SCENE_CSS). Those are injected
-    into the page by MissionPlayer's <style>{CSS + SCENE_CSS}</style>.
-    The intro's own keyframes are defined locally in the <style> at
-    the bottom of this file.
+  The cinematic that plays before Mission 2 (replaces the old fisherman-boat PhishIntro):
+  letterbox bars, four "shots" with a caption each, then a glitching cyan title card.
+  Skippable at any time (button, or the Escape key).
+    light -> "It looks exactly like your school."
+    mail  -> "It sounds like someone you trust."
+    clock -> "And it's always in a hurry."
+    jaws  -> "But the light is bait."   (an anglerfish: the glowing lure is the trap)
+    title -> THE MIRAGE
+  MissionPlayer renders it when mission.module === 2 and showIntro is true.
 */
 
 import { useEffect, useState } from "react";
+import { ensureAudio, sfx } from "@/lib/mission/audio";
+import type { SfxKind } from "@/lib/mission/audio";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
+const C = "#22D3EE";
+const AMBER = "#fbbf24";
+
+type Visual = "light" | "mail" | "clock" | "jaws" | "title";
+const SHOTS: { visual: Visual; ms: number; kicker?: string; line: string }[] = [
+  { visual: "light", ms: 4200, kicker: "ELMWOOD HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
+  { visual: "mail", ms: 3800, line: "It sounds like someone you trust." },
+  { visual: "clock", ms: 3800, line: "And it's always in a hurry." },
+  { visual: "jaws", ms: 4600, line: "But the light is bait." },
+  { visual: "title", ms: 0, line: "" },
+];
+/* which sound plays when a shot begins */
+const SHOT_SOUND: Partial<Record<Visual, SfxKind>> = { mail: "tick", clock: "bad", jaws: "buzz", title: "unlock" };
+
+const CSS = `
+@keyframes miFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes miBar { from { height: 0; } to { height: 12vh; } }
+@keyframes miPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes miRing { 0% { transform: scale(.8); opacity: .8; } 100% { transform: scale(2.2); opacity: 0; } }
+@keyframes miFlipA { 0%,45% { opacity: 1; } 50%,95% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes miFlipB { 0%,45% { opacity: 0; } 50%,95% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes miBlink { 50% { opacity: .1; } }
+@keyframes miJaw { 0%,35% { transform: rotate(0deg); } 60%,100% { transform: rotate(22deg); } }
+@keyframes miLure { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes miGlitch { 0%,92%,100% { transform: translate(0,0); } 94% { transform: translate(-4px,1px); } 96% { transform: translate(5px,-2px); } 98% { transform: translate(-2px,2px); } }
+.mi-fade { animation: miFade .9s ease-out both; }
+.mi-letterbox { animation: miBar 1.2s ease-out both; }
+.mi-pulse { transform-box: fill-box; transform-origin: center; animation: miPulse 1.6s ease-in-out infinite; }
+.mi-ring { transform-box: fill-box; transform-origin: center; animation: miRing 2.2s ease-out infinite; }
+.mi-flipA { animation: miFlipA 2.2s steps(1) infinite; }
+.mi-flipB { animation: miFlipB 2.2s steps(1) infinite; }
+.mi-blink { animation: miBlink 1s steps(1) infinite; }
+.mi-jaw { transform-origin: 56px 138px; animation: miJaw 2.4s ease-in-out infinite; }
+.mi-lure { animation: miLure 2.2s ease-in-out infinite; }
+.mi-glitch { animation: miGlitch 3s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .mi-pulse, .mi-ring, .mi-flipA, .mi-flipB, .mi-blink, .mi-jaw, .mi-lure, .mi-glitch { animation: none !important; } }
+`;
+
+/* The picture for each shot (simple SVGs on a 200 x 200 canvas). */
+function Picture({ v }: { v: Visual }) {
+  if (v === "light")
+    return (
+      <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
+        <circle className="mi-pulse" cx="100" cy="100" r="86" fill="rgba(34,211,238,.10)" />
+        <rect x="30" y="34" width="140" height="132" rx="12" fill="#06202c" stroke={C} strokeWidth="3" />
+        <circle cx="100" cy="64" r="14" fill="none" stroke={C} strokeWidth="3" />
+        <text x="100" y="94" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cfe9f2" style={MONO}>Elmwood Student Portal</text>
+        <rect x="52" y="104" width="96" height="14" rx="4" fill="#03101a" stroke="#1c4252" />
+        <rect x="52" y="124" width="96" height="14" rx="4" fill="#03101a" stroke="#1c4252" />
+        <rect x="72" y="146" width="56" height="14" rx="7" fill={C} />
+      </svg>
+    );
+  if (v === "mail")
+    return (
+      <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
+        <rect x="26" y="56" width="148" height="100" rx="10" fill="#06202c" stroke={C} strokeWidth="3" />
+        <path d="M26 64 L100 118 L174 64" fill="none" stroke={C} strokeWidth="3" />
+        <circle cx="100" cy="46" r="12" fill="#06202c" stroke={C} strokeWidth="2.5" /><path d="M94 46 l4 4 l8 -9" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <text className="mi-flipA" x="100" y="176" textAnchor="middle" fontSize="10" fontWeight="700" fill="#4ade80" style={MONO}>Mr. Davies, IT</text>
+        <text className="mi-flipB" x="100" y="176" textAnchor="middle" fontSize="9" fontWeight="700" fill="#fb4b5b" style={MONO}>x9f2@mail-relay.test</text>
+      </svg>
+    );
+  if (v === "clock")
+    return (
+      <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
+        <circle className="mi-ring" cx="100" cy="100" r="62" fill="none" stroke="#fb4b5b" strokeWidth="2" />
+        <circle cx="100" cy="100" r="62" fill="#06202c" stroke="#fb4b5b" strokeWidth="4" />
+        <text className="mi-blink" x="100" y="94" textAnchor="middle" fontSize="20" fontWeight="700" fill="#fb4b5b" style={MONO}>00:59:59</text>
+        <text x="100" y="118" textAnchor="middle" fontSize="9" fontWeight="700" fill="#fbbf24" style={MONO}>ACCOUNT EXPIRES TODAY</text>
+        <text x="100" y="140" textAnchor="middle" fontSize="8" fill="#7da9b8" style={MONO}>ACT NOW</text>
+      </svg>
+    );
+  if (v === "jaws")
+    return (
+      <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
+        {/* the lure on its rod: the "light" */}
+        <path d="M112 84 Q 140 22 176 44" fill="none" stroke="#7dd3e8" strokeWidth="3" strokeLinecap="round" />
+        <g className="mi-lure">
+          <circle className="mi-ring" cx="176" cy="48" r="9" fill="none" stroke={AMBER} strokeWidth="2" />
+          <circle cx="176" cy="48" r="9" fill={AMBER} />
+        </g>
+        {/* the body */}
+        <path d="M34 134 C30 92 84 76 128 94 C170 110 178 150 140 164 C104 178 40 172 34 134 Z" fill="#06202c" stroke={C} strokeWidth="3" />
+        <circle cx="132" cy="112" r="9" fill="#03101a" stroke={C} strokeWidth="2" /><circle cx="134" cy="111" r="3.5" fill={AMBER} />
+        {/* upper teeth */}
+        {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M${46 + i * 14} 136 l5 14 l5 -14 z`} fill="#e5f6fb" />)}
+        {/* the lower jaw swings open */}
+        <g className="mi-jaw">
+          <path d="M40 138 Q 90 182 140 150 L134 142 Q 90 166 46 134 Z" fill="#06202c" stroke={C} strokeWidth="2.5" />
+          {[0, 1, 2, 3, 4].map((i) => <path key={i} d={`M${56 + i * 16} ${152 - i * 2} l5 -13 l5 13 z`} fill="#e5f6fb" />)}
+        </g>
+      </svg>
+    );
+  return null;
+}
 
 export default function PhishIntro({ onDone }: { onDone: () => void }) {
-  const [caption, setCaption] = useState(false);
+  const [shot, setShot] = useState(0);
+  const current = SHOTS[shot];
+  const isTitle = current.visual === "title";
 
+  /* advance automatically until the title card */
   useEffect(() => {
-    // Fade the caption in at 4.2s.
-    const c = setTimeout(() => setCaption(true), 4200);
-    // Call onDone at 6.5s. IntroScene (the parent) fades the whole
-    // overlay out over 400ms, then unmounts it.
-    const d = setTimeout(onDone, 6500);
-    return () => {
-      clearTimeout(c);
-      clearTimeout(d);
-    };
+    if (isTitle) return;
+    const t = window.setTimeout(() => setShot((s) => s + 1), current.ms);
+    return () => window.clearTimeout(t);
+  }, [shot, isTitle, current.ms]);
+
+  /* a sound at the start of each shot (silently ignored if the browser blocks audio) */
+  useEffect(() => {
+    const k = SHOT_SOUND[current.visual];
+    if (!k) return;
+    try { ensureAudio(); sfx(k); } catch { /* sound is a bonus */ }
+  }, [current.visual]);
+
+  /* Escape skips the whole intro */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onDone(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onDone]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-black">
-      {/*
-        LAYER 1 — matrix-style vertical rain.
-        30 thin vertical lines at 9% opacity. Each animated with a
-        tiny delay so they don't fall in lockstep (looks organic).
-      */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.09]">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <span
-            key={i}
-            className="intro-rain absolute top-0 h-full w-px bg-[#4ade80]"
-            style={{
-              left: `${(i * 100) / 30}%`,
-              animation: `introRain 2.6s linear ${i * 0.08}s infinite`,
-            }}
-          />
-        ))}
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden text-[#f5f3ff]"
+      style={{ background: "radial-gradient(40rem 28rem at 50% 40%, rgba(34,211,238,.20), #020a10 70%)" }}
+      role="dialog"
+      aria-label="Mission 2 intro"
+    >
+      <style>{CSS}</style>
+
+      {/* letterbox bars give the cinema feel */}
+      <div className="mi-letterbox absolute inset-x-0 top-0 bg-black" aria-hidden="true" />
+      <div className="mi-letterbox absolute inset-x-0 bottom-0 bg-black" aria-hidden="true" />
+
+      <button
+        type="button"
+        onClick={onDone}
+        className="absolute end-5 top-[calc(12vh+12px)] z-10 rounded-lg border border-white/20 px-3 py-1.5 text-xs text-[#b8b5c9] transition hover:border-white/50 hover:text-white"
+        style={MONO}
+      >
+        Skip intro &#9656;
+      </button>
+
+      {/* one shot at a time; key={shot} replays the fade-in */}
+      <div key={shot} className="mi-fade flex flex-col items-center gap-6 px-6 text-center">
+        {!isTitle && (
+          <>
+            {current.kicker && <p className="text-[11px] tracking-[0.35em]" style={{ ...MONO, color: C }}>{current.kicker}</p>}
+            <Picture v={current.visual} />
+            <p className="max-w-xl text-2xl font-bold sm:text-3xl">{current.line}</p>
+          </>
+        )}
+
+        {isTitle && (
+          <>
+            <p className="text-[11px] tracking-[0.5em]" style={{ ...MONO, color: C }}>CYBERGUARD  |  MISSION 02</p>
+            <h1 className="mi-glitch relative text-5xl font-black tracking-[0.12em] sm:text-7xl" style={{ textShadow: "3px 0 #fb4b5b, -3px 0 #fbbf24, 0 0 40px rgba(34,211,238,.6)" }}>
+              THE MIRAGE
+            </h1>
+            <p className="max-w-md text-sm text-[#b8b5c9]">Phishing: the trap that looks like home.</p>
+            <button
+              type="button"
+              autoFocus
+              onClick={onDone}
+              className="rounded-xl px-8 py-3 text-sm font-bold tracking-[0.25em] text-[#070711] transition hover:brightness-110 active:scale-95"
+              style={{ ...MONO, background: C, boxShadow: "0 0 30px rgba(34,211,238,.5)" }}
+            >
+              &#9656; BEGIN
+            </button>
+          </>
+        )}
       </div>
 
-      {/*
-        LAYER 2 — horizontal scan line sweeping top to bottom.
-        Adds a subtle "cyber glitch" feel without overwhelming the scene.
-      */}
-      <div
-        className="intro-scan pointer-events-none absolute inset-x-0 h-24 opacity-20"
-        style={{
-          background:
-            "linear-gradient(180deg, transparent, rgba(74,222,128,0.4), transparent)",
-          animation: "introScan 3.4s linear infinite",
-        }}
-      />
-
-      {/*
-        LAYER 3 — two wave layers at the bottom.
-        Same SVG path drawn twice at different speeds and opacities to
-        suggest depth. `waveMove` comes from SCENE_CSS (scenes.tsx).
-      */}
-      <svg
-        viewBox="0 0 1600 120"
-        preserveAspectRatio="none"
-        className="absolute inset-x-0 bottom-0 h-32 w-[200%] opacity-50"
-        style={{ animation: "waveMove 18s linear infinite" }}
-        aria-hidden="true"
-      >
-        <path
-          d="M0 60 Q 200 8 400 60 T 800 60 T 1200 60 T 1600 60 V120 H0 Z"
-          fill="#0a2a1d"
-        />
-      </svg>
-      <svg
-        viewBox="0 0 1600 120"
-        preserveAspectRatio="none"
-        className="absolute inset-x-0 bottom-0 h-24 w-[200%] opacity-80"
-        style={{ animation: "waveMove 26s linear reverse infinite" }}
-        aria-hidden="true"
-      >
-        <path
-          d="M0 60 Q 200 8 400 60 T 800 60 T 1200 60 T 1600 60 V120 H0 Z"
-          fill="#051912"
-        />
-      </svg>
-
-      {/*
-        LAYER 4 — the boat.
-        Starts off-screen right. `introDrift` slides it left across the
-        full viewport in 7s. The SVG contains the hull, fisherman
-        silhouette, rod, dashed line, and a pulsing hook ping.
-      */}
-      <div
-        className="intro-drift absolute bottom-[16%] right-[-15%]"
-        style={{ animation: "introDrift 7s ease-out forwards" }}
-      >
-        <svg
-          width="200"
-          height="140"
-          viewBox="0 0 200 140"
-          role="img"
-          aria-label="A fisherman in a small boat"
-        >
-          {/* boat hull */}
-          <path
-            d="M20 100 Q 100 112 180 100 L 168 122 Q 100 132 32 122 Z"
-            fill="#0a2a1d"
-            stroke="#4ade80"
-            strokeWidth="1.5"
-          />
-
-          {/* fisherman silhouette */}
-          <path
-            d="M88 98 V68"
-            stroke="#4ade80"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-          <circle cx="88" cy="60" r="8" fill="#4ade80" opacity="0.95" />
-          <path
-            d="M88 74 L 66 86"
-            stroke="#4ade80"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-
-          {/* rod */}
-          <path
-            d="M66 86 L 156 22"
-            stroke="#f6c453"
-            strokeWidth="1.8"
-            fill="none"
-          />
-
-          {/* line — dashed, animated to look like it's being let out */}
-          <path
-            d="M156 22 Q 178 68 162 108"
-            stroke="#f6c453"
-            strokeWidth="1"
-            fill="none"
-            strokeDasharray="6 4"
-            style={{ animation: "dashMove 1s linear infinite" }}
-          />
-
-          {/* hook ping — small pulsing ring to draw the eye to the hook */}
-          <circle
-            cx="162"
-            cy="108"
-            r="5"
-            fill="none"
-            stroke="#f6c453"
-            strokeWidth="1.2"
-            style={{ animation: "pingRing 1.8s ease-out infinite" }}
-          />
-        </svg>
+      {/* shot progress dots */}
+      <div className="absolute bottom-[calc(12vh+14px)] flex gap-2" aria-hidden="true">
+        {SHOTS.map((_, i) => <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ background: i <= shot ? C : "rgba(255,255,255,.2)" }} />)}
       </div>
-
-      {/*
-        LAYER 5 — the caption.
-        Appears at 4.2s, fades in over 1.2s. Centered, tiny, monospace.
-        The ONLY text in the whole intro — the boat carries the story.
-      */}
-      {caption && (
-        <p
-          className="absolute bottom-[10%] left-1/2 -translate-x-1/2 text-xs tracking-[0.35em] text-[#4ade80]"
-          style={{ ...MONO, animation: "introFade 1.2s ease-out both" }}
-        >
-          SOMETHING IS ALWAYS BITING.
-        </p>
-      )}
-
-      {/*
-        Local keyframes + reduced-motion override.
-        Kept inside the component so the intro is fully self-contained:
-        to add a new intro you drop a file in intros/ and register it in
-        IntroScene — you never touch globals.css or MissionPlayer's CSS.
-      */}
-      <style>{`
-        @keyframes introRain  { 0% { transform: translateY(-100%); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(100%); opacity: 0; } }
-        @keyframes introScan  { 0% { transform: translateY(-120px); } 100% { transform: translateY(100vh); } }
-        @keyframes introDrift { from { transform: translateX(0); } to { transform: translateX(-150vw); } }
-        @keyframes introFade  { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
-
-        @media (prefers-reduced-motion: reduce) {
-          .intro-rain, .intro-scan, .intro-drift { animation: none !important; }
-        }
-      `}</style>
     </div>
   );
 }
