@@ -22,12 +22,12 @@ from sqlalchemy.future import select
 
 from database import get_db
 
-from typing import Optional                                  # NEW (used by get_current_user)
+from typing import Optional                                  # used by get_current_user
 
-from fastapi import Depends, FastAPI, Header, HTTPException  # CHANGED: added Header
-from jose import JWTError, jwt                               # CHANGED: added JWTError
-from pydantic import BaseModel, Field                        # CHANGED: added Field
-from models import User, UserProgress                        # CHANGED: added UserProgress
+from fastapi import Depends, FastAPI, Header, HTTPException
+from jose import JWTError, jwt
+from pydantic import BaseModel, Field
+from models import User, UserProgress
 
 load_dotenv()
 app = FastAPI()
@@ -35,8 +35,6 @@ app = FastAPI()
 
 # =============================================================
 # CORS — allow any localhost / 127.0.0.1 port in development.
-# Using a regex avoids having to update this list every time the
-# frontend picks a different port.
 # =============================================================
 app.add_middleware(
     CORSMiddleware,
@@ -48,8 +46,7 @@ app.add_middleware(
 
 
 # =============================================================
-# HEALTH CHECK — used to confirm the browser can reach this server.
-# Hit it from the address bar: http://127.0.0.1:8000/api/health
+# HEALTH CHECK
 # =============================================================
 @app.get("/api/health")
 async def health():
@@ -64,7 +61,7 @@ AUDIENCE = "a high school student (ages 16-18)"
 
 
 # =============================================================
-# PASSWORD STRENGTH (used at registration)
+# PASSWORD STRENGTH
 # =============================================================
 
 COMMON_WEAK_PASSWORDS = {"123", "password", "12345678", "qwerty", "letmein", "admin123"}
@@ -86,7 +83,7 @@ def validate_password_strength(password: str) -> None:
 
 
 # =============================================================
-# AUTH (register, login; login triggers OTP, no token yet)
+# AUTH (register, login)
 # =============================================================
 
 class RegisterPayload(BaseModel):
@@ -214,7 +211,7 @@ async def resend_otp(payload: ResendOtpPayload, db: AsyncSession = Depends(get_d
 
 
 # =============================================================
-# AI MENTOR (shared module data + /api/chat)
+# AI MENTOR
 # =============================================================
 
 MODULE_STANDARDS = {
@@ -291,7 +288,7 @@ async def chat(payload: ChatPayload):
 
 
 # =============================================================
-# SCENARIO FEEDBACK (after each in-game choice)
+# SCENARIO FEEDBACK
 # =============================================================
 
 SCENARIO_FEEDBACK_PROMPT_TEMPLATE = """You are the CyberGuard AI Mentor reacting to the in-game decision of
@@ -409,8 +406,10 @@ async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
     if correct:
         practice_otp_store.pop(payload.email, None)
     return {"correct": correct}
+
+
 # =============================================================
-# PROGRESS TRACKING + MODULE GATING (NEW)
+# PROGRESS TRACKING + MODULE GATING
 #
 # Report requirements covered:
 #   - save completion status and scores in PostgreSQL
@@ -424,7 +423,6 @@ async def practice_otp_verify(payload: PracticeOtpVerifyPayload):
 # it. That's fine for a learning game (the field is capped below); don't use it for grading.
 # =============================================================
 
-# Which mission id belongs to which module (must match mission.id in the frontend files).
 MODULE_SCENARIOS = {1: "vault", 2: "spot-the-phish", 3: "social-engineering", 4: "safe-ai"}
 
 
@@ -482,7 +480,7 @@ class ProgressStartPayload(BaseModel):
 
 
 class ProgressCompletePayload(ProgressStartPayload):
-    score: int = Field(ge=0, le=5000)   # capped so a faked score can't be absurd
+    score: int = Field(ge=0, le=5000)
 
 
 def check_module_request(module: int, scenario: str, rows: list) -> None:
@@ -539,14 +537,109 @@ async def progress_complete(
     row.last_score = payload.score
     row.best_score = max(row.best_score or 0, payload.score)
     if row.completed_at is None:
-        row.completed_at = datetime.utcnow()      # the completion log: first completion time
+        row.completed_at = datetime.utcnow()
     await db.commit()
     return progress_snapshot(rows)
 
+
 # =============================================================
-# SWAGGER UI CONFIGURATION (Enables the Authorize button in /docs)
-# This does NOT change how your app works, it just tells the Swagger 
-# UI to show the green padlock so you can paste your token.
+# NEW — ADMIN + GDPR  (appended; nothing above was changed)
+#
+# Closes:
+#   - Use Case Diagram (Figure 3.1): Administrator actor
+#       (manage users, view progress) — previously no backend at all.
+#   - Domain Requirement DR-01 (Table 3.2): GDPR compliance.
+#
+# Requires:
+#   models.User.is_admin  (Boolean, default False)
+#   one Alembic migration to add that column.
+#
+# Notes:
+#   - "Update Scenarios" from the Use Case Diagram is NOT implemented
+#     here, because scenario content lives in the frontend, not the DB.
+#     This is a deliberate scope decision worth one sentence in the
+#     report if asked.
+#   - Self-service GDPR delete (/api/account) is separate from admin
+#     delete (/api/admin/users/{id}) so users don't need admin rights
+#     to exercise their right to erasure.
+# =============================================================
+
+
+async def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    """Same as get_current_user, but additionally requires is_admin=True."""
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+@app.get("/api/admin/users")
+async def admin_list_users(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List every user with a progress summary. 'Manage users' half of the admin use case."""
+    users = list((await db.scalars(select(User))).all())
+    output = []
+    for u in users:
+        progress_rows = list(
+            (await db.scalars(select(UserProgress).where(UserProgress.user_id == u.id))).all()
+        )
+        completed_count = sum(1 for p in progress_rows if p.completed)
+        output.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_admin": bool(getattr(u, "is_admin", False)),
+            "modules_completed": completed_count,
+        })
+    return {"users": output}
+
+
+@app.get("/api/admin/users/{user_id}/progress")
+async def admin_view_user_progress(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """View a specific user's progress — the 'View Progress' half of the admin use case."""
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = await load_progress(db, user_id)
+    return {"username": target.username, **progress_snapshot(rows)}
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a user. Their UserProgress rows go with them via ON DELETE CASCADE."""
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.id == admin.id:
+        raise HTTPException(status_code=400, detail="Use /api/account to delete your own account")
+    await db.delete(target)
+    await db.commit()
+    return {"status": "deleted"}
+
+
+@app.delete("/api/account")
+async def delete_my_account(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Self-service account + data deletion (DR-01 / GDPR right to erasure).
+    UserProgress rows cascade automatically via the FK constraint."""
+    await db.delete(user)
+    await db.commit()
+    return {"status": "deleted"}
+
+
+# =============================================================
+# SWAGGER UI CONFIGURATION
 # =============================================================
 from fastapi.openapi.utils import get_openapi
 
@@ -568,9 +661,14 @@ def custom_openapi():
     }
     for path in openapi_schema["paths"]:
         for method in openapi_schema["paths"][path]:
-            if path.startswith("/api/progress") or path.startswith("/api/user"):
+            if (
+                path.startswith("/api/progress")
+                or path.startswith("/api/user")
+                or path.startswith("/api/admin")
+                or path == "/api/account"
+            ):
                 openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
-                
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 

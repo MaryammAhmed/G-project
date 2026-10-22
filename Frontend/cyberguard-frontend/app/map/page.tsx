@@ -1,25 +1,47 @@
 "use client";
 
+/*
+  app/map/page.tsx
+  ================
+  THE SEA OF REALMS (full-screen edition): the whole page is ONE map that fits the screen, no scrolling.
+
+    - Layout: a fixed full-screen frame = terminal header (with the PROFILE pill) + the map filling the rest.
+    - The map is drawn on a 1260 x 640 canvas and scaled to fit with container-query units, so the realms
+      stay perfectly lined up with their click targets at any window size. The sea and sky are painted
+      far beyond the canvas edges, so wide or tall windows never show empty bars.
+    - Realms are spaced further apart, and each is drawn 10% bigger.
+    - The skeleton companion sits in the bottom-right corner with NO text. It still reacts:
+      happy on hover, alert on a locked realm, panicked on ACCESS DENIED.
+
+    1 THE VAULT    giant padlock (hover: the shackle lifts)
+    2 THE MIRAGE   fisherman in a boat (hover: the fish goes for the lure)
+    3 THE WHISPER  a slipping mask over a criminal (hover: it slips further)
+    4 THE ORACLE   an evil robot (hover: it turns kind; completed realms stay kind)
+
+  UNCHANGED LOGIC: progress from the database (fetchProgress), locked realms can't be launched,
+  the same /mission/... routes, sounds only after the first click, ACCESS DENIED popup.
+*/
+
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CyberShell from "@/components/layout/CyberShell";
-import {
-  CyberCard,
-  GlowButton,
-  TerminalHeader,
-} from "@/components/ui/CyberInteractive";
+import CompanionSkeleton from "@/components/mission/CompanionSkeleton";
+import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
-
-// ───────────── MAP EDIT 1 · imports ─────────────
 import { useAuth } from "@/context/AuthContext";
 import { fetchProgress } from "@/lib/progress";
 import type { ProgressSnapshot } from "@/lib/progress";
+import type { Mood } from "@/lib/mission/types";
 
-const MONO = {
-  fontFamily: "var(--font-mono), ui-monospace, monospace",
-};
+const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
+
+/* The canvas the map is drawn on, and how big each realm is drawn. */
+const W = 1260;
+const H = 640;
+const S = 1.1; // realm drawing scale
 
 type Status = "completed" | "available" | "locked";
 
@@ -32,82 +54,37 @@ interface Realm {
   guideline: string;
   badge: string;
   href: string;
-  status: Status;
+  status: Status;     // default state; replaced by the real progress below
   color: string;
-  x: number;
-  y: number;
-  symbol: string;
+  x: number;          // centre on the canvas
+  y: number;          // waterline
 }
 
-// ───────────── MAP EDIT 2 · renamed static list ─────────────
+/* Realms are now ~310 units apart (they were ~240), with the same up-and-down rhythm. */
 const BASE_MISSIONS: Realm[] = [
   {
-    id: "vault",
-    order: 1,
-    title: "The Vault",
-    topic: "Password Security",
-    blurb:
-      "Breach the cosmic vault. Build a strong passphrase, identify weak credentials, and secure your accounts with two-factor authentication.",
-    guideline:
-      "Create long, memorable passwords and protect accounts with multifactor authentication.",
-    badge: "VAULT BREAKER",
-    href: "/mission/vault",
-    status: "available",
-    color: "#4ade80",
-    x: 145,
-    y: 435,
-    symbol: "🔐",
+    id: "vault", order: 1, title: "The Vault", topic: "Password Security",
+    blurb: "Breach the cosmic vault. Build a strong passphrase, identify weak credentials and secure your accounts with two-step sign-in.",
+    guideline: "Create long, memorable passwords and protect accounts with multifactor authentication.",
+    badge: "VAULT BREAKER", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450,
   },
   {
-    id: "mirage",
-    order: 2,
-    title: "The Mirage",
-    topic: "Phishing Detection",
-    blurb:
-      "Navigate a city of holograms. Investigate suspicious messages, inspect deceptive links, and expose digital traps.",
-    guideline:
-      "Check sender identity, inspect destinations, and verify unexpected requests before acting.",
-    badge: "MIRAGE SEER",
-    href: "/mission/spot-the-phish",
-    status: "available",
-    color: "#4cc9ff",
-    x: 370,
-    y: 330,
-    symbol: "🎣",
+    id: "mirage", order: 2, title: "The Mirage", topic: "Phishing Detection",
+    blurb: "Navigate a city of holograms. Investigate suspicious messages, inspect deceptive links and expose digital traps.",
+    guideline: "Check sender identity, inspect destinations and verify unexpected requests before acting.",
+    badge: "PHISH-SPOTTER", href: "/mission/spot-the-phish", status: "available", color: "#22D3EE", x: 500, y: 335,
   },
   {
-    id: "whisper",
-    order: 3,
-    title: "The Whisper",
-    topic: "Social Engineering",
-    blurb:
-      "Someone is manipulating the signal. Detect urgency, impersonation, and psychological pressure before trust becomes a vulnerability.",
-    guideline:
-      "Pause under pressure and verify unusual requests through a trusted, independent channel.",
-    badge: "MIND SHIELD",
-    href: "/mission/social-engineering",
-    status: "locked",
-    color: "#fb7185",
-    x: 625,
-    y: 415,
-    symbol: "🎭",
+    id: "whisper", order: 3, title: "The Whisper", topic: "Social Engineering",
+    blurb: "Someone is manipulating the signal. Detect urgency, impersonation and psychological pressure before trust becomes a vulnerability.",
+    guideline: "Pause under pressure and verify unusual requests through a trusted, independent channel.",
+    badge: "WHISPER BREAKER", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455,
   },
   {
-    id: "oracle",
-    order: 4,
-    title: "The Oracle",
-    topic: "Safe AI Usage",
-    blurb:
-      "Enter the AI core. Decide what information can be shared, protect private data, and evaluate AI-generated answers.",
-    guideline:
-      "Minimize sensitive information shared with AI and verify important outputs independently.",
-    badge: "ORACLE KEEPER",
-    href: "/mission/safe-ai",
-    status: "locked",
-    color: "#a78bfa",
-    x: 850,
-    y: 300,
-    symbol: "🤖",
+    id: "oracle", order: 4, title: "The Oracle", topic: "Safe AI Usage",
+    blurb: "Enter the AI core. Decide what information can be shared, protect private data and evaluate AI-generated answers.",
+    guideline: "Minimize sensitive information shared with AI and verify important outputs independently.",
+    badge: "ORACLE'S APPRENTICE", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335,
   },
 ];
 
@@ -119,133 +96,236 @@ const STATUS_TEXT: Record<Status, string> = {
   locked: "ACCESS RESTRICTED",
 };
 
-const ROOMS = [
-  { x: 135, y: 210, label: "ENCRYPTION BAY" },
-  { x: 360, y: 155, label: "SIGNAL ARCHIVE" },
-  { x: 620, y: 190, label: "IDENTITY CORE" },
-  { x: 850, y: 145, label: "AI UPLINK" },
+/* ---------- the sea ---------- */
+/* A wave is a long repeating curve starting far left of the canvas. Sliding it left by 200 (two
+   periods) loops it seamlessly, and it covers the margins when the window is wider than the map. */
+function wavePath(y: number, amp: number, step = 100, len = 3800): string {
+  let d = `M-1000 ${y} q${step / 2} ${-amp} ${step} 0`;
+  for (let x = 0; x < len; x += step) d += ` t${step} 0`;
+  return `${d} V2600 H-1000 Z`;
+}
+const WAVES = [
+  { d: wavePath(200, 6), cls: "mp-w1", op: 0.35 },
+  { d: wavePath(385, 8), cls: "mp-w2", op: 0.4 },
+  { d: wavePath(485, 10), cls: "mp-w1", op: 0.42 },
+  { d: wavePath(570, 12), cls: "mp-w2", op: 0.5 },
 ];
+/* Deterministic stars spread over the whole sky: [x, y, radius]. */
+const STARS: [number, number, number][] = Array.from({ length: 34 }, (_, i) => [(i * 149 + 40) % W, 18 + ((i * 53) % 112), 1 + (i % 3) * 0.25]);
 
 const CSS = `
-.cg-map {
-  isolation: isolate;
-  background:
-    radial-gradient(ellipse at 12% 16%, rgba(34,211,238,.15), transparent 34%),
-    radial-gradient(ellipse at 85% 18%, rgba(139,92,246,.16), transparent 35%),
-    radial-gradient(ellipse at 52% 100%, rgba(16,185,129,.12), transparent 40%),
-    #050611;
-  box-shadow: inset 0 0 90px rgba(76,201,255,.07);
-}
-.cg-stars {
-  background-image:
-    radial-gradient(1px 1px at 8% 18%, #e0fbff 99%, transparent),
-    radial-gradient(1px 1px at 21% 72%, #4cc9ff 99%, transparent),
-    radial-gradient(2px 2px at 39% 34%, #ffffff99 99%, transparent),
-    radial-gradient(1px 1px at 54% 16%, #a78bfa 99%, transparent),
-    radial-gradient(1px 1px at 67% 83%, #4ade80 99%, transparent),
-    radial-gradient(2px 2px at 78% 48%, #ffffff99 99%, transparent),
-    radial-gradient(1px 1px at 91% 22%, #4cc9ff 99%, transparent),
-    radial-gradient(1px 1px at 32% 91%, #ffffff99 99%, transparent);
-  background-size: 240px 190px;
-  animation: cgDrift 24s linear infinite;
-}
-.cg-scanlines {
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 4px,
-    rgba(255,255,255,.018) 5px,
-    transparent 6px
-  );
-}
-.cg-flow { animation: cgFlow 1.6s linear infinite; }
-.cg-glow { animation: cgGlow 2.8s ease-in-out infinite; }
-.cg-ping { animation: cgPing 2.4s ease-out infinite; }
-.cg-float { animation: cgFloat 3.2s ease-in-out infinite; }
-.cg-pop { animation: cgPop .22s ease-out both; }
-.cg-shake { animation: cgShake .35s ease-in-out; }
-.cg-sweep::after {
-  content: "";
-  position: absolute;
-  top: -30%;
-  left: 0;
-  right: 0;
-  height: 24%;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(76,201,255,.08), transparent);
-  animation: cgSweep 8s linear infinite;
-}
-@keyframes cgFlow { to { stroke-dashoffset: -28; } }
-@keyframes cgGlow { 0%,100% { opacity: 1; } 50% { opacity: .58; } }
-@keyframes cgPing { 0% { transform: scale(.8); opacity: .75; } 100% { transform: scale(2.1); opacity: 0; } }
-@keyframes cgFloat { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-8px) rotate(3deg); } }
-@keyframes cgPop { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
-@keyframes cgShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-@keyframes cgSweep { to { transform: translateY(580%); } }
-@keyframes cgDrift { to { background-position: 240px 190px; } }
-@media (prefers-reduced-motion: reduce) {
-  .cg-flow, .cg-glow, .cg-ping, .cg-float, .cg-pop, .cg-shake,
-  .cg-sweep::after, .cg-stars { animation: none !important; }
-}
+.mp-w1 { animation: mpWave 16s linear infinite; }
+.mp-w2 { animation: mpWave 11s linear infinite reverse; }
+.mp-bob { animation: mpBob 5s ease-in-out infinite; }
+.mp-twinkle { animation: mpTwinkle 3s ease-in-out infinite; }
+.mp-flow { animation: mpFlow 1.4s linear infinite; }
+.mp-ring { transform-box: fill-box; transform-origin: center; animation: mpRing 2.2s ease-out infinite; }
+.mp-nibble { animation: mpNibble 2.4s ease-in-out infinite; }
+.mp-blink { animation: mpBlink 1s steps(1) infinite; }
+.mp-glitch { animation: mpGlitch 3s steps(1) infinite; }
+.mp-pop { animation: mpPop .22s ease-out both; }
+.mp-shake { animation: mpShake .4s ease-in-out; }
+@keyframes mpWave { to { transform: translateX(-200px); } }
+@keyframes mpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes mpTwinkle { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes mpFlow { to { stroke-dashoffset: -28; } }
+@keyframes mpRing { 0% { transform: scale(.7); opacity: .8; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes mpNibble { 0%,100% { transform: translate(0,0); } 50% { transform: translate(7px,-5px); } }
+@keyframes mpBlink { 50% { opacity: .15; } }
+@keyframes mpGlitch { 0%,92%,100% { transform: translate(0,0); } 94% { transform: translate(-3px,1px); } 97% { transform: translate(3px,-1px); } }
+@keyframes mpPop { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes mpShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .mp-sea *, .mp-sea *::before, .mp-sea *::after { animation: none !important; transition: none !important; } }
 `;
 
-function RealmIcon({ realm }: { realm: Realm }) {
-  const shared = {
-    stroke: realm.color,
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    fill: "none",
-  };
+/* ======================================================================
+   THE FOUR REALM ILLUSTRATIONS (each drawn around (0,0) = the waterline centre)
+   ====================================================================== */
 
-  if (realm.id === "vault") {
-    return (
-      <svg viewBox="0 0 64 64" className="h-12 w-12 sm:h-14 sm:w-14" aria-hidden="true">
-        <path {...shared} d="M19 28V19a13 13 0 0 1 26 0v9" />
-        <rect {...shared} x="11" y="27" width="42" height="29" rx="5" />
-        <circle {...shared} cx="32" cy="39" r="4" />
-        <path {...shared} d="M32 43v6" />
-        <path {...shared} d="M5 17h6M53 17h6M32 3v5" opacity=".6" />
-      </svg>
-    );
-  }
-
-  if (realm.id === "mirage") {
-    return (
-      <svg viewBox="0 0 64 64" className="h-12 w-12 sm:h-14 sm:w-14" aria-hidden="true">
-        <path {...shared} d="M7 39h50L45 52H20L7 39Z" />
-        <path {...shared} d="M30 10v28M30 12 47 32H30" />
-        <path {...shared} d="M8 18h12M5 25h9M43 9h12M48 16h9" opacity=".7" />
-        <path {...shared} d="M10 57c5-4 9 4 14 0s9 4 14 0 9 4 14 0" opacity=".8" />
-        <circle cx="46" cy="31" r="3" fill={realm.color} />
-      </svg>
-    );
-  }
-
-  if (realm.id === "whisper") {
-    return (
-      <svg viewBox="0 0 64 64" className="h-12 w-12 sm:h-14 sm:w-14" aria-hidden="true">
-        <path {...shared} d="M32 6 52 14v15c0 13-8 22-20 29C20 51 12 42 12 29V14L32 6Z" />
-        <path {...shared} d="M16 31 24 24 32 29 40 24 48 31 40 39H24L16 31Z" />
-        <path {...shared} d="M23 20h18M27 46h10" opacity=".7" />
-        <circle cx="25" cy="31" r="2" fill={realm.color} />
-        <circle cx="39" cy="31" r="2" fill={realm.color} />
-      </svg>
-    );
-  }
-
+/* A floating islet the realm sits on. */
+function Islet({ color }: { color: string }) {
   return (
-    <svg viewBox="0 0 64 64" className="h-12 w-12 sm:h-14 sm:w-14" aria-hidden="true">
-      <rect {...shared} x="5" y="13" width="23" height="30" rx="6" />
-      <rect {...shared} x="36" y="13" width="23" height="30" rx="6" />
-      <path {...shared} d="M11 13V8M22 13V8M42 13V8M53 13V8" />
-      <circle cx="12" cy="26" r="2.5" fill="#fb7185" />
-      <circle cx="21" cy="26" r="2.5" fill="#fb7185" />
-      <circle cx="43" cy="26" r="2.5" fill={realm.color} />
-      <circle cx="52" cy="26" r="2.5" fill={realm.color} />
-      <path {...shared} d="M12 35h9M43 35h9M16 43v5h32v-5M32 48v8M25 56h14" />
-      <path d="M28 27h8" stroke="#ffffff99" strokeDasharray="2 2" />
-    </svg>
+    <g>
+      <path d="M-96 34 Q0 62 96 34 L72 66 Q0 92 -72 66 Z" fill="#0b1411" stroke={color} strokeOpacity=".7" strokeWidth="2" />
+      <ellipse cx="0" cy="34" rx="96" ry="15" fill="#10201a" stroke={color} strokeOpacity=".8" strokeWidth="2" />
+    </g>
+  );
+}
+
+/* 1. THE VAULT: a huge padlock. Hover: the shackle lifts and everything glows. */
+function VaultArt({ hov, color }: { hov: boolean; color: string }) {
+  return (
+    <g>
+      <Islet color={color} />
+      <g style={{ filter: hov ? `drop-shadow(0 0 16px ${color})` : `drop-shadow(0 0 6px ${color}66)`, transition: "filter .3s" }}>
+        <path d="M-36 -62 V-96 a36 36 0 0 1 72 0 V-62" fill="none" stroke="#cfd8d3" strokeWidth="13" strokeLinecap="round" style={{ transform: `translateY(${hov ? -14 : 0}px)`, transition: "transform .35s" }} />
+        <rect x="-64" y="-64" width="128" height="98" rx="16" fill="url(#mpSteel)" stroke={color} strokeWidth="4" />
+        {[[-50, -50], [50, -50], [-50, 20], [50, 20]].map(([x, y]) => <circle key={`${x}${y}`} cx={x} cy={y} r="3.5" fill="#5b6b66" />)}
+        <circle cx="0" cy="-28" r="12" fill={color} />
+        <path d="M-6 -22 L6 -22 L10 4 L-10 4 Z" fill={color} />
+        <text x="0" y="24" textAnchor="middle" fontSize="12" fontWeight="700" fill={color} letterSpacing="3" style={MONO}>* * * * * *</text>
+      </g>
+    </g>
+  );
+}
+
+/* 2. THE MIRAGE: a fisherman in a boat. Hover: the rod bends and the fish goes for the lure. */
+function MirageArt({ hov, color }: { hov: boolean; color: string }) {
+  return (
+    <g>
+      {/* boat */}
+      <path d="M-92 14 Q0 42 92 14 L70 52 Q0 66 -70 52 Z" fill="#0a2330" stroke={color} strokeWidth="2.5" />
+      <path d="M-76 30 Q0 50 76 30" fill="none" stroke={color} strokeOpacity=".4" />
+      {/* lantern */}
+      <line x1="-74" y1="14" x2="-74" y2="-52" stroke="#7da9b8" strokeWidth="3" />
+      <circle cx="-74" cy="-56" r="9" fill="#fbbf24" style={{ filter: "drop-shadow(0 0 10px #fbbf24)" }} />
+      {/* the fisherman */}
+      <path d="M-30 12 L-30 -30 Q-8 -46 14 -30 L14 12 Z" fill="#fbbf24" stroke="#b8860b" strokeWidth="2" />
+      <circle cx="-8" cy="-50" r="14" fill="#e8d5b5" />
+      <ellipse cx="-8" cy="-60" rx="27" ry="6" fill="#161a26" stroke={color} />
+      <path d="M-24 -60 Q-8 -88 8 -60 Z" fill="#161a26" stroke={color} />
+      <line x1="6" y1="-24" x2="30" y2="-24" stroke="#e8d5b5" strokeWidth="6" strokeLinecap="round" />
+      {/* rod, line, lure: drawn from the hand, so rotating the group bends the whole rig */}
+      <g transform="translate(30 -24)">
+        <g style={{ transform: `rotate(${hov ? -6 : 0}deg)`, transition: "transform .4s" }}>
+          <path d="M0 0 Q50 -50 84 -72" fill="none" stroke="#d6c7a0" strokeWidth="4" strokeLinecap="round" />
+          <path d="M84 -72 Q96 -10 74 64" fill="none" stroke="#e5e7eb" strokeWidth="1.3" />
+          <path d="M74 64 V112" stroke="#e5e7eb" strokeOpacity=".5" strokeWidth="1.3" />
+          <circle cx="74" cy="112" r="6" fill="#fbbf24" style={{ filter: "drop-shadow(0 0 8px #fbbf24)" }} />
+          <circle className="mp-ring" cx="74" cy="112" r="6" fill="none" stroke="#fbbf24" strokeWidth="1.5" />
+          <path d="M74 118 v7 a6 6 0 1 1 -6 -6" fill="none" stroke="#e5e7eb" strokeWidth="2" strokeLinecap="round" />
+          <ellipse className="mp-ring" cx="74" cy="64" rx="10" ry="3" fill="none" stroke={color} />
+        </g>
+      </g>
+      {/* the data-fish: circles the lure, and goes for it on hover */}
+      <g style={{ transform: hov ? "translate(96px,98px)" : "translate(70px,120px)", transition: "transform .5s" }}>
+        <g className="mp-nibble">
+          <ellipse rx="20" ry="10" fill={color} opacity=".9" />
+          <polygon points="-18,0 -34,-9 -34,9" fill={color} opacity=".9" />
+          <circle cx="9" cy="-2" r="2.5" fill="#03101a" />
+          <text x="-4" y="4" fontSize="9" fontWeight="700" fill="#03101a" style={MONO}>@</text>
+        </g>
+      </g>
+    </g>
+  );
+}
+
+/* 3. THE WHISPER: a figure whose smiling mask has slipped. Hover: it slips further. */
+function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
+  return (
+    <g>
+      <Islet color={color} />
+      {/* hood, suit and tie */}
+      <path d="M-42 -58 Q-48 -122 0 -122 Q48 -122 42 -58 Q38 -96 0 -98 Q-38 -96 -42 -58 Z" fill="#1b1530" stroke={color} />
+      <path d="M-62 34 Q-62 -4 -30 -14 L30 -14 Q62 -4 62 34 Z" fill="#1b1530" stroke={color} strokeWidth="2.5" />
+      <path d="M-14 -14 L0 6 L14 -14 Z" fill="#e5e7eb" />
+      <path d="M0 -4 L-7 8 L0 32 L7 8 Z" fill={color} />
+      <rect x="-10" y="-26" width="20" height="14" fill="#3b3646" />
+      {/* the criminal underneath */}
+      <ellipse cx="0" cy="-68" rx="34" ry="40" fill="#3f3b4a" stroke="#1f1b2b" strokeWidth="2" />
+      <ellipse cx="-13" cy="-72" rx="8" ry="4" fill="#0b0b12" transform="rotate(18 -13 -72)" />
+      <ellipse cx="13" cy="-72" rx="8" ry="4" fill="#0b0b12" transform="rotate(-18 13 -72)" />
+      <circle cx="-13" cy="-72" r="2.6" fill="#fb4b5b" style={{ filter: "drop-shadow(0 0 4px #fb4b5b)" }} />
+      <circle cx="13" cy="-72" r="2.6" fill="#fb4b5b" style={{ filter: "drop-shadow(0 0 4px #fb4b5b)" }} />
+      <path d="M-24 -82 L-6 -78 M24 -82 L6 -78" stroke="#0b0b12" strokeWidth="3" strokeLinecap="round" />
+      <path d="M-18 -50 Q0 -36 18 -50" fill="none" stroke="#e5e7eb" strokeWidth="3" strokeLinecap="round" />
+      <path d="M-9 -45 v5 M0 -43 v6 M9 -45 v5" stroke="#e5e7eb" strokeWidth="2" />
+      <path d="M16 -90 L26 -64" stroke="#9ca3af" strokeWidth="2" />
+      {/* the mask: slid off to one side (drawn around its own centre so the CSS transform is simple) */}
+      <g transform="translate(0 -66)">
+        <g style={{ transform: hov ? "translate(-44px,12px) rotate(-30deg)" : "translate(-24px,-4px) rotate(-14deg)", transition: "transform .45s" }}>
+          <ellipse rx="37" ry="43" fill="#f5f3ff" stroke={color} strokeWidth="2.5" />
+          <path d="M-22 -8 q7 -7 14 0 M8 -8 q7 -7 14 0" fill="none" stroke="#1b1530" strokeWidth="3" strokeLinecap="round" />
+          <path d="M-18 14 Q0 30 18 14" fill="none" stroke="#1b1530" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="-24" cy="8" r="5" fill="#fda4af" opacity=".7" /><circle cx="24" cy="8" r="5" fill="#fda4af" opacity=".7" />
+          <path d="M36 0 L52 8" stroke="#1b1530" strokeWidth="3" />
+        </g>
+      </g>
+      {/* the lie */}
+      <g className="mp-bob">
+        <rect x="-110" y="-134" width="84" height="22" rx="8" fill="#0d0a1c" stroke={color} />
+        <text x="-68" y="-119" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={color} style={MONO}>&quot;I&apos;m from IT&quot;</text>
+      </g>
+    </g>
+  );
+}
+
+/* 4. THE ORACLE: an evil robot. Hover (or completed): eyes turn green, it smiles, a halo appears. */
+function OracleArt({ kind, color }: { kind: boolean; color: string }) {
+  const eye = kind ? "#4ade80" : "#ef4444";
+  const t = "fill .35s, stroke .35s";
+  return (
+    <g>
+      <Islet color={color} />
+      <g style={{ filter: `drop-shadow(0 0 ${kind ? 14 : 10}px ${eye})`, transition: "filter .35s" }}>
+        {/* antenna */}
+        <line x1="0" y1="-120" x2="0" y2="-140" stroke="#6b7280" strokeWidth="3" />
+        <circle cx="0" cy="-144" r="6" className={kind ? "" : "mp-blink"} style={{ fill: eye, transition: t }} />
+        {/* spikes (evil) or halo (kind) */}
+        {kind ? (
+          <ellipse cx="0" cy="-152" rx="30" ry="8" fill="none" stroke={color} strokeWidth="3" />
+        ) : (
+          <g fill="#7f1d1d" stroke="#ef4444"><polygon points="-40,-114 -32,-142 -22,-114" /><polygon points="40,-114 32,-142 22,-114" /></g>
+        )}
+        {/* head + visor */}
+        <rect x="-54" y="-120" width="108" height="84" rx="20" fill="#171c28" strokeWidth="3" style={{ stroke: eye, transition: t }} />
+        <rect x="-42" y="-104" width="84" height="38" rx="11" fill="#05070d" />
+        <circle cx="-19" cy="-85" r="10" style={{ fill: eye, transition: t }} />
+        <circle cx="19" cy="-85" r="10" style={{ fill: eye, transition: t }} />
+        <circle cx="-16" cy="-88" r="3" fill="#fff" opacity=".8" /><circle cx="22" cy="-88" r="3" fill="#fff" opacity=".8" />
+        {/* brows + mouth */}
+        {kind ? (
+          <>
+            <path d="M-32 -100 Q-19 -108 -6 -101 M32 -100 Q19 -108 6 -101" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" />
+            <path d="M-24 -52 Q0 -34 24 -52" fill="none" stroke="#4ade80" strokeWidth="4" strokeLinecap="round" />
+          </>
+        ) : (
+          <>
+            <path d="M-34 -104 L-8 -93 M34 -104 L8 -93" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+            <path d="M-26 -54 L-17 -44 L-9 -54 L0 -44 L9 -54 L17 -44 L26 -54" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinejoin="round" />
+          </>
+        )}
+        {/* body */}
+        <rect x="-46" y="-30" width="92" height="64" rx="14" fill="#171c28" strokeWidth="3" style={{ stroke: eye, transition: t }} />
+        <circle cx="0" cy="2" r="13" fill="#05070d" /><circle cx="0" cy="2" r="7" className={kind ? "" : "mp-blink"} style={{ fill: eye, transition: t }} />
+        <rect x="-62" y="-22" width="14" height="38" rx="7" fill="#171c28" stroke="#6b7280" />
+        <rect x="48" y="-22" width="14" height="38" rx="7" fill="#171c28" stroke="#6b7280" />
+      </g>
+      {!kind && (
+        <g className="mp-glitch" fill="#ef4444" fontSize="10" fontWeight="700" style={MONO}>
+          <text x="-100" y="-96">01</text><text x="86" y="-60">10</text><text x="-92" y="-30">11</text>
+        </g>
+      )}
+    </g>
+  );
+}
+
+/* One realm = its illustration + a lock overlay if sealed + a check badge if secured. */
+function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
+  const locked = realm.status === "locked";
+  const done = realm.status === "completed";
+  return (
+    <g>
+      <g style={locked ? { filter: "grayscale(.85) brightness(.6)" } : undefined}>
+        {realm.id === "vault" && <VaultArt hov={hov} color={realm.color} />}
+        {realm.id === "mirage" && <MirageArt hov={hov} color={realm.color} />}
+        {realm.id === "whisper" && <WhisperArt hov={hov} color={realm.color} />}
+        {realm.id === "oracle" && <OracleArt kind={hov || done} color={realm.color} />}
+      </g>
+      {locked && (
+        <g transform="translate(0 -40)">
+          <circle r="27" fill="#0b0d1c" stroke="#9ca3af" strokeWidth="3" />
+          <rect x="-11" y="-3" width="22" height="16" rx="3" fill="#9ca3af" />
+          <path d="M-7 -3 v-6 a7 7 0 0 1 14 0 v6" fill="none" stroke="#9ca3af" strokeWidth="3" />
+        </g>
+      )}
+      {done && (
+        <g transform="translate(78 -118)">
+          <circle r="15" fill="#052e1a" stroke="#4ade80" strokeWidth="3" />
+          <path d="M-7 0 l5 5 l9 -11" fill="none" stroke="#4ade80" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )}
+    </g>
   );
 }
 
@@ -253,55 +333,30 @@ function isUnlocked(realm: Realm) {
   return realm.status !== "locked";
 }
 
-function isoPipe(a: { x: number; y: number }, b: { x: number; y: number }) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const k = (dx / 2 - dy) / 2;
-  if (k < 0) return `M${a.x} ${a.y} L${b.x} ${b.y}`;
-  return `M${a.x} ${a.y} L${a.x + 2 * k} ${a.y - k} L${b.x} ${b.y}`;
-}
-
-function Platform({
-  cx,
-  cy,
-  color,
-  active,
-  locked,
-}: {
-  cx: number;
-  cy: number;
-  color: string;
-  active: boolean;
-  locked: boolean;
-}) {
-  const w = 74;
-  const h = w / 2;
-  const depth = 20;
-  const top = `${cx},${cy - h} ${cx + w},${cy} ${cx},${cy + h} ${cx - w},${cy}`;
-  const left = `${cx - w},${cy} ${cx},${cy + h} ${cx},${cy + h + depth} ${cx - w},${cy + depth}`;
-  const right = `${cx + w},${cy} ${cx},${cy + h} ${cx},${cy + h + depth} ${cx + w},${cy + depth}`;
-
+/* The PROFILE pill: glowing, with an avatar icon, plus your total XP once progress has loaded. */
+function ProfileButton({ xp }: { xp: number | null }) {
   return (
-    <g
-      filter={active ? "url(#cgGlow)" : undefined}
-      opacity={locked ? 0.48 : 1}
-    >
-      <polygon points={left} fill="#080b1b" stroke={color} strokeOpacity=".6" />
-      <polygon points={right} fill="#0d1024" stroke={color} strokeOpacity=".65" />
-      <polygon
-        points={top}
-        fill={`${color}${active ? "38" : "18"}`}
-        stroke={color}
-        strokeWidth={active ? 2.5 : 1.5}
-        strokeDasharray={locked ? "5 5" : undefined}
-      />
-      <path
-        d={`M${cx - 38} ${cy} L${cx} ${cy - 19} L${cx + 38} ${cy}`}
-        fill="none"
-        stroke={color}
-        strokeOpacity=".55"
-      />
-    </g>
+    <div className="flex items-center gap-2">
+      {xp !== null && (
+        <span className="hidden rounded-full border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold tracking-[0.15em] text-amber-200 sm:inline" style={MONO}>
+          &#9733; {xp} XP
+        </span>
+      )}
+      <Link
+        href="/profile"
+        aria-label="Open your agent profile"
+        className="group flex items-center gap-2 rounded-full border border-cyan-300/40 bg-gradient-to-r from-cyan-300/15 to-violet-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:shadow-[0_0_16px_rgba(103,232,249,.45)] active:scale-95"
+        style={MONO}
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-full border border-cyan-300/60 bg-[#06141c] transition group-hover:scale-110">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#67e8f9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+          </svg>
+        </span>
+        PROFILE
+      </Link>
+    </div>
   );
 }
 
@@ -309,14 +364,12 @@ export default function MissionMapPage() {
   const router = useRouter();
   const [hovered, setHovered] = useState<string | null>(null);
   const [denied, setDenied] = useState<Realm | null>(null);
-  const [reduced, setReduced] = useState(false);
   const gesture = useRef(false);
   const deniedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ───────────── MAP EDIT 3 · inside the page component ─────────────
+  /* ---- progress from the database (unchanged logic) ---- */
   const { token } = useAuth();
   const [snap, setSnap] = useState<ProgressSnapshot | null>(null);
-  
   useEffect(() => {
     fetchProgress(token).then(setSnap);
   }, [token]);
@@ -328,44 +381,28 @@ export default function MissionMapPage() {
   });
 
   const unlockedCount = MISSIONS.filter(isUnlocked).length;
-  const selected = MISSIONS.find((realm) => realm.id === hovered) ?? null;
+  const selected = MISSIONS.find((r) => r.id === hovered) ?? null;
 
+  /* sounds only after a real user gesture (browser rule) */
   useEffect(() => {
-    const markGesture = () => {
-      gesture.current = true;
-    };
-
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updateMotion = () => setReduced(media.matches);
-
-    window.addEventListener("pointerdown", markGesture, { capture: true });
-    window.addEventListener("keydown", markGesture, { capture: true });
-    media.addEventListener("change", updateMotion);
-    updateMotion();
-
+    const mark = () => { gesture.current = true; };
+    window.addEventListener("pointerdown", mark, { capture: true });
+    window.addEventListener("keydown", mark, { capture: true });
     return () => {
-      window.removeEventListener("pointerdown", markGesture, { capture: true });
-      window.removeEventListener("keydown", markGesture, { capture: true });
-      media.removeEventListener("change", updateMotion);
+      window.removeEventListener("pointerdown", mark, { capture: true });
+      window.removeEventListener("keydown", mark, { capture: true });
       if (deniedTimer.current) clearTimeout(deniedTimer.current);
     };
   }, []);
 
   function play(kind: SfxKind) {
     if (!gesture.current) return;
-    try {
-      ensureAudio();
-      sfx(kind);
-    } catch {
-      // Audio must never prevent mission navigation.
-    }
+    try { ensureAudio(); sfx(kind); } catch { /* audio must never block navigation */ }
   }
-
   function highlight(id: string) {
     if (hovered !== id) play("tick");
     setHovered(id);
   }
-
   function launch(realm: Realm) {
     if (!isUnlocked(realm)) {
       play("bad");
@@ -374,551 +411,172 @@ export default function MissionMapPage() {
       deniedTimer.current = setTimeout(() => setDenied(null), 2400);
       return;
     }
-
     play("unlock");
     router.push(realm.href);
   }
+
+  /* the skeleton's face (no text): panicked on denied, happy on an open realm, alert on a sealed one */
+  const mood: Mood = denied ? "breach" : selected ? (isUnlocked(selected) ? "safe" : "alert") : "calm";
 
   return (
     <CyberShell variant="app" accent="cyan">
       <style>{CSS}</style>
 
-      <section aria-labelledby="map-title" className="text-[#f5f3ff]">
-        <TerminalHeader
-          title="cyberguard@realm:~/mission-map"
-          status="ONLINE"
-          clearance="TIER 1"
-        />
+      {/* The whole page is one fixed frame: header on top, the map fills the rest. Nothing scrolls. */}
+      <div className="fixed inset-0 z-10 flex flex-col p-2 sm:p-4">
+        <div className="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col">
+          <TerminalHeader
+            title="cyberguard@sea:~/mission-map"
+            status="ONLINE"
+            clearance="TIER 1"
+            right={<ProfileButton xp={snap ? snap.total_score : null} />}
+          />
 
-        <div className="rounded-b-2xl border border-t-0 border-white/10 bg-[#080918]/80 p-3 backdrop-blur sm:p-6">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <div className="space-y-2">
-              <p
-                className="text-[10px] font-bold uppercase tracking-[.28em] text-cyan-300"
-                style={MONO}
-              >
-                {"// global threat network :: mission selection"}
-              </p>
-              <h1 id="map-title" className="text-2xl font-black sm:text-4xl">
-                CyberGuard{" "}
-                <span className="text-cyan-300">Realms</span>
-              </h1>
-              <p className="max-w-xl text-sm leading-relaxed text-slate-400">
-                Four digital frontiers. One mission: protect the human side of
-                the network.
-              </p>
-            </div>
+          {/* ---- the map frame ---- */}
+          <div className="mp-sea relative min-h-0 flex-1 overflow-hidden rounded-b-2xl border border-t-0 border-cyan-300/20 bg-[#0b3550]">
+            {/* Size-container: lets the stage below fit itself into whatever space is left (cqw / cqh units). */}
+            <div className="absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
+              {/* the stage: always exactly W:H, as big as fits. The SVG, realms and click targets live in it,
+                  so they stay perfectly aligned at any window size. */}
+              <div className="relative" style={{ width: `min(100cqw, ${(W / H) * 100}cqh)`, aspectRatio: `${W} / ${H}` }}>
+                <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="mpSky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="160"><stop offset="0" stopColor="#040613" /><stop offset="1" stopColor="#0c2347" /></linearGradient>
+                    <linearGradient id="mpSea" gradientUnits="userSpaceOnUse" x1="0" y1="160" x2="0" y2={H}><stop offset="0" stopColor="#0b3550" /><stop offset="1" stopColor="#030d17" /></linearGradient>
+                    <linearGradient id="mpWaveFill" gradientUnits="userSpaceOnUse" x1="0" y1="180" x2="0" y2={H}><stop offset="0" stopColor="#0d4a68" /><stop offset="1" stopColor="#031018" /></linearGradient>
+                    <linearGradient id="mpSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#33433e" /><stop offset="1" stopColor="#0f1a17" /></linearGradient>
+                    <radialGradient id="mpMoon" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#e8f6ff" stopOpacity=".5" /><stop offset="1" stopColor="#e8f6ff" stopOpacity="0" /></radialGradient>
+                    <filter id="mpGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                  </defs>
 
-            <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/5 px-4 py-3">
-              <p
-                className="text-[9px] uppercase tracking-[.2em] text-emerald-300"
-                style={MONO}
-              >
-                Network status
-              </p>
-              <p className="mt-1 text-lg font-bold text-emerald-200">
-                {unlockedCount}/{MISSIONS.length} REALMS ONLINE
-              </p>
-            </div>
-          </div>
+                  {/* sky and sea, painted far beyond the canvas so wide/tall windows never show empty bars */}
+                  <rect x="-3000" y="-3000" width="7260" height="3160" fill="url(#mpSky)" />
+                  <rect x="-3000" y="160" width="7260" height="3200" fill="url(#mpSea)" />
+                  <line x1="-3000" y1="160" x2="4260" y2="160" stroke="#4cc9ff" strokeOpacity=".35" />
 
-          <div
-            className="cg-map cg-sweep relative aspect-[5/4] w-full overflow-hidden rounded-2xl border border-cyan-300/20 sm:aspect-[1000/570]"
-            style={{ minHeight: 380 }}
-          >
-            <div
-              className="cg-stars pointer-events-none absolute inset-0"
-              aria-hidden="true"
-            />
-            <div
-              className="cg-scanlines pointer-events-none absolute inset-0"
-              aria-hidden="true"
-            />
+                  {/* stars, moon and moon glitter */}
+                  {STARS.map(([x, y, r], i) => <circle key={i} className="mp-twinkle" cx={x} cy={y} r={r} fill="#e0fbff" style={{ animationDelay: `${i * 0.3}s` }} />)}
+                  <circle cx="1090" cy="82" r="72" fill="url(#mpMoon)" />
+                  <circle cx="1090" cy="82" r="29" fill="#eaf6ff" />
+                  <circle cx="1080" cy="76" r="5" fill="#cfe3f2" /><circle cx="1100" cy="92" r="3.5" fill="#cfe3f2" />
+                  {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} className="mp-twinkle" x={1076 - i * 3} y={180 + i * 26} width={28 + i * 7} height="2.5" rx="1" fill="#eaf6ff" opacity=".5" style={{ animationDelay: `${i * 0.4}s` }} />)}
 
-            <svg
-              viewBox="0 0 1000 570"
-              className="absolute inset-0 h-full w-full"
-              preserveAspectRatio="xMidYMid meet"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="cgGrid"
-                  width="44"
-                  height="44"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M44 0H0V44"
-                    fill="none"
-                    stroke="#4cc9ff"
-                    strokeOpacity=".09"
-                    strokeWidth=".7"
-                  />
-                </pattern>
+                  {/* back wave */}
+                  <g className={WAVES[0].cls} opacity={WAVES[0].op}><path d={WAVES[0].d} fill="url(#mpWaveFill)" /></g>
 
-                <filter
-                  id="cgGlow"
-                  x="-60%"
-                  y="-60%"
-                  width="220%"
-                  height="220%"
-                >
-                  <feGaussianBlur stdDeviation="4" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
+                  {/* shipping routes between the realms, in order */}
+                  {MISSIONS.slice(0, -1).map((a, i) => {
+                    const b = MISSIONS[i + 1];
+                    const sx = a.x + 104, sy = a.y + 44, ex = b.x - 104, ey = b.y + 44;
+                    const d = `M${sx} ${sy} C ${sx + 90} ${sy + 50}, ${ex - 90} ${ey + 50}, ${ex} ${ey}`;
+                    const live = isUnlocked(a) && isUnlocked(b);
+                    const lit = hovered === a.id || hovered === b.id;
+                    const col = lit ? (selected?.color ?? "#4cc9ff") : live ? "#4cc9ff" : "#6b7280";
+                    return (
+                      <g key={a.id}>
+                        <path d={d} fill="none" stroke="#02040d" strokeWidth="12" strokeLinecap="round" opacity=".55" />
+                        <path id={`mpRoute-${i}`} d={d} fill="none" stroke={col} strokeWidth={lit ? 4 : 2.2} strokeOpacity={lit ? 1 : live ? 0.7 : 0.35} strokeDasharray="4 9" strokeLinecap="round" className={live ? "mp-flow" : undefined} filter={lit ? "url(#mpGlow)" : undefined} />
+                        {live && [0, 1.6].map((begin) => (
+                          <circle key={begin} r="4.5" fill="#e6fbff" filter="url(#mpGlow)">
+                            <animateMotion dur="3.4s" begin={`${begin}s`} repeatCount="indefinite"><mpath href={`#mpRoute-${i}`} /></animateMotion>
+                          </circle>
+                        ))}
+                      </g>
+                    );
+                  })}
 
-                {MISSIONS.map((realm) => (
-                  <linearGradient
-                    key={realm.id}
-                    id={`cgBeam-${realm.id}`}
-                    x1="0"
-                    y1="1"
-                    x2="0"
-                    y2="0"
+                  {/* the four realms, bobbing on the sea (drawn 10% bigger) */}
+                  {MISSIONS.map((r, i) => (
+                    <g key={r.id} transform={`translate(${r.x} ${r.y}) scale(${S})`}>
+                      <g className="mp-bob" style={{ animationDelay: `${i * 0.8}s` }}>
+                        <RealmArt realm={r} hov={hovered === r.id} />
+                      </g>
+                      {/* soft reflection ring on the water */}
+                      <ellipse cx="0" cy="84" rx="100" ry="10" fill="none" stroke={r.color} strokeOpacity={isUnlocked(r) ? 0.35 : 0.12} strokeDasharray="3 8" />
+                    </g>
+                  ))}
+
+                  {/* the waves in front: they lap over the bottoms of the realms */}
+                  {WAVES.slice(1).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
+                </svg>
+
+                {/* clickable realms: real buttons, so keyboard and screen readers work */}
+                {MISSIONS.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => launch(r)}
+                    onPointerEnter={(e) => { if (e.pointerType === "mouse") highlight(r.id); }}
+                    onPointerLeave={() => setHovered(null)}
+                    onFocus={() => highlight(r.id)}
+                    onBlur={() => setHovered(null)}
+                    aria-label={`${r.title}, ${r.topic}, ${STATUS_TEXT[r.status]}`}
+                    className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    style={{ left: `${(r.x / W) * 100}%`, top: `${((r.y - 45) / H) * 100}%`, width: `${(240 / W) * 100}%`, height: `${(290 / H) * 100}%` } as CSSProperties}
                   >
-                    <stop offset="0" stopColor={realm.color} stopOpacity=".6" />
-                    <stop offset="1" stopColor={realm.color} stopOpacity="0" />
-                  </linearGradient>
+                    <span className="pointer-events-none absolute -bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 whitespace-nowrap">
+                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[8px] font-bold tracking-widest sm:text-[10px]" style={{ ...MONO, color: isUnlocked(r) ? r.color : "#9ca3af" }}>REALM 0{r.order}</span>
+                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[9px] font-bold text-[#f5f3ff] sm:text-[11px]" style={MONO}>{r.title}</span>
+                    </span>
+                  </button>
                 ))}
-              </defs>
-
-              <rect width="1000" height="570" fill="url(#cgGrid)" />
-
-              {ROOMS.map((room) => (
-                <g key={room.label} opacity=".5">
-                  <Platform
-                    cx={room.x}
-                    cy={room.y}
-                    color="#4cc9ff"
-                    active={false}
-                    locked
-                  />
-                  <text
-                    x={room.x}
-                    y={room.y + 4}
-                    textAnchor="middle"
-                    fontSize="9"
-                    letterSpacing="2"
-                    fill="#7dd3fc"
-                    style={MONO}
-                  >
-                    {room.label}
-                  </text>
-                </g>
-              ))}
-
-              {MISSIONS.slice(0, -1).map((realm, index) => {
-                const next = MISSIONS[index + 1];
-                const path = isoPipe(realm, next);
-                const live = isUnlocked(realm) && isUnlocked(next);
-                const active =
-                  hovered === realm.id || hovered === next.id;
-                const color = active
-                  ? selected?.color ?? "#4cc9ff"
-                  : live
-                    ? "#4cc9ff"
-                    : "#6b7280";
-
-                return (
-                  <g key={realm.id}>
-                    <path
-                      d={path}
-                      fill="none"
-                      stroke="#02040d"
-                      strokeWidth="12"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d={path}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth={active ? 4 : 2}
-                      strokeOpacity={active ? 0.95 : 0.4}
-                      strokeDasharray="4 8"
-                      strokeLinecap="round"
-                      className={live && !reduced ? "cg-flow" : undefined}
-                    />
-                    {live && !reduced && (
-                      <circle r="4" fill="#e0fbff" filter="url(#cgGlow)">
-                        <animateMotion
-                          dur="3.2s"
-                          repeatCount="indefinite"
-                          begin={`${index * 0.45}s`}
-                        >
-                          <mpath href={`#cgRoute-${index}`} />
-                        </animateMotion>
-                      </circle>
-                    )}
-                    <path id={`cgRoute-${index}`} d={path} fill="none" />
-                  </g>
-                );
-              })}
-
-              {MISSIONS.map((realm) => (
-                <g key={realm.id}>
-                  <Platform
-                    cx={realm.x}
-                    cy={realm.y}
-                    color={realm.color}
-                    active={hovered === realm.id}
-                    locked={!isUnlocked(realm)}
-                  />
-                  {isUnlocked(realm) && (
-                    <rect
-                      x={realm.x - 2}
-                      y={realm.y - 140}
-                      width="4"
-                      height="140"
-                      fill={`url(#cgBeam-${realm.id})`}
-                    />
-                  )}
-                  <circle
-                    cx={realm.x}
-                    cy={realm.y}
-                    r={hovered === realm.id ? 52 : 39}
-                    fill="none"
-                    stroke={realm.color}
-                    strokeOpacity={isUnlocked(realm) ? ".25" : ".1"}
-                    strokeDasharray="3 8"
-                  />
-                </g>
-              ))}
-            </svg>
-
-            <div
-              className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2 sm:left-5 sm:top-5"
-              style={MONO}
-            >
-              <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">
-                ● SYSTEM ONLINE
-              </span>
-              <span className="w-fit rounded border border-rose-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-rose-300 sm:text-[10px]">
-                THREAT MONITOR ACTIVE
-              </span>
+              </div>
             </div>
 
-            <div
-              className="pointer-events-none absolute right-3 top-3 z-20 text-right text-[9px] tracking-widest text-cyan-200/70 sm:right-5 sm:top-5 sm:text-[10px]"
-              style={MONO}
-            >
-              GRID 07
-              <br />
-              ENCRYPTED UPLINK
+            {/* HUD: top-left status */}
+            <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
+              <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">&#9679; SONAR ONLINE</span>
+              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">REALMS {unlockedCount}/{MISSIONS.length}</span>
             </div>
 
-            {MISSIONS.map((realm) => {
-              const locked = !isUnlocked(realm);
-
-              return (
-                <button
-                  key={realm.id}
-                  type="button"
-                  onClick={() => launch(realm)}
-                  onPointerEnter={(event) => {
-                    if (event.pointerType === "mouse") highlight(realm.id);
-                  }}
-                  onPointerLeave={() => setHovered(null)}
-                  onFocus={() => highlight(realm.id)}
-                  onBlur={() => setHovered(null)}
-                  aria-label={`${realm.title}, ${realm.topic}, ${STATUS_TEXT[realm.status]}`}
-                  className="group absolute z-30 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl p-1 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#050611]"
-                  style={
-                    {
-                      left: `${realm.x / 10}%`,
-                      top: `${(realm.y / 570) * 100}%`,
-                      "--realm-color": realm.color,
-                    } as CSSProperties
-                  }
-                >
-                  {!locked && (
-                    <span
-                      className="cg-ping absolute top-1 h-12 w-12 rounded-full border-2 sm:h-16 sm:w-16"
-                      style={{ borderColor: realm.color }}
-                      aria-hidden="true"
-                    />
-                  )}
-
-                  <span
-                    className="relative flex h-11 w-11 items-center justify-center rounded-xl border bg-[#070918]/95 transition duration-200 group-hover:scale-110 group-focus-visible:scale-110 sm:h-16 sm:w-16"
-                    style={{
-                      borderColor: realm.color,
-                      boxShadow: locked
-                        ? "inset 0 0 12px rgba(255,255,255,.03)"
-                        : `0 0 22px ${realm.color}55, inset 0 0 16px ${realm.color}22`,
-                      opacity: locked ? 0.6 : 1,
-                      filter: locked ? "grayscale(.65)" : undefined,
-                    }}
-                  >
-                    {locked ? (
-                      <span className="text-xl" aria-hidden="true">
-                        🔒
-                      </span>
-                    ) : (
-                      <span className="cg-glow">
-                        <RealmIcon realm={realm} />
-                      </span>
-                    )}
-                    {!locked && (
-                      <span
-                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full"
-                        style={{
-                          background: realm.color,
-                          boxShadow: `0 0 9px ${realm.color}`,
-                        }}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </span>
-
-                  <span
-                    className="mt-1 rounded bg-[#050611]/95 px-1.5 py-0.5 text-[8px] font-bold tracking-widest sm:text-[10px]"
-                    style={{ ...MONO, color: locked ? "#9ca3af" : realm.color }}
-                  >
-                    REALM 0{realm.order}
-                  </span>
-                  <span
-                    className="max-w-[94px] truncate rounded bg-[#050611]/95 px-1.5 py-0.5 text-[9px] font-bold sm:max-w-none sm:text-[11px]"
-                    style={MONO}
-                  >
-                    {realm.title}
-                  </span>
-                </button>
-              );
-            })}
-
+            {/* intel card for the hovered / focused realm (top centre, in the sky, so it never covers a realm) */}
             {selected && (
-              <div
-                key={selected.id}
-                className="cg-pop pointer-events-none absolute bottom-3 left-3 right-3 z-40 max-w-sm overflow-hidden rounded-xl border backdrop-blur-xl sm:bottom-auto sm:left-auto sm:right-5 sm:top-1/2 sm:w-[min(290px,40%)] sm:-translate-y-1/2"
-                style={{
-                  borderColor: `${selected.color}99`,
-                  background: "rgba(5,7,20,.94)",
-                  boxShadow: `0 0 30px ${selected.color}33`,
-                }}
-                role="status"
-              >
+              <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(560px,58%)] -translate-x-1/2">
                 <div
-                  className="flex items-center justify-between gap-2 border-b px-3 py-2"
-                  style={{
-                    borderColor: `${selected.color}44`,
-                    background: `${selected.color}12`,
-                  }}
+                  key={selected.id}
+                  className="mp-pop overflow-hidden rounded-xl border backdrop-blur-xl"
+                  style={{ borderColor: `${selected.color}99`, background: "rgba(5,7,20,.94)", boxShadow: `0 0 30px ${selected.color}33` }}
+                  role="status"
                 >
-                  <span
-                    className="truncate text-[10px] tracking-widest"
-                    style={{ ...MONO, color: selected.color }}
-                  >
-                    INTEL_0{selected.order}.SYS
-                  </span>
-                  <span className="flex gap-1" aria-hidden="true">
-                    <i className="h-2 w-2 rounded-full bg-rose-400" />
-                    <i className="h-2 w-2 rounded-full bg-amber-300" />
-                    <i className="h-2 w-2 rounded-full bg-emerald-400" />
-                  </span>
-                </div>
-                <div className="space-y-2 p-3">
-                  <p className="text-base font-bold">
-                    {selected.title}
-                  </p>
-                  <p
-                    className="text-[10px] uppercase tracking-widest"
-                    style={{ ...MONO, color: selected.color }}
-                  >
-                    {selected.topic}
-                  </p>
-                  <p className="text-xs leading-relaxed text-slate-300">
-                    {selected.blurb}
-                  </p>
-                  <p
-                    className="border-l-2 pl-2 text-[10px] leading-relaxed text-slate-400"
-                    style={{
-                      ...MONO,
-                      borderColor: selected.color,
-                    }}
-                  >
-                    {selected.guideline}
-                  </p>
-                  <p className="text-[10px] text-slate-400" style={MONO}>
-                    BADGE:{" "}
-                    <span style={{ color: selected.color }}>
-                      {selected.badge}
+                  <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5" style={{ borderColor: `${selected.color}44`, background: `${selected.color}12` }}>
+                    <span className="text-[10px] tracking-widest" style={{ ...MONO, color: selected.color }}>INTEL_0{selected.order}.SYS</span>
+                    <span className="text-[10px] font-bold tracking-widest" style={{ ...MONO, color: isUnlocked(selected) ? "#4ade80" : "#fb7185" }}>
+                      {isUnlocked(selected) ? "> CLICK TO DEPLOY" : "> ACCESS DENIED"}
                     </span>
-                  </p>
-                  <p
-                    className="text-[10px] font-bold tracking-widest"
-                    style={{
-                      ...MONO,
-                      color: isUnlocked(selected) ? "#4ade80" : "#fb7185",
-                    }}
-                  >
-                    {isUnlocked(selected)
-                      ? "> CLICK TO DEPLOY"
-                      : "> ACCESS DENIED"}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {denied && (
-              <div
-                className="cg-pop cg-shake absolute inset-x-3 top-1/2 z-50 mx-auto w-[min(360px,90%)] -translate-y-1/2 rounded-xl border-2 border-rose-400 bg-[#190710]/95 p-5 text-center backdrop-blur-xl"
-                style={{
-                  ...MONO,
-                  boxShadow: "0 0 40px rgba(251,75,133,.35)",
-                }}
-                role="alert"
-              >
-                <p className="text-3xl" aria-hidden="true">
-                  🔒
-                </p>
-                <p className="mt-2 text-xl font-black tracking-widest text-rose-300">
-                  ACCESS DENIED
-                </p>
-                <p className="mt-2 text-[10px] font-bold tracking-widest text-amber-300">
-                  REALM LOCKED
-                </p>
-                <p className="mt-3 text-xs leading-relaxed text-slate-300">
-                  {denied.title} is currently sealed. Complete the previous
-                  mission to unlock this realm.
-                </p>
-              </div>
-            )}
-
-            <div
-              className="cg-float pointer-events-none absolute bottom-3 right-3 z-10 hidden items-end gap-2 sm:flex"
-              aria-label="CyberGuard mascot companion"
-            >
-              <div className="rounded-lg border border-cyan-300/30 bg-[#050611]/85 px-3 py-2">
-                <p className="text-[9px] font-bold tracking-widest text-cyan-200" style={MONO}>
-                  BOB // COMPANION
-                </p>
-                <p className="mt-1 text-[10px] text-slate-400">
-                  Stay sharp. Verify everything.
-                </p>
-              </div>
-              <div className="text-4xl drop-shadow-[0_0_15px_rgba(76,201,255,.65)]" aria-hidden="true">
-                💀
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-            <p
-              className="text-[10px] uppercase tracking-widest text-slate-500"
-              style={MONO}
-            >
-              Select a realm to inspect its mission intelligence.
-            </p>
-            <p
-              className="text-[10px] uppercase tracking-widest text-cyan-300/70"
-              style={MONO}
-            >
-              Four realms // One network
-            </p>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {MISSIONS.map((realm) => (
-              <CyberCard key={realm.id}>
-                <div
-                  className="flex h-full flex-col gap-3 rounded-xl border border-white/10 bg-[#080918]/80 p-4 transition duration-200 hover:border-white/25"
-                  style={
-                    {
-                      "--realm-color": realm.color,
-                      borderColor:
-                        hovered === realm.id
-                          ? `${realm.color}99`
-                          : undefined,
-                      boxShadow:
-                        hovered === realm.id
-                          ? `0 0 20px ${realm.color}18`
-                          : undefined,
-                    } as CSSProperties
-                  }
-                  onMouseEnter={() => highlight(realm.id)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-xl border"
-                      style={{
-                        borderColor: `${realm.color}66`,
-                        background: `${realm.color}10`,
-                      }}
-                    >
-                      {isUnlocked(realm) ? (
-                        <RealmIcon realm={realm} />
-                      ) : (
-                        <span className="text-2xl" aria-hidden="true">
-                          🔒
-                        </span>
-                      )}
+                  </div>
+                  <div className="grid gap-x-4 gap-y-1 p-3 text-[#f5f3ff] sm:grid-cols-[1fr_1fr]">
+                    <div>
+                      <p className="text-base font-bold">{selected.title}</p>
+                      <p className="text-[10px] uppercase tracking-widest" style={{ ...MONO, color: selected.color }}>{selected.topic}</p>
+                      <p className="mt-1 text-[10px] text-slate-400" style={MONO}>BADGE: <span style={{ color: selected.color }}>{selected.badge}</span></p>
                     </div>
-                    <span
-                      className="rounded border px-2 py-1 text-[9px] font-bold tracking-widest"
-                      style={{
-                        ...MONO,
-                        color: isUnlocked(realm) ? realm.color : "#9ca3af",
-                        borderColor: `${realm.color}55`,
-                      }}
-                    >
-                      0{realm.order}
-                    </span>
+                    <div>
+                      <p className="text-xs leading-relaxed text-slate-300">{selected.blurb}</p>
+                      <p className="mt-1 border-l-2 pl-2 text-[10px] leading-relaxed text-slate-400" style={{ ...MONO, borderColor: selected.color }}>{selected.guideline}</p>
+                    </div>
                   </div>
-
-                  <div>
-                    <h2 className="text-lg font-bold">{realm.title}</h2>
-                    <p
-                      className="mt-1 text-[10px] uppercase tracking-widest"
-                      style={{ ...MONO, color: realm.color }}
-                    >
-                      {realm.topic}
-                    </p>
-                  </div>
-
-                  <p className="flex-1 text-xs leading-relaxed text-slate-400">
-                    {realm.blurb}
-                  </p>
-
-                  <p
-                    className="text-[9px] font-bold tracking-widest"
-                    style={{
-                      ...MONO,
-                      color: isUnlocked(realm) ? "#4ade80" : "#9ca3af",
-                    }}
-                  >
-                    {STATUS_TEXT[realm.status]}
-                  </p>
-
-                  {isUnlocked(realm) ? (
-                    <GlowButton
-                      size="sm"
-                      href={realm.href}
-                      accent={realm.status === "completed" ? "amber" : "emerald"}
-                    >
-                      {realm.status === "completed" ? "Replay Realm" : "Deploy Mission"}
-                    </GlowButton>
-                  ) : (
-                    <GlowButton
-                      size="sm"
-                      variant="outline"
-                      disabled
-                      hoverSound={false}
-                      clickSound={false}
-                    >
-                      Locked
-                    </GlowButton>
-                  )}
                 </div>
-              </CyberCard>
-            ))}
+              </div>
+            )}
+
+            {/* ACCESS DENIED popup for sealed realms */}
+            {denied && (
+              <div className="pointer-events-none absolute inset-x-3 top-1/2 z-50 mx-auto w-[min(360px,90%)] -translate-y-1/2">
+                <div className="mp-pop mp-shake rounded-xl border-2 border-rose-400 bg-[#190710]/95 p-5 text-center backdrop-blur-xl" style={{ ...MONO, boxShadow: "0 0 40px rgba(251,75,133,.35)" }} role="alert">
+                  <p className="text-3xl" aria-hidden="true">&#128274;</p>
+                  <p className="mt-2 text-xl font-black tracking-widest text-rose-300">ACCESS DENIED</p>
+                  <p className="mt-2 text-[10px] font-bold tracking-widest text-amber-300">REALM LOCKED</p>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-300">{denied.title} is sealed. Complete the previous mission to unlock it.</p>
+                </div>
+              </div>
+            )}
+
+            {/* the skeleton companion: bottom-right, no speech bubble. It positions itself in this frame
+                and only changes its face with the mood. */}
+            <CompanionSkeleton mood={mood} />
           </div>
         </div>
-      </section>
+      </div>
     </CyberShell>
   );
 }

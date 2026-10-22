@@ -19,17 +19,19 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
 from database import Base
 
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
+# ...
 class User(Base):
     __tablename__ = "users"
-
-    # Our strict rules for every user account
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
-    # REMOVED: age_group = Column(String, nullable=False)  # used to store "A", "B" or "C"
     otp_code_hash = Column(String, nullable=True)
-    otp_expires_at = Column(DateTime, nullable=True)   # DateTime, not String
+    otp_expires_at = Column(DateTime, nullable=True)
+    is_admin = Column(Boolean, nullable=False, default=False, server_default=text("false"))  # NEW
+
+
 
 
 # =============================================================
@@ -60,4 +62,3 @@ class UserProgress(Base):
 
     completed_at = Column(DateTime, nullable=True)      # first time it was completed (the completion log)
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    

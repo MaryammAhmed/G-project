@@ -24,6 +24,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 
+import PageCompanion from "@/components/layout/PageCompanion";
+
 /* ---------- the four missions (colour + a one-line promise each) ---------- */
 type ModId = "vault" | "mirage" | "whisper" | "oracle";
 const MODULES: { id: ModId; name: string; color: string; topic: string; line: string }[] = [
@@ -130,6 +132,11 @@ export default function Login() {
       <div className="lg-root contents">
         <style>{CSS}</style>
 
+        <PageCompanion
+          mood={error ? "breach" : busy ? "alert" : "calm"}
+          message={error ? "Access denied. Check your details." : busy ? "Verifying your clearance..." : mod.line}
+        />
+
         {/* ---- Backdrop: glyph rain in the four mission colours ---- */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
           {["123456", "URGENT", "HELLO?", "PROMPT", "letmein", "VERIFY", "SECRET", "100% SURE"].map((w, i) => (
@@ -142,7 +149,7 @@ export default function Login() {
             </span>
           ))}
         </div>
-        
+
         {/* ---- The card: --c is the cycling mission colour, so the glass border and button follow it ---- */}
         <div
           className="cg-glass lg-card lg-scan lg-in relative z-10 grid w-full max-w-4xl overflow-hidden md:grid-cols-[1fr_1.1fr]"
