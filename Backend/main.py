@@ -194,7 +194,7 @@ async def verify_otp(payload: OtpVerifyPayload, db: AsyncSession = Depends(get_d
         SECRET_KEY,
         algorithm="HS256",
     )
-    return {"status": "ok", "token": token, "email": user.email}
+    return {"status": "ok", "token": token, "email": user.email, "username": user.username}
 
 
 class ResendOtpPayload(BaseModel):
