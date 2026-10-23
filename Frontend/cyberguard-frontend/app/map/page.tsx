@@ -63,7 +63,7 @@ interface Realm {
 /* Realms are now ~310 units apart (they were ~240), with the same up-and-down rhythm. */
 const BASE_MISSIONS: Realm[] = [
   {
-    id: "vault", order: 1, title: "The Vault", topic: "Password Security",
+    id: "vault", order: 1, title: "Locked Out", topic: "Password Security",
     blurb: "Breach the cosmic vault. Build a strong passphrase, identify weak credentials and secure your accounts with two-step sign-in.",
     guideline: "Create long, memorable passwords and protect accounts with multifactor authentication.",
     badge: "VAULT BREAKER", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450,
@@ -310,7 +310,9 @@ function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
         {realm.id === "vault" && <VaultArt hov={hov} color={realm.color} />}
         {realm.id === "mirage" && <MirageArt hov={hov} color={realm.color} />}
         {realm.id === "whisper" && <WhisperArt hov={hov} color={realm.color} />}
-        {realm.id === "oracle" && <OracleArt kind={hov || done} color={realm.color} />}
+        {/* CHANGED: the robot is evil by default (red eyes, spikes) and turns kind ONLY while hovered.
+            Before it was kind={hov || done}, which kept completed realms kind. */}
+        {realm.id === "oracle" && <OracleArt kind={hov} color={realm.color} />}
       </g>
       {locked && (
         <g transform="translate(0 -40)">

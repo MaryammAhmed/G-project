@@ -862,7 +862,7 @@ export default function MissionPlayer({
   useEffect(() => {
     setOverride(null);
     setVirus("idle");
-    if (!mutedRef.current) speak(beat.say);
+    if (!mutedRef.current && !showIntro) speak(beat.say); 
     if (index === 0 && beat.mood === "alert") setTimeout(() => play("buzz"), 500);
     if (
       [
@@ -880,7 +880,7 @@ export default function MissionPlayer({
     }
     if (hardCheckpoints?.includes(beat.id)) checkpoint.current = { index, xp };
     return () => stopSpeaking();
-  }, [beat]);
+  }, [beat, showIntro]);
 
   function next() {
     setIndex((i) => Math.min(i + 1, mission.beats.length - 1));
@@ -948,6 +948,7 @@ export default function MissionPlayer({
 
   return (
     <div
+      aria-hidden={showIntro} 
       className={`mp-root relative min-h-screen bg-[#070711] text-[#f5f3ff] ${fontClass}`}
       style={{ ...DISPLAY, "--c": accent } as CSSProperties}
     >

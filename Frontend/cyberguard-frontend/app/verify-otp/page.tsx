@@ -77,6 +77,8 @@ function VerifyOtpInner() {
       if (res.ok) {
         // Correct code: backend sent back token and email. login(...) stores both centrally.
         login(data.token, data.email);
+        localStorage.setItem("username", data.username);
+
         setOk(true);
         window.setTimeout(() => router.push("/map"), 900); // short success animation, then into the app
       } else {

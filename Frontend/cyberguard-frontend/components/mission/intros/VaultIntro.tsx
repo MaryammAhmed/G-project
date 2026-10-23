@@ -74,7 +74,7 @@ function Picture({ v }: { v: Visual }) {
     return (
       <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
         <rect x="26" y="34" width="148" height="132" rx="12" fill="#0b1411" stroke={G} strokeWidth="3" />
-        <rect x="42" y="56" width="116" height="18" rx="5" fill="#16231e" /><text x="50" y="69" fontSize="9" fill="#b8b5c9" style={MONO}>maya.hassan@mail</text>
+        <rect x="42" y="56" width="116" height="18" rx="5" fill="#16231e" /><text x="50" y="69" fontSize="9" fill="#b8b5c9" style={MONO}>user@gmail.com</text>
         <rect x="42" y="88" width="116" height="18" rx="5" fill="#16231e" />
         {Array.from({ length: 9 }).map((_, i) => <circle key={i} className="vi-dot" cx={52 + i * 12} cy="97" r="3.2" fill={G} style={{ animationDelay: `${i * 0.18}s` }} />)}
         <rect x="42" y="124" width="116" height="24" rx="7" fill={G} />
