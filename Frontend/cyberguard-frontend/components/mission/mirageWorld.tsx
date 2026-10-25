@@ -19,6 +19,8 @@
 
 import type { Beat, Mood } from "@/lib/mission/types";
 
+export interface InboxState { found: number; total: number; }
+
 export type MirageScene = "inbox" | "link" | "phone" | "target" | "net";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
