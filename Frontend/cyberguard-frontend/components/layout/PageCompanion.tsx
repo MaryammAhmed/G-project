@@ -31,23 +31,10 @@ export default function PageCompanion({ message, mood = "calm" }: { message: str
     return () => window.clearInterval(id);
   }, [message]);
 
-  return (
+    return (
     <div className="pointer-events-none fixed bottom-0 right-0 z-40 h-[190px] w-[190px] origin-bottom-right scale-[.62] sm:scale-100" aria-live="polite">
-      {/* speech bubble (hidden on small screens so it never covers a form) */}
-      <div
-        className="absolute bottom-24 right-[168px] hidden w-60 rounded-2xl border bg-[#111329]/95 p-3 backdrop-blur md:block"
-        style={{
-          borderColor: "color-mix(in srgb, var(--c, #4cc9ff) 45%, transparent)",
-          boxShadow: "0 0 24px color-mix(in srgb, var(--c, #4cc9ff) 22%, transparent)",
-        }}
-      >
-        <p className="min-h-[2.5rem] text-xs leading-relaxed text-[#f5f3ff]" style={MONO}>
-          {message.slice(0, n)}
-          {n < message.length && <span className="ms-0.5 inline-block h-3 w-[2px] translate-y-0.5 animate-pulse bg-[#4cc9ff]" />}
-        </p>
-        <span aria-hidden="true" className="absolute -right-2 bottom-8 h-4 w-4 rotate-45 border-r border-t border-white/10 bg-[#111329]" />
-      </div>
-      {/* the skeleton itself (CompanionSkeleton positions itself at the bottom-right of this box) */}
+      {/* The speech bubble is completely removed */}
+      {/* the skeleton itself */}
       <CompanionSkeleton mood={mood} />
     </div>
   );
