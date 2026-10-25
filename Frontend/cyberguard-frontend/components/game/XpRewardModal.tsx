@@ -6,7 +6,8 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
 export interface XpRewardModalProps {
   isOpen: boolean;
-  xpEarned: number;
+  baseXp: number;         // 👈 ADDED: The raw XP before penalties
+  xpEarned: number;       // The final XP after penalties
   stageTitle: string;      
   badge: string;           
   shields: number;         
@@ -38,6 +39,7 @@ function Confetti() {
 
 export default function XpRewardModal({
   isOpen,
+  baseXp,
   xpEarned,
   stageTitle,
   badge,
@@ -48,6 +50,9 @@ export default function XpRewardModal({
   homeHref = "/",
 }: XpRewardModalProps) {
   if (!isOpen) return null;
+
+  const penalty = baseXp - xpEarned;
+  const mistakes = maxShields - shields;
 
   const rank =
     shields === maxShields
@@ -64,15 +69,12 @@ export default function XpRewardModal({
     >
       <Confetti />
 
-      {/* Small header */}
       <p className="text-[10px] uppercase tracking-[0.3em] text-[#4ade80]" style={MONO}>
         Badge Unlocked
       </p>
 
-      {/* Horizontal layout for the badge and stats */}
       <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-4 rounded-xl border border-[#4ade80]/20 bg-[#4ade80]/5 p-4">
         
-        {/* The small badge medallion */}
         <div className="flex shrink-0 items-center justify-center rounded-full border-2 border-[#4ade80]/50 bg-[#4ade80]/10 p-3 shadow-[0_0_15px_rgba(74,222,128,0.3)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8 text-[#4ade80]">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
@@ -80,13 +82,17 @@ export default function XpRewardModal({
           </svg>
         </div>
 
-        {/* Badge Name & Stats */}
         <div className="flex flex-col items-center sm:items-start">
           <h2 className="text-2xl font-black tracking-widest text-[#f5f3ff]">{badge}</h2>
+          
           <div className="mt-1 flex items-center gap-3 text-xs" style={MONO}>
             <span className="text-[#f6c453]">{rank}</span>
             <span className="text-[#77748c]">|</span>
-            <span className="text-[#b8b5c9]"><span className="text-[#f6c453]">{xpEarned}</span> XP</span>
+            <span className="text-[#b8b5c9]">
+              <span className={mistakes > 0 ? "text-[#f6c453]" : "text-[#4ade80]"}>
+                {xpEarned}
+              </span> XP
+            </span>
             <span className="text-[#77748c]">|</span>
             <span>
               {Array.from({ length: maxShields }).map((_, i) => (
@@ -97,7 +103,14 @@ export default function XpRewardModal({
         </div>
       </div>
 
-      {/* Buttons */}
+      {/* 👇 ADDED: XP Breakdown */}
+      {mistakes > 0 && (
+        <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-4 py-2 text-xs flex justify-between items-center" style={MONO}>
+          <span className="text-gray-400">Base Performance: <span className="text-white">{baseXp} XP</span></span>
+          <span className="text-[#fb4b5b]">Penalty ({mistakes} mistake{mistakes > 1 ? "s" : ""}): -{penalty} XP</span>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap justify-center gap-3">
         <button
           onClick={onContinue}
