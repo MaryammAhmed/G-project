@@ -4,22 +4,6 @@
   app/map/page.tsx
   ================
   THE SEA OF REALMS (full-screen edition): the whole page is ONE map that fits the screen, no scrolling.
-
-    - Layout: a fixed full-screen frame = terminal header (with the PROFILE pill) + the map filling the rest.
-    - The map is drawn on a 1260 x 640 canvas and scaled to fit with container-query units, so the realms
-      stay perfectly lined up with their click targets at any window size. The sea and sky are painted
-      far beyond the canvas edges, so wide or tall windows never show empty bars.
-    - Realms are spaced further apart, and each is drawn 10% bigger.
-    - The skeleton companion sits in the bottom-right corner with NO text. It still reacts:
-      happy on hover, alert on a locked realm, panicked on ACCESS DENIED.
-
-    1 THE VAULT    giant padlock (hover: the shackle lifts)
-    2 THE MIRAGE   fisherman in a boat (hover: the fish goes for the lure)
-    3 THE WHISPER  a slipping mask over a criminal (hover: it slips further)
-    4 THE ORACLE   an evil robot (hover: it turns kind; completed realms stay kind)
-
-  UNCHANGED LOGIC: progress from the database (fetchProgress), locked realms can't be launched,
-  the same /mission/... routes, sounds only after the first click, ACCESS DENIED popup.
 */
 
 import { useEffect, useRef, useState } from "react";
@@ -38,10 +22,9 @@ import type { Mood } from "@/lib/mission/types";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-/* The canvas the map is drawn on, and how big each realm is drawn. */
 const W = 1260;
 const H = 640;
-const S = 1.1; // realm drawing scale
+const S = 1.1;
 
 type Status = "completed" | "available" | "locked";
 
@@ -49,56 +32,29 @@ interface Realm {
   id: string;
   order: number;
   title: string;
-  topic: string;
-  blurb: string;
-  guideline: string;
-  badge: string;
+  brief: string; // 👈 ADDED
   href: string;
-  status: Status;     // default state; replaced by the real progress below
+  status: Status;
   color: string;
-  x: number;          // centre on the canvas
-  y: number;          // waterline
+  x: number;
+  y: number;
 }
 
-/* Realms are now ~310 units apart (they were ~240), with the same up-and-down rhythm. */
 const BASE_MISSIONS: Realm[] = [
-  {
-    id: "vault", order: 1, title: "Locked Out", topic: "Password Security",
-    blurb: "Breach the cosmic vault. Build a strong passphrase, identify weak credentials and secure your accounts with two-step sign-in.",
-    guideline: "Create long, memorable passwords and protect accounts with multifactor authentication.",
-    badge: "VAULT BREAKER", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450,
-  },
-  {
-    id: "mirage", order: 2, title: "The Mirage", topic: "Phishing Detection",
-    blurb: "Navigate a city of holograms. Investigate suspicious messages, inspect deceptive links and expose digital traps.",
-    guideline: "Check sender identity, inspect destinations and verify unexpected requests before acting.",
-    badge: "PHISH-SPOTTER", href: "/mission/spot-the-phish", status: "available", color: "#22D3EE", x: 500, y: 335,
-  },
-  {
-    id: "whisper", order: 3, title: "The Whisper", topic: "Social Engineering",
-    blurb: "Someone is manipulating the signal. Detect urgency, impersonation and psychological pressure before trust becomes a vulnerability.",
-    guideline: "Pause under pressure and verify unusual requests through a trusted, independent channel.",
-    badge: "WHISPER BREAKER", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455,
-  },
-  {
-    id: "oracle", order: 4, title: "The Oracle", topic: "Safe AI Usage",
-    blurb: "Enter the AI core. Decide what information can be shared, protect private data and evaluate AI-generated answers.",
-    guideline: "Minimize sensitive information shared with AI and verify important outputs independently.",
-    badge: "ORACLE'S APPRENTICE", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335,
-  },
+  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450 },
+  { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "available", color: "#22D3EE", x: 500, y: 335 },
+  { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455 },
+  { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335 },
 ];
 
-const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 }; // map id -> module number
+const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 };
 
 const STATUS_TEXT: Record<Status, string> = {
-  completed: "REALM SECURED",
+  completed: "MISSION SECURED",
   available: "MISSION AVAILABLE",
   locked: "ACCESS RESTRICTED",
 };
 
-/* ---------- the sea ---------- */
-/* A wave is a long repeating curve starting far left of the canvas. Sliding it left by 200 (two
-   periods) loops it seamlessly, and it covers the margins when the window is wider than the map. */
 function wavePath(y: number, amp: number, step = 100, len = 3800): string {
   let d = `M-1000 ${y} q${step / 2} ${-amp} ${step} 0`;
   for (let x = 0; x < len; x += step) d += ` t${step} 0`;
@@ -110,7 +66,6 @@ const WAVES = [
   { d: wavePath(485, 10), cls: "mp-w1", op: 0.42 },
   { d: wavePath(570, 12), cls: "mp-w2", op: 0.5 },
 ];
-/* Deterministic stars spread over the whole sky: [x, y, radius]. */
 const STARS: [number, number, number][] = Array.from({ length: 34 }, (_, i) => [(i * 149 + 40) % W, 18 + ((i * 53) % 112), 1 + (i % 3) * 0.25]);
 
 const CSS = `
@@ -138,11 +93,6 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .mp-sea *, .mp-sea *::before, .mp-sea *::after { animation: none !important; transition: none !important; } }
 `;
 
-/* ======================================================================
-   THE FOUR REALM ILLUSTRATIONS (each drawn around (0,0) = the waterline centre)
-   ====================================================================== */
-
-/* A floating islet the realm sits on. */
 function Islet({ color }: { color: string }) {
   return (
     <g>
@@ -152,7 +102,6 @@ function Islet({ color }: { color: string }) {
   );
 }
 
-/* 1. THE VAULT: a huge padlock. Hover: the shackle lifts and everything glows. */
 function VaultArt({ hov, color }: { hov: boolean; color: string }) {
   return (
     <g>
@@ -169,23 +118,18 @@ function VaultArt({ hov, color }: { hov: boolean; color: string }) {
   );
 }
 
-/* 2. THE MIRAGE: a fisherman in a boat. Hover: the rod bends and the fish goes for the lure. */
 function MirageArt({ hov, color }: { hov: boolean; color: string }) {
   return (
     <g>
-      {/* boat */}
       <path d="M-92 14 Q0 42 92 14 L70 52 Q0 66 -70 52 Z" fill="#0a2330" stroke={color} strokeWidth="2.5" />
       <path d="M-76 30 Q0 50 76 30" fill="none" stroke={color} strokeOpacity=".4" />
-      {/* lantern */}
       <line x1="-74" y1="14" x2="-74" y2="-52" stroke="#7da9b8" strokeWidth="3" />
       <circle cx="-74" cy="-56" r="9" fill="#fbbf24" style={{ filter: "drop-shadow(0 0 10px #fbbf24)" }} />
-      {/* the fisherman */}
       <path d="M-30 12 L-30 -30 Q-8 -46 14 -30 L14 12 Z" fill="#fbbf24" stroke="#b8860b" strokeWidth="2" />
       <circle cx="-8" cy="-50" r="14" fill="#e8d5b5" />
       <ellipse cx="-8" cy="-60" rx="27" ry="6" fill="#161a26" stroke={color} />
       <path d="M-24 -60 Q-8 -88 8 -60 Z" fill="#161a26" stroke={color} />
       <line x1="6" y1="-24" x2="30" y2="-24" stroke="#e8d5b5" strokeWidth="6" strokeLinecap="round" />
-      {/* rod, line, lure: drawn from the hand, so rotating the group bends the whole rig */}
       <g transform="translate(30 -24)">
         <g style={{ transform: `rotate(${hov ? -6 : 0}deg)`, transition: "transform .4s" }}>
           <path d="M0 0 Q50 -50 84 -72" fill="none" stroke="#d6c7a0" strokeWidth="4" strokeLinecap="round" />
@@ -197,7 +141,6 @@ function MirageArt({ hov, color }: { hov: boolean; color: string }) {
           <ellipse className="mp-ring" cx="74" cy="64" rx="10" ry="3" fill="none" stroke={color} />
         </g>
       </g>
-      {/* the data-fish: circles the lure, and goes for it on hover */}
       <g style={{ transform: hov ? "translate(96px,98px)" : "translate(70px,120px)", transition: "transform .5s" }}>
         <g className="mp-nibble">
           <ellipse rx="20" ry="10" fill={color} opacity=".9" />
@@ -210,18 +153,15 @@ function MirageArt({ hov, color }: { hov: boolean; color: string }) {
   );
 }
 
-/* 3. THE WHISPER: a figure whose smiling mask has slipped. Hover: it slips further. */
 function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
   return (
     <g>
       <Islet color={color} />
-      {/* hood, suit and tie */}
       <path d="M-42 -58 Q-48 -122 0 -122 Q48 -122 42 -58 Q38 -96 0 -98 Q-38 -96 -42 -58 Z" fill="#1b1530" stroke={color} />
       <path d="M-62 34 Q-62 -4 -30 -14 L30 -14 Q62 -4 62 34 Z" fill="#1b1530" stroke={color} strokeWidth="2.5" />
       <path d="M-14 -14 L0 6 L14 -14 Z" fill="#e5e7eb" />
       <path d="M0 -4 L-7 8 L0 32 L7 8 Z" fill={color} />
       <rect x="-10" y="-26" width="20" height="14" fill="#3b3646" />
-      {/* the criminal underneath */}
       <ellipse cx="0" cy="-68" rx="34" ry="40" fill="#3f3b4a" stroke="#1f1b2b" strokeWidth="2" />
       <ellipse cx="-13" cy="-72" rx="8" ry="4" fill="#0b0b12" transform="rotate(18 -13 -72)" />
       <ellipse cx="13" cy="-72" rx="8" ry="4" fill="#0b0b12" transform="rotate(-18 13 -72)" />
@@ -231,7 +171,6 @@ function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
       <path d="M-18 -50 Q0 -36 18 -50" fill="none" stroke="#e5e7eb" strokeWidth="3" strokeLinecap="round" />
       <path d="M-9 -45 v5 M0 -43 v6 M9 -45 v5" stroke="#e5e7eb" strokeWidth="2" />
       <path d="M16 -90 L26 -64" stroke="#9ca3af" strokeWidth="2" />
-      {/* the mask: slid off to one side (drawn around its own centre so the CSS transform is simple) */}
       <g transform="translate(0 -66)">
         <g style={{ transform: hov ? "translate(-44px,12px) rotate(-30deg)" : "translate(-24px,-4px) rotate(-14deg)", transition: "transform .45s" }}>
           <ellipse rx="37" ry="43" fill="#f5f3ff" stroke={color} strokeWidth="2.5" />
@@ -241,7 +180,6 @@ function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
           <path d="M36 0 L52 8" stroke="#1b1530" strokeWidth="3" />
         </g>
       </g>
-      {/* the lie */}
       <g className="mp-bob">
         <rect x="-110" y="-134" width="84" height="22" rx="8" fill="#0d0a1c" stroke={color} />
         <text x="-68" y="-119" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={color} style={MONO}>&quot;I&apos;m from IT&quot;</text>
@@ -250,7 +188,6 @@ function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
   );
 }
 
-/* 4. THE ORACLE: an evil robot. Hover (or completed): eyes turn green, it smiles, a halo appears. */
 function OracleArt({ kind, color }: { kind: boolean; color: string }) {
   const eye = kind ? "#4ade80" : "#ef4444";
   const t = "fill .35s, stroke .35s";
@@ -258,22 +195,18 @@ function OracleArt({ kind, color }: { kind: boolean; color: string }) {
     <g>
       <Islet color={color} />
       <g style={{ filter: `drop-shadow(0 0 ${kind ? 14 : 10}px ${eye})`, transition: "filter .35s" }}>
-        {/* antenna */}
         <line x1="0" y1="-120" x2="0" y2="-140" stroke="#6b7280" strokeWidth="3" />
         <circle cx="0" cy="-144" r="6" className={kind ? "" : "mp-blink"} style={{ fill: eye, transition: t }} />
-        {/* spikes (evil) or halo (kind) */}
         {kind ? (
           <ellipse cx="0" cy="-152" rx="30" ry="8" fill="none" stroke={color} strokeWidth="3" />
         ) : (
           <g fill="#7f1d1d" stroke="#ef4444"><polygon points="-40,-114 -32,-142 -22,-114" /><polygon points="40,-114 32,-142 22,-114" /></g>
         )}
-        {/* head + visor */}
         <rect x="-54" y="-120" width="108" height="84" rx="20" fill="#171c28" strokeWidth="3" style={{ stroke: eye, transition: t }} />
         <rect x="-42" y="-104" width="84" height="38" rx="11" fill="#05070d" />
         <circle cx="-19" cy="-85" r="10" style={{ fill: eye, transition: t }} />
         <circle cx="19" cy="-85" r="10" style={{ fill: eye, transition: t }} />
         <circle cx="-16" cy="-88" r="3" fill="#fff" opacity=".8" /><circle cx="22" cy="-88" r="3" fill="#fff" opacity=".8" />
-        {/* brows + mouth */}
         {kind ? (
           <>
             <path d="M-32 -100 Q-19 -108 -6 -101 M32 -100 Q19 -108 6 -101" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" />
@@ -285,7 +218,6 @@ function OracleArt({ kind, color }: { kind: boolean; color: string }) {
             <path d="M-26 -54 L-17 -44 L-9 -54 L0 -44 L9 -54 L17 -44 L26 -54" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinejoin="round" />
           </>
         )}
-        {/* body */}
         <rect x="-46" y="-30" width="92" height="64" rx="14" fill="#171c28" strokeWidth="3" style={{ stroke: eye, transition: t }} />
         <circle cx="0" cy="2" r="13" fill="#05070d" /><circle cx="0" cy="2" r="7" className={kind ? "" : "mp-blink"} style={{ fill: eye, transition: t }} />
         <rect x="-62" y="-22" width="14" height="38" rx="7" fill="#171c28" stroke="#6b7280" />
@@ -300,7 +232,6 @@ function OracleArt({ kind, color }: { kind: boolean; color: string }) {
   );
 }
 
-/* One realm = its illustration + a lock overlay if sealed + a check badge if secured. */
 function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
   const locked = realm.status === "locked";
   const done = realm.status === "completed";
@@ -310,8 +241,6 @@ function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
         {realm.id === "vault" && <VaultArt hov={hov} color={realm.color} />}
         {realm.id === "mirage" && <MirageArt hov={hov} color={realm.color} />}
         {realm.id === "whisper" && <WhisperArt hov={hov} color={realm.color} />}
-        {/* CHANGED: the robot is evil by default (red eyes, spikes) and turns kind ONLY while hovered.
-            Before it was kind={hov || done}, which kept completed realms kind. */}
         {realm.id === "oracle" && <OracleArt kind={hov} color={realm.color} />}
       </g>
       {locked && (
@@ -335,7 +264,6 @@ function isUnlocked(realm: Realm) {
   return realm.status !== "locked";
 }
 
-/* The PROFILE pill: glowing, with an avatar icon, plus your total XP once progress has loaded. */
 function ProfileButton({ xp }: { xp: number | null }) {
   return (
     <div className="flex items-center gap-2">
@@ -369,7 +297,6 @@ export default function MissionMapPage() {
   const gesture = useRef(false);
   const deniedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ---- progress from the database (unchanged logic) ---- */
   const { token } = useAuth();
   const [snap, setSnap] = useState<ProgressSnapshot | null>(null);
   useEffect(() => {
@@ -385,7 +312,6 @@ export default function MissionMapPage() {
   const unlockedCount = MISSIONS.filter(isUnlocked).length;
   const selected = MISSIONS.find((r) => r.id === hovered) ?? null;
 
-  /* sounds only after a real user gesture (browser rule) */
   useEffect(() => {
     const mark = () => { gesture.current = true; };
     window.addEventListener("pointerdown", mark, { capture: true });
@@ -417,29 +343,23 @@ export default function MissionMapPage() {
     router.push(realm.href);
   }
 
-  /* the skeleton's face (no text): panicked on denied, happy on an open realm, alert on a sealed one */
   const mood: Mood = denied ? "breach" : selected ? (isUnlocked(selected) ? "safe" : "alert") : "calm";
 
   return (
     <CyberShell variant="app" accent="cyan">
       <style>{CSS}</style>
 
-      {/* The whole page is one fixed frame: header on top, the map fills the rest. Nothing scrolls. */}
       <div className="fixed inset-0 z-10 flex flex-col p-2 sm:p-4">
         <div className="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col">
           <TerminalHeader
-            title="cyberguard@sea:~/mission-map"
+            title="cyberguard/mission-map"
             status="ONLINE"
             clearance="TIER 1"
             right={<ProfileButton xp={snap ? snap.total_score : null} />}
           />
 
-          {/* ---- the map frame ---- */}
           <div className="mp-sea relative min-h-0 flex-1 overflow-hidden rounded-b-2xl border border-t-0 border-cyan-300/20 bg-[#0b3550]">
-            {/* Size-container: lets the stage below fit itself into whatever space is left (cqw / cqh units). */}
             <div className="absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
-              {/* the stage: always exactly W:H, as big as fits. The SVG, realms and click targets live in it,
-                  so they stay perfectly aligned at any window size. */}
               <div className="relative" style={{ width: `min(100cqw, ${(W / H) * 100}cqh)`, aspectRatio: `${W} / ${H}` }}>
                 <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
@@ -451,22 +371,18 @@ export default function MissionMapPage() {
                     <filter id="mpGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
                   </defs>
 
-                  {/* sky and sea, painted far beyond the canvas so wide/tall windows never show empty bars */}
                   <rect x="-3000" y="-3000" width="7260" height="3160" fill="url(#mpSky)" />
                   <rect x="-3000" y="160" width="7260" height="3200" fill="url(#mpSea)" />
                   <line x1="-3000" y1="160" x2="4260" y2="160" stroke="#4cc9ff" strokeOpacity=".35" />
 
-                  {/* stars, moon and moon glitter */}
                   {STARS.map(([x, y, r], i) => <circle key={i} className="mp-twinkle" cx={x} cy={y} r={r} fill="#e0fbff" style={{ animationDelay: `${i * 0.3}s` }} />)}
                   <circle cx="1090" cy="82" r="72" fill="url(#mpMoon)" />
                   <circle cx="1090" cy="82" r="29" fill="#eaf6ff" />
                   <circle cx="1080" cy="76" r="5" fill="#cfe3f2" /><circle cx="1100" cy="92" r="3.5" fill="#cfe3f2" />
                   {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} className="mp-twinkle" x={1076 - i * 3} y={180 + i * 26} width={28 + i * 7} height="2.5" rx="1" fill="#eaf6ff" opacity=".5" style={{ animationDelay: `${i * 0.4}s` }} />)}
 
-                  {/* back wave */}
-                  <g className={WAVES[0].cls} opacity={WAVES[0].op}><path d={WAVES[0].d} fill="url(#mpWaveFill)" /></g>
+                  {WAVES.slice(0, 2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
 
-                  {/* shipping routes between the realms, in order */}
                   {MISSIONS.slice(0, -1).map((a, i) => {
                     const b = MISSIONS[i + 1];
                     const sx = a.x + 104, sy = a.y + 44, ex = b.x - 104, ey = b.y + 44;
@@ -487,22 +403,18 @@ export default function MissionMapPage() {
                     );
                   })}
 
-                  {/* the four realms, bobbing on the sea (drawn 10% bigger) */}
                   {MISSIONS.map((r, i) => (
                     <g key={r.id} transform={`translate(${r.x} ${r.y}) scale(${S})`}>
                       <g className="mp-bob" style={{ animationDelay: `${i * 0.8}s` }}>
                         <RealmArt realm={r} hov={hovered === r.id} />
                       </g>
-                      {/* soft reflection ring on the water */}
                       <ellipse cx="0" cy="84" rx="100" ry="10" fill="none" stroke={r.color} strokeOpacity={isUnlocked(r) ? 0.35 : 0.12} strokeDasharray="3 8" />
                     </g>
                   ))}
 
-                  {/* the waves in front: they lap over the bottoms of the realms */}
-                  {WAVES.slice(1).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
+                  {WAVES.slice(2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
                 </svg>
 
-                {/* clickable realms: real buttons, so keyboard and screen readers work */}
                 {MISSIONS.map((r) => (
                   <button
                     key={r.id}
@@ -512,12 +424,12 @@ export default function MissionMapPage() {
                     onPointerLeave={() => setHovered(null)}
                     onFocus={() => highlight(r.id)}
                     onBlur={() => setHovered(null)}
-                    aria-label={`${r.title}, ${r.topic}, ${STATUS_TEXT[r.status]}`}
+                    aria-label={`${r.title}, ${STATUS_TEXT[r.status]}`}
                     className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white"
                     style={{ left: `${(r.x / W) * 100}%`, top: `${((r.y - 45) / H) * 100}%`, width: `${(240 / W) * 100}%`, height: `${(290 / H) * 100}%` } as CSSProperties}
                   >
                     <span className="pointer-events-none absolute -bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 whitespace-nowrap">
-                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[8px] font-bold tracking-widest sm:text-[10px]" style={{ ...MONO, color: isUnlocked(r) ? r.color : "#9ca3af" }}>REALM 0{r.order}</span>
+                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[8px] font-bold tracking-widest sm:text-[10px]" style={{ ...MONO, color: isUnlocked(r) ? r.color : "#9ca3af" }}>MISSION 0{r.order}</span>
                       <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[9px] font-bold text-[#f5f3ff] sm:text-[11px]" style={MONO}>{r.title}</span>
                     </span>
                   </button>
@@ -525,18 +437,16 @@ export default function MissionMapPage() {
               </div>
             </div>
 
-            {/* HUD: top-left status */}
             <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
               <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">&#9679; SONAR ONLINE</span>
               <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">REALMS {unlockedCount}/{MISSIONS.length}</span>
             </div>
 
-            {/* intel card for the hovered / focused realm (top centre, in the sky, so it never covers a realm) */}
             {selected && (
-              <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(560px,58%)] -translate-x-1/2">
+              <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(360px,90%)] -translate-x-1/2">
                 <div
                   key={selected.id}
-                  className="mp-pop overflow-hidden rounded-xl border backdrop-blur-xl"
+                  className="mp-pop overflow-hidden rounded-xl border backdrop-blur-xl text-center"
                   style={{ borderColor: `${selected.color}99`, background: "rgba(5,7,20,.94)", boxShadow: `0 0 30px ${selected.color}33` }}
                   role="status"
                 >
@@ -546,22 +456,17 @@ export default function MissionMapPage() {
                       {isUnlocked(selected) ? "> CLICK TO DEPLOY" : "> ACCESS DENIED"}
                     </span>
                   </div>
-                  <div className="grid gap-x-4 gap-y-1 p-3 text-[#f5f3ff] sm:grid-cols-[1fr_1fr]">
-                    <div>
-                      <p className="text-base font-bold">{selected.title}</p>
-                      <p className="text-[10px] uppercase tracking-widest" style={{ ...MONO, color: selected.color }}>{selected.topic}</p>
-                      <p className="mt-1 text-[10px] text-slate-400" style={MONO}>BADGE: <span style={{ color: selected.color }}>{selected.badge}</span></p>
-                    </div>
-                    <div>
-                      <p className="text-xs leading-relaxed text-slate-300">{selected.blurb}</p>
-                      <p className="mt-1 border-l-2 pl-2 text-[10px] leading-relaxed text-slate-400" style={{ ...MONO, borderColor: selected.color }}>{selected.guideline}</p>
-                    </div>
+                  
+                  {/* 👇 THIS IS WHERE THE BRIEF IS ADDED 👇 */}
+                  <div className="p-4 flex flex-col items-center justify-center gap-1">
+                    <p className="text-xl font-bold text-[#f5f3ff]">{selected.title}</p>
+                    <p className="text-xs text-[#b8b5c9]" style={MONO}>{selected.brief}</p>
                   </div>
+
                 </div>
               </div>
             )}
 
-            {/* ACCESS DENIED popup for sealed realms */}
             {denied && (
               <div className="pointer-events-none absolute inset-x-3 top-1/2 z-50 mx-auto w-[min(360px,90%)] -translate-y-1/2">
                 <div className="mp-pop mp-shake rounded-xl border-2 border-rose-400 bg-[#190710]/95 p-5 text-center backdrop-blur-xl" style={{ ...MONO, boxShadow: "0 0 40px rgba(251,75,133,.35)" }} role="alert">
@@ -573,8 +478,6 @@ export default function MissionMapPage() {
               </div>
             )}
 
-            {/* the skeleton companion: bottom-right, no speech bubble. It positions itself in this frame
-                and only changes its face with the mood. */}
             <CompanionSkeleton mood={mood} />
           </div>
         </div>
