@@ -177,7 +177,7 @@ export default function PhishIntro({ onDone }: { onDone: () => void }) {
           <>
             <p className="text-[11px] tracking-[0.5em]" style={{ ...MONO, color: C }}>CYBERGUARD  |  MISSION 02</p>
             <h1 className="mi-glitch relative text-5xl font-black tracking-[0.12em] sm:text-7xl" style={{ textShadow: "3px 0 #fb4b5b, -3px 0 #fbbf24, 0 0 40px rgba(34,211,238,.6)" }}>
-              THE MIRAGE
+              Phished
             </h1>
             <p className="max-w-md text-sm text-[#b8b5c9]">Phishing: the trap that looks like home.</p>
             <button
