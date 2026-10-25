@@ -25,8 +25,6 @@
 import type { CSSProperties } from "react";
 import type { Mood } from "@/lib/mission/types";
 import type { SceneKey } from "@/lib/mission/audio";
-import { HookScene, InboxScene } from "./mirageScenes";
-import type { InboxState } from "./mirageScenes";
 
 /* ====================================================================
    TYPES
@@ -1269,12 +1267,11 @@ interface SceneStageProps {
   mood: Mood;
   virus: VirusState;
   app: AppState;
-  inbox: InboxState;
 }
 
 /* Chooses the picture for a stage. The switch covers every StageKey, so TypeScript
    reports an error here if a new stage is added without a picture. */
-function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
+function SceneBody({ scene, mood, virus, app }: SceneStageProps) {
   switch (scene) {
     case "room":
       return <RoomScene alert={mood === "alert"} />;
@@ -1286,10 +1283,6 @@ function SceneBody({ scene, mood, virus, app, inbox }: SceneStageProps) {
       return <LabScene />;
     case "phone":
       return <PhoneScene app={app} />;
-    case "inbox":
-      return <InboxScene state={inbox} />;
-    case "hook":
-      return <HookScene state={virus} />;
     case "pond":
       return <PondScene mood={mood} />;
     case "sealed":
