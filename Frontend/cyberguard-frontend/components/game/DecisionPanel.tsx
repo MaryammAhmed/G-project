@@ -119,7 +119,7 @@ export default function DecisionPanel({
         <div className="space-y-2 rounded-2xl border border-white/10 bg-[#111329]/80 p-4">
           <div className="skeleton h-3 w-5/6 rounded bg-white/15" />
           <div className="skeleton h-3 w-2/3 rounded bg-white/15" />
-          <p className="text-xs text-[#77748c]" style={MONO}>Maya is thinking...</p>
+          <p className="text-xs text-[#77748c]" style={MONO}>🤖 CIPHER IS ANALYZING...</p>
         </div>
       )}
 
