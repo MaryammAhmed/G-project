@@ -127,7 +127,15 @@ function InboxScene({ mood }: { mood: Mood }) {
   const alert = mood === "alert", bad = mood === "breach", ok = mood === "safe";
   const c = bad ? "#fb4b5b" : ok ? "#4ade80" : alert ? "#fbbf24" : "#22D3EE";
   const dy = bad ? 120 : alert ? 100 : ok ? 20 : 56; // how far the hook has dropped
-  const rows: [number, string, string][] = [[54, "Ms. Patel", "Quiz moved to Friday"], [86, "Library", "Book due Friday"], [118, "ELMWOOD IT DESK", "URGENT: verify your account"], [150, "Mom", "pick up milk?"]];
+  
+  // 👇 CHANGED: METROPOLITAN IT DESK -> METROPOLITAN IT DESK
+  const rows: [number, string, string][] = [
+    [54, "Ms. Patel", "Quiz moved to Friday"], 
+    [86, "Library", "Book due Friday"], 
+    [118, "METROPOLITAN IT DESK", "URGENT: verify your account"], 
+    [150, "Mom", "pick up milk?"]
+  ];
+
   return (
     <svg viewBox="0 0 320 250" className="block w-full" role="img" aria-label="A mail list where a hook drops toward a glowing urgent message">
       <defs>
@@ -179,22 +187,22 @@ function LinkScene({ mood }: { mood: Mood }) {
       <rect x="14" y="16" width="292" height="222" rx="10" fill="#0a1e29" stroke={c} strokeOpacity=".7" strokeWidth="2" />
       <rect x="26" y="30" width="268" height="24" rx="12" fill="#06141c" stroke="#1c4252" />
       <text x="36" y="46" fontSize="8.5" style={MONO} fill="#7da9b8">
-        <tspan>{ok ? "https://" : "http://elmwood-portal."}</tspan>
-        <tspan fill={c} fontWeight="700">{ok ? "elmwood.edu" : "verify-login.top"}</tspan>
+        <tspan>{ok ? "https://" : "http://metropolitan-portal."}</tspan>
+        <tspan fill={c} fontWeight="700">{ok ? "metropolitan.edu" : "verify-login.top"}</tspan>
         <tspan>{ok ? "/login" : "/auth"}</tspan>
       </text>
       {/* the flipping owner label */}
       <g style={MONO} fontSize="9" fontWeight="700">
         <text x="30" y="76" fill="#7da9b8">OWNER:</text>
-        {alert && (<><text className="mr-flipA" x="84" y="76" fill="#4ade80">elmwood.edu ?</text><text className="mr-flipB" x="84" y="76" fill="#fb4b5b">verify-login.top</text></>)}
+        {alert && (<><text className="mr-flipA" x="84" y="76" fill="#4ade80">metropolitan.edu ?</text><text className="mr-flipB" x="84" y="76" fill="#fb4b5b">verify-login.top</text></>)}
         {bad && <text x="84" y="76" fill="#fb4b5b">verify-login.top (NOT THE SCHOOL)</text>}
-        {ok && <text x="84" y="76" fill="#4ade80">elmwood.edu (CHECKED)</text>}
+        {ok && <text x="84" y="76" fill="#4ade80">metropolitan.edu (CHECKED)</text>}
         {mood === "calm" && <text x="84" y="76" fill="#cfe9f2">read the ending backward</text>}
       </g>
       {/* the login page mock */}
       <rect x="40" y="92" width="240" height="124" rx="8" fill="#0e2a37" stroke="#1c4252" />
       <circle cx="160" cy="112" r="10" fill="none" stroke="#7da9b8" strokeWidth="2" />
-      <text x="160" y="134" textAnchor="middle" fontSize="8" fontWeight="700" fill="#cfe9f2" style={MONO}>Elmwood Student Portal</text>
+      <text x="160" y="134" textAnchor="middle" fontSize="8" fontWeight="700" fill="#cfe9f2" style={MONO}>Metropolitan Student Portal</text>
       <rect x="70" y="144" width="180" height="16" rx="4" fill="#06141c" stroke="#1c4252" />
       <rect x="70" y="166" width="180" height="16" rx="4" fill="#06141c" stroke={bad ? "#fb4b5b" : "#1c4252"} />
       {bad && [0, 1, 2, 3, 4, 5, 6].map((i) => <circle key={i} cx={80 + i * 10} cy="174" r="2.5" fill="#fb4b5b" />)}
@@ -229,7 +237,7 @@ function PhoneScene({ mood }: { mood: Mood }) {
       {[0, 1, 2].map((i) => (
         <g key={i} className={alert ? "mr-float" : ""} style={{ animationDelay: `${i * 0.4}s` }}>
           <rect x="38" y={54 + i * 48} width="96" height="38" rx="9" fill={bad ? "rgba(251,75,91,.15)" : "#0e2d3b"} stroke={alert || bad ? c : "#1c4252"} strokeWidth="1.5" />
-          <text x="46" y={67 + i * 48} fontSize="6.5" fontWeight="700" fill={alert || bad ? c : "#cfe9f2"} style={MONO}>{["ParcelPost", "SnapGram Team", "ELMWOOD-ALERT"][i]}</text>
+          <text x="46" y={67 + i * 48} fontSize="6.5" fontWeight="700" fill={alert || bad ? c : "#cfe9f2"} style={MONO}>{["ParcelPost", "SnapGram Team", "METROPOLITAN-ALERT"][i]}</text>
           <text x="46" y={78 + i * 48} fontSize="6" fill="#7da9b8" style={MONO}>{["Pay $1.99 now", "Appeal in 24h", "Verify today"][i]}</text>
           {ok && <line x1="42" y1={86 + i * 48} x2="130" y2={60 + i * 48} stroke="#4ade80" strokeWidth="2" />}
         </g>
@@ -335,7 +343,6 @@ export function MirageStage({ scene, mood }: { scene: MirageScene; mood: Mood })
         {scene === "net" && <NetScene mood={mood} />}
       </div>
       <p className="border-t border-white/10 bg-[#070711]/80 py-2 text-center text-xs tracking-[0.4em] text-[#b8b5c9]" style={MONO}>{LABEL[scene]}</p>
-      <p className="border-t border-white/10 bg-[#070711]/60 py-1.5 text-center text-[9px] font-bold tracking-[0.25em] text-[#fbbf24]" style={MONO}>CASE FILE: SARAH J. | ELMWOOD HIGH</p>
     </div>
   );
 }

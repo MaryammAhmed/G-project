@@ -1,111 +1,161 @@
 "use client";
+
 import { useState } from "react";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-const CUE_GROUPS = [
-  { 
-    id: "errors", 
-    title: "Sloppy Mistakes", 
-    short: "Spelling and grammar", 
-    detail: "Real companies proofread. Typos and broken sentences are warning signs. But careful scammers fix these, so a clean message does NOT mean it's safe.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-red-400 mb-2">
-        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    )
+type ClueId = "typos" | "address" | "design" | "urgency";
+
+interface Clue {
+  id: ClueId;
+  title: string;
+  icon: string;
+  shortDesc: string;
+  fullDesc: string;
+  hackerTip: string;
+}
+
+const CLUES: Clue[] = [
+  {
+    id: "typos",
+    title: "Sloppy Mistakes",
+    icon: "📝",
+    shortDesc: "Bad grammar and spelling errors.",
+    fullDesc: "Real companies use spellcheck. If an email is full of typos, weird formatting, or broken sentences, it's a huge red flag.",
+    hackerTip: "Careful: Hackers use AI to write perfect emails now. A clean message doesn't mean it's safe."
   },
-  { 
-    id: "technical", 
-    title: "The Real Address", 
-    short: "Sender emails and hidden links", 
-    detail: "Look at the actual email address, not just the name. Check where a link really goes before you click. These clues are the hardest for scammers to fake.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-cyan-400 mb-2">
-        <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    )
+   {
+    id: "address",
+    title: "Fake Sender",
+    icon: "✉️",
+    shortDesc: "Look-alike domains and hidden links.",
+    fullDesc: "Official organizations never use free emails like @gmail.com. And watch out for look-alike domains, like @metropolitan-helpdesk.com instead of @metropolitan.edu.",
+    hackerTip: "This is the hardest clue for a hacker to fake. Always read the domain name."
   },
-  { 
-    id: "look", 
-    title: "Bad Design", 
-    short: "Logos, colors, layout", 
-    detail: "A blurry logo or wrong colors can give a fake away. But logos are easy to copy, so a perfect-looking message proves nothing.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-purple-400 mb-2">
-        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    )
+  {
+    id: "design",
+    title: "Stolen Logos",
+    icon: "🖼️",
+    shortDesc: "Blurry graphics and copied designs.",
+    fullDesc: "A blurry logo or wrong colors can give a fake away. But be careful, hackers can copy a perfect logo in 5 seconds.",
+    hackerTip: "Never trust a message just because the logo looks right."
   },
-  { 
-    id: "words", 
-    title: "Scary Words", 
-    short: "Urgency and threats", 
-    detail: "Scammers want you to act before you think. Watch for deadlines, threats, and offers that are too good to be true.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-amber-400 mb-2">
-        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    )
+  {
+    id: "urgency",
+    title: "Fake Urgency",
+    icon: "🚨",
+    shortDesc: "Scary threats and fake deadlines.",
+    fullDesc: "'Your account will be deleted in 24 hours!' or 'You won a prize!' Hackers want you to panic so you click without thinking.",
+    hackerTip: "The pressure is designed to make you skip the verification step."
   },
 ];
 
 export default function TackleBox({ onNext }: { onNext: () => void }) {
-  const [revealed, setRevealed] = useState<string[]>([]);
-  const allRevealed = revealed.length === CUE_GROUPS.length;
+  const [opened, setOpened] = useState<ClueId[]>([]);
+  const [activeClue, setActiveClue] = useState<Clue | null>(null);
+
+  const progress = (opened.length / CLUES.length) * 100;
+
+  function handleTap(clue: Clue) {
+    setActiveClue(clue);
+    if (!opened.includes(clue.id)) {
+      setOpened((prev) => [...prev, clue.id]);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-[#111329]/80 p-5">
-        <h3 className="text-xl font-bold mb-2">Why do smart people still click?</h3>
-        <p className="text-base text-[#f5f3ff] mb-4">
-          NIST is a US government science lab. They found that two things decide how hard a phish is to spot:
+      
+      {/* HEADER SECTION */}
+      <div className="text-center space-y-3">
+        <h2 className="text-2xl font-black tracking-widest text-[#22D3EE]" style={MONO}>
+          THREAT INTEL
+        </h2>
+        <p className="text-sm text-[#b8b5c9] max-w-lg mx-auto">
+          Why do smart people fall for scams? Because attackers use two tricks: they leave <strong className="text-white">clues</strong>, and they make the message <strong className="text-white">fit your life perfectly</strong> (like a fake delivery text on the day you ordered shoes). Let's expose their playbook.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-[#070711]/60 p-4">
-            <p className="text-xs tracking-[0.25em] text-[var(--c)]" style={MONO}>1. CLUES</p>
-            <p className="mt-2 text-sm text-[#f5f3ff]">How many warning signs can you see in the message itself?</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-[#070711]/60 p-4">
-            <p className="text-xs tracking-[0.25em] text-[var(--c)]" style={MONO}>2. FIT</p>
-            <p className="mt-2 text-sm text-[#f5f3ff]">How well does the message match your life right now? (e.g., a fake delivery text on the day you ordered something).</p>
-          </div>
+      </div>
+
+      {/* PROGRESS METER */}
+      <div className="space-y-1 max-w-md mx-auto">
+        <div className="flex justify-between text-[10px] font-bold text-[#22D3EE]" style={MONO}>
+          <span>DECRYPTING CLUES</span>
+          <span>{opened.length} / 4 FOUND</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-white/10">
+          <div 
+            className="h-full rounded-full bg-[#22D3EE] transition-all duration-500 shadow-[0_0_10px_#22D3EE]" 
+            style={{ width: `${progress}%` }} 
+          />
         </div>
       </div>
 
-      <p className="text-sm text-[#b8b5c9]">Tap each group to reveal the 4 kinds of clues ({revealed.length}/{CUE_GROUPS.length}).</p>
-      
-      <div className="grid gap-3 sm:grid-cols-2">
-        {CUE_GROUPS.map((g) => {
-          const isOpen = revealed.includes(g.id);
+      {/* CLUE CARDS */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 max-w-2xl mx-auto">
+        {CLUES.map((c) => {
+          const isOpened = opened.includes(c.id);
           return (
             <button
-              key={g.id}
-              onClick={() => !isOpen && setRevealed([...revealed, g.id])}
-              className={`flex flex-col items-start rounded-2xl border p-4 text-start transition active:scale-[0.98] ${isOpen ? "border-[var(--c)] bg-[#181a38]" : "border-white/10 bg-[#111329]/80 hover:border-white/30"}`}
+              key={c.id}
+              onClick={() => handleTap(c)}
+              className={`relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 transition-all duration-300 ${
+                isOpened 
+                  ? "border-[#22D3EE] bg-[#22D3EE]/10 shadow-[0_0_20px_rgba(34,211,238,0.15)]" 
+                  : "border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10"
+              }`}
             >
-              {g.icon}
-              <p className="text-xs uppercase tracking-widest text-[var(--c)]" style={MONO}>{g.title}</p>
-              <p className="mt-1 text-sm text-[#b8b5c9]">{g.short}</p>
-              {isOpen && (
-                <div className="rise-in mt-3 space-y-2">
-                  <p className="text-sm text-[#f5f3ff]">{g.detail}</p>
-                </div>
+              <span className={`text-3xl transition-transform duration-300 ${isOpened ? "scale-110" : "grayscale opacity-50"}`}>
+                {c.icon}
+              </span>
+              <span className={`text-[10px] font-bold tracking-widest text-center ${isOpened ? "text-[#22D3EE]" : "text-[#b8b5c9]"}`} style={MONO}>
+                {c.title.toUpperCase()}
+              </span>
+              {isOpened && (
+                <span className="absolute -top-2 -right-2 grid h-6 w-6 place-items-center rounded-full bg-[#22D3EE] text-xs font-bold text-black shadow-lg">
+                  ✓
+                </span>
               )}
             </button>
           );
         })}
       </div>
 
-      <button
-        onClick={onNext}
-        disabled={!allRevealed}
-        className="w-full rounded-xl bg-cyan-500 px-6 py-4 text-sm font-bold text-[#070711] transition hover:bg-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ background: "var(--c)" }}
-      >
-        {allRevealed ? "Continue Investigation →" : `Reveal all ${CUE_GROUPS.length} clues (${revealed.length}/${CUE_GROUPS.length})`}
-      </button>
+      {/* ACTIVE CLUE DETAILS */}
+      <div className={`transition-all duration-500 ${activeClue ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+        {activeClue && (
+          <div className="mx-auto max-w-xl rounded-2xl border border-[#22D3EE]/40 bg-[#0d1534] p-5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 h-1 w-full bg-[#22D3EE] animate-pulse" />
+            
+            <div className="flex items-center gap-3 border-b border-white/10 pb-3 mb-3">
+              <span className="text-2xl">{activeClue.icon}</span>
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest" style={MONO}>{activeClue.title}</h3>
+                <p className="text-xs text-[#b8b5c9]">{activeClue.shortDesc}</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-[#f5f3ff] leading-relaxed mb-4">{activeClue.fullDesc}</p>
+            
+            <div className="rounded-lg bg-[#22D3EE]/10 border border-[#22D3EE]/20 p-3">
+              <p className="text-[11px] text-[#22D3EE] font-bold tracking-wider mb-1" style={MONO}>💡 HACKER MINDSET:</p>
+              <p className="text-xs text-[#b8b5c9]">{activeClue.hackerTip}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* CONTINUE BUTTON */}
+      <div className="text-center pt-4">
+        <button
+          onClick={onNext}
+          disabled={opened.length < 4}
+          className="rounded-xl bg-[#22D3EE] px-8 py-3 text-sm font-bold tracking-widest text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+          style={MONO}
+        >
+          {opened.length < 4 ? `EXPOSE ALL CLUES TO CONTINUE (${opened.length}/4)` : "CONTINUE INVESTIGATION →"}
+        </button>
+      </div>
+
     </div>
   );
 }

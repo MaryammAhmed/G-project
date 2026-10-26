@@ -4,11 +4,13 @@
 // No TierGate yet. Add one before shipping if you want to gate progression.
 
 import MissionPlayer from "@/components/mission/MissionPlayer";
-import { spotThePhishMission } from "@/lib/mission/spotThePhish";
+import { spotThePhishMission } from "@/lib/mission/Phished";
 import { missionFontClass } from "@/lib/mission/fonts";
 
 export const metadata = { title: "Spot the Phish | CyberGuard" };
 
 export default function SpotThePhishPage() {
-  return <MissionPlayer mission={spotThePhishMission} fontClass={missionFontClass} />;
+  return (
+    <MissionPlayer mission={spotThePhishMission} fontClass={missionFontClass} />
+  );
 }

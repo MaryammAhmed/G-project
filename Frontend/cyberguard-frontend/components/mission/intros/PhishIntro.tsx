@@ -24,7 +24,7 @@ const AMBER = "#fbbf24";
 
 type Visual = "light" | "mail" | "clock" | "jaws" | "title";
 const SHOTS: { visual: Visual; ms: number; kicker?: string; line: string }[] = [
-  { visual: "light", ms: 4200, kicker: "ELMWOOD HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
+  { visual: "light", ms: 4200, kicker: "METROPOLITAN HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
   { visual: "mail", ms: 3800, line: "It sounds like someone you trust." },
   { visual: "clock", ms: 3800, line: "And it's always in a hurry." },
   { visual: "jaws", ms: 4600, line: "But the light is bait." },
@@ -65,7 +65,7 @@ function Picture({ v }: { v: Visual }) {
         <circle className="mi-pulse" cx="100" cy="100" r="86" fill="rgba(34,211,238,.10)" />
         <rect x="30" y="34" width="140" height="132" rx="12" fill="#06202c" stroke={C} strokeWidth="3" />
         <circle cx="100" cy="64" r="14" fill="none" stroke={C} strokeWidth="3" />
-        <text x="100" y="94" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cfe9f2" style={MONO}>Elmwood Student Portal</text>
+        <text x="100" y="94" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cfe9f2" style={MONO}> Student Portal</text>
         <rect x="52" y="104" width="96" height="14" rx="4" fill="#03101a" stroke="#1c4252" />
         <rect x="52" y="124" width="96" height="14" rx="4" fill="#03101a" stroke="#1c4252" />
         <rect x="72" y="146" width="56" height="14" rx="7" fill={C} />

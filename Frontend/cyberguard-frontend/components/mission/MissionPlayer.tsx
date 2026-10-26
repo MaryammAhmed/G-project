@@ -59,7 +59,7 @@ import LearnPanel from "@/components/game/LearnPanel";
 import IntroScene from "./IntroScene";
 import { MOODS, SCENE_CSS, SceneBackdrop, SceneStage, Waves } from "./scenes";
 import type { AppState, StageKey, VirusState } from "./scenes";
-import type { InboxState } from "./mirageWorld";
+import type { InboxState } from "./Phished/Phishedscenes";
 import CompanionSkeleton from "./CompanionSkeleton";
 
 import Link from "next/link";
@@ -74,7 +74,7 @@ import {
   whisperSceneFor,
   WHISPER_CSS,
 } from "./whisperScenes";
-import { WHISPER_CHECKPOINTS } from "@/lib/mission/socialEngineering";
+import { WHISPER_CHECKPOINTS } from "@/lib/mission/Manipulated";
 
 import AITask, { AI_TASK_MAX_XP } from "@/components/game/AITasks";
 import OracleIntro from "@/components/mission/intros/OverSharedIntro";
@@ -84,7 +84,7 @@ import {
   oracleSceneFor,
   ORACLE_CSS,
 } from "./safeAI/OracleScene";
-import { ORACLE_CHECKPOINTS } from "@/lib/mission/safeAI";
+import { ORACLE_CHECKPOINTS } from "@/lib/mission/OverShared";
 
 import PWTask, { PW_TASK_MAX_XP } from "@/components/game/PWTasks";
 import VaultIntro from "@/components/mission/intros/LockedOutIntro";
@@ -94,7 +94,7 @@ import {
   vaultSceneFor,
   VAULT_CSS,
 } from "./passwords/vaultScenes";
-import { VAULT_CHECKPOINTS } from "@/lib/mission/vault";
+import { VAULT_CHECKPOINTS } from "@/lib/mission/LockedOut";
 
 import PHTask, { PH_TASK_MAX_XP } from "@/components/game/PHTasks";
 import MirageIntro from "@/components/mission/intros/PhishIntro";
@@ -103,8 +103,8 @@ import {
   MirageStage,
   mirageSceneFor,
   MIRAGE_CSS,
-} from "./mirageWorld";
-import { MIRAGE_CHECKPOINTS } from "@/lib/mission/spotThePhish";
+} from "./Phished/Phishedscenes";
+import { MIRAGE_CHECKPOINTS } from "@/lib/mission/Phished";
 
 /* ======================================================================
    1. CONSTANTS
@@ -122,7 +122,6 @@ const XP = {
 };
 
 const MAX_SHIELDS = 3; // player starts with 3 shields, each mistake removes one
-
 
 // ───────────── EDIT 2 · CONSTANTS ─────────────
 const HARD_MODULES: Record<number, string[]> = {
@@ -278,7 +277,9 @@ const CSS = `
    It creates its own AudioContext, so lib/mission/audio.ts does not need to change. */
 function startHeartbeat(): () => void {
   const Ctx: typeof AudioContext | undefined =
-    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
   if (!Ctx) return () => {};
   const ctx = new Ctx();
   // one low "thump": a sine that drops in pitch, with a quick fade in/out
@@ -384,15 +385,23 @@ function PrimaryButton({
 
 /* 🆕 V2: fake hacker-forum post, built from the clues the player just opened.
    Purpose: make "what you post publicly" feel personal and scary. All data is fictional. */
-function DoxxPost({ items }: { items: { id: string; title: string; shown: string }[] }) {
+function DoxxPost({
+  items,
+}: {
+  items: { id: string; title: string; shown: string }[];
+}) {
   return (
-    <div className="rise-in overflow-hidden rounded-xl border border-[#fb4b5b]/60 bg-black/95 shadow-[0_0_30px_rgba(251,75,91,0.15)]" style={MONO}>
-      
+    <div
+      className="rise-in overflow-hidden rounded-xl border border-[#fb4b5b]/60 bg-black/95 shadow-[0_0_30px_rgba(251,75,91,0.15)]"
+      style={MONO}
+    >
       {/* HACKER FORUM HEADER */}
       <div className="flex items-center justify-between border-b border-[#fb4b5b]/30 bg-[#fb4b5b]/10 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="animate-pulse text-[10px]">🔴</span>
-          <span className="text-xs font-bold tracking-widest text-[#fb4b5b]">DARKWEB FORUM / LEAKS</span>
+          <span className="text-xs font-bold tracking-widest text-[#fb4b5b]">
+            DARKWEB FORUM / LEAKS
+          </span>
         </div>
         <span className="text-[10px] text-gray-500">posted by Hacker_XD</span>
       </div>
@@ -400,14 +409,19 @@ function DoxxPost({ items }: { items: { id: string; title: string; shown: string
       <div className="space-y-4 p-4 text-xs">
         {/* HACKER'S POST */}
         <div>
-          <p className="text-[#f5f3ff] font-bold text-sm mb-2">"Just scraped a high-schooler's profile. Easiest target ever. Look at this."</p>
-          
+          <p className="text-[#f5f3ff] font-bold text-sm mb-2">
+            "Just scraped a high-schooler's profile. Easiest target ever. Look
+            at this."
+          </p>
+
           {/* THE STOLEN DATA DUMP */}
           <div className="rounded bg-[#111329] border border-white/10 p-3 space-y-1.5">
             {items.map((it) => (
               <p key={it.id} className="flex justify-between items-start gap-4">
-                <span className="text-gray-500 shrink-0">{it.title}:</span> 
-                <span className="text-[#34D399] font-bold text-right break-all">{it.shown}</span>
+                <span className="text-gray-500 shrink-0">{it.title}:</span>
+                <span className="text-[#34D399] font-bold text-right break-all">
+                  {it.shown}
+                </span>
               </p>
             ))}
           </div>
@@ -419,7 +433,10 @@ function DoxxPost({ items }: { items: { id: string; title: string; shown: string
             <span>⚠️</span> HOW HE GOT IN:
           </p>
           <p className="text-[#f5f3ff] leading-relaxed">
-            He didn't need advanced hacking tools. Every single detail above was pulled from your public profile, your posts, or your reused passwords. <strong className="text-[#fb4b5b]">You handed him the keys.</strong>
+            He didn't need advanced hacking tools. Every single detail above was
+            pulled from your public profile, your posts, or your reused
+            passwords.{" "}
+            <strong className="text-[#fb4b5b]">You handed him the keys.</strong>
           </p>
         </div>
       </div>
@@ -427,18 +444,31 @@ function DoxxPost({ items }: { items: { id: string; title: string; shown: string
   );
 }
 
-
 /* 🆕 V2: a voice-message bubble for the AI voice-clone beat (the browser voice reads the line aloud). */
 function VoiceNoteChip() {
   return (
-    <div className="pop-in flex items-center gap-3 rounded-full border border-[#fb4b5b]/50 bg-[#1b0d11]/80 px-4 py-2" style={MONO}>
-      <span className="text-[#fb4b5b]" aria-hidden="true">&#9654;</span>
+    <div
+      className="pop-in flex items-center gap-3 rounded-full border border-[#fb4b5b]/50 bg-[#1b0d11]/80 px-4 py-2"
+      style={MONO}
+    >
+      <span className="text-[#fb4b5b]" aria-hidden="true">
+        &#9654;
+      </span>
       <span className="flex h-6 items-center gap-0.5" aria-hidden="true">
         {Array.from({ length: 18 }).map((_, i) => (
-          <span key={i} className="wave-bar inline-block w-0.5 rounded bg-[#fb4b5b]" style={{ height: `${8 + ((i * 7) % 16)}px`, animationDelay: `${i * 0.05}s` }} />
+          <span
+            key={i}
+            className="wave-bar inline-block w-0.5 rounded bg-[#fb4b5b]"
+            style={{
+              height: `${8 + ((i * 7) % 16)}px`,
+              animationDelay: `${i * 0.05}s`,
+            }}
+          />
         ))}
       </span>
-      <span className="text-[10px] tracking-[0.2em] text-[#b8b5c9]">VOICE NOTE: JAY 0:07</span>
+      <span className="text-[10px] tracking-[0.2em] text-[#b8b5c9]">
+        VOICE NOTE: JAY 0:07
+      </span>
     </div>
   );
 }
@@ -476,14 +506,22 @@ function InvestigateTask({
               onClick={() => openClue(item.id)}
               className={`rounded-2xl border p-4 text-start transition active:scale-[0.98] ${isOpen ? "border-[var(--c)] bg-[#181a38]" : "border-white/10 bg-[#111329]/80 hover:border-white/30"}`}
             >
-              <p className="text-xs uppercase tracking-widest text-[#77748c]" style={MONO}>
+              <p
+                className="text-xs uppercase tracking-widest text-[#77748c]"
+                style={MONO}
+              >
                 {item.title}
               </p>
-              <p className="mt-1 break-words text-lg font-semibold text-[#f5f3ff]" style={MONO}>
+              <p
+                className="mt-1 break-words text-lg font-semibold text-[#f5f3ff]"
+                style={MONO}
+              >
                 {item.shown}
               </p>
               {isOpen ? (
-                <p className="rise-in mt-2 text-sm text-[#f6c453]">{item.clue}</p>
+                <p className="rise-in mt-2 text-sm text-[#f6c453]">
+                  {item.clue}
+                </p>
               ) : (
                 <p className="mt-2 text-xs text-[var(--c)]">tap to inspect</p>
               )}
@@ -494,7 +532,9 @@ function InvestigateTask({
       {/* 🆕 V2: the doxxing reveal */}
       {doxx && opened.length === total && <DoxxPost items={beat.items} />}
       <PrimaryButton onClick={onNext} disabled={opened.length < total}>
-        {opened.length < total ? `Inspect all ${total} (${opened.length}/${total})` : "Continue"}
+        {opened.length < total
+          ? `Inspect all ${total} (${opened.length}/${total})`
+          : "Continue"}
       </PrimaryButton>
     </>
   );
@@ -533,8 +573,6 @@ function BeatView({
 }: ViewProps) {
   const { email } = useAuth();
   const [lineDone, setLineDone] = useState(false);
-  const [csiScore, setCsiScore] = useState<number | null>(null);
-  const [csiFeedback, setCsiFeedback] = useState<string | null>(null);
 
   async function sendCode(): Promise<boolean> {
     const res = await fetch(`${API}/api/practice-otp/send`, {
@@ -591,7 +629,7 @@ function BeatView({
           <div className="flex justify-center pb-4">
             <XpRewardModal
               isOpen={true}
-              baseXp={xp + ((MAX_SHIELDS - shields) * 20)}
+              baseXp={xp + (MAX_SHIELDS - shields) * 20}
               xpEarned={xp}
               stageTitle={mission.title}
               badge={mission.badge}
@@ -604,11 +642,18 @@ function BeatView({
           </div>
         )}
 
-        {beat.type === "story" && <PrimaryButton onClick={onNext}>Continue</PrimaryButton>}
+        {beat.type === "story" && (
+          <PrimaryButton onClick={onNext}>Continue</PrimaryButton>
+        )}
 
         {beat.type === "investigate" && (
           // 🆕 V2: doxx reveal only on Module 1's investigate beat
-          <InvestigateTask beat={beat} onAward={onAward} onNext={onNext} doxx={beat.id === "m1-alert-5"} />
+          <InvestigateTask
+            beat={beat}
+            onAward={onAward}
+            onNext={onNext}
+            doxx={beat.id === "m1-alert-5"}
+          />
         )}
 
         {beat.type === "decision" && (
@@ -627,7 +672,11 @@ function BeatView({
 
         {beat.type === "learn" && (
           <>
-            <LearnPanel title={beat.title} points={beat.points} onNext={onNext} />
+            <LearnPanel
+              title={beat.title}
+              points={beat.points}
+              onNext={onNext}
+            />
           </>
         )}
 
@@ -726,102 +775,26 @@ function BeatView({
             )}
 
             {/* ───────────── EDIT 6 · CSI investigation ───────────── */}
-            {beat.type === "csi-investigate" && csiScore === null && (
+            {beat.type === "csi-investigate" && (
               <CSIInvestigation
                 files={beat.files}
-                onComplete={async (score, results) => {
-                  onAward(Math.round(score / 2));
-                  onMood(score > 70 ? "safe" : "breach");
-
-                  // Approving a REAL threat as "safe" is an unsafe decision, so it cracks a shield
-                  // (capped at 2, so one task can't end the whole run).
-                  const unsafe = results.filter((r) => r.isThreat && r.playerGuessed === "safe").length;
+                onComplete={(score, results) => {
+                  // Deduct shields for anyone who let a threat through
+                  const unsafe = results.filter(
+                    (r) => r.isThreat && r.playerGuessed === "safe",
+                  ).length;
                   for (let i = 0; i < Math.min(unsafe, 2); i++) onResult(false);
 
-                  setCsiScore(score);
-                  setCsiFeedback(null);
-
-                  const prompt = `
-                    You are an expert cybersecurity mentor teaching a high school student.
-                    The player just completed a forensic CSI investigation where they had to classify files as Safe or Threat.
-
-                    They scored ${score}%. Write a concise debrief that teaches how to inspect sender details, links, and file behavior when deciding whether something is safe or a threat. Do not just give a grade.
-                  `;
-
-                  try {
-                    const res = await fetch(`${API}/api/scenario-feedback`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        module: 2,
-                        incident: prompt,
-                        choice_text: `Scored ${score}%`,
-                        correct: score > 70,
-                      }),
-                    });
-                    const data = await res.json();
-                    if (data.feedback) {
-                      setCsiFeedback(data.feedback);
-                      speak(data.feedback);
-                    } else {
-                      throw new Error("No feedback");
-                    }
-                  } catch {
-                    setCsiFeedback(
-                      `You scored ${score}%. Check sender addresses, inspect links before opening them, and consider whether a file's behavior matches its claimed purpose. These clues help distinguish suspicious files from safe ones.`,
-                    );
+                  if (unsafe > 0) {
+                    onMood("breach");
+                  } else {
+                    onMood("safe");
                   }
+
+                  // Immediately move to the next beat
+                  onNext();
                 }}
               />
-            )}
-
-            {beat.type === "csi-investigate" && csiScore !== null && (
-              <div className="rise-in space-y-4 rounded-2xl border border-[var(--c)]/40 bg-[#181a38]/80 p-5">
-                <p className="text-xs tracking-[0.25em] text-[#77748c]" style={MONO}>
-                  INVESTIGATION RESULT
-                </p>
-                <p className="text-4xl font-bold" style={{ color: csiScore > 70 ? "#4ade80" : "#fb4b5b" }}>
-                  {csiScore}%
-                </p>
-
-                <div className="rounded-xl border border-[#8b5cf6]/30 bg-[#8b5cf6]/5 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">🤖</span>
-                    <p className="text-xs font-bold tracking-widest text-[#8b5cf6] uppercase" style={MONO}>
-                      AI Mentor Debrief
-                    </p>
-                  </div>
-                  {csiFeedback === null ? (
-                    <div className="space-y-2 animate-pulse mt-2">
-                      <div className="h-3 bg-white/10 rounded w-full"></div>
-                      <div className="h-3 bg-white/10 rounded w-5/6"></div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-[#f5f3ff] leading-relaxed whitespace-pre-wrap">
-                      {csiFeedback}
-                    </p>
-                  )}
-                </div>
-
-                <ul className="space-y-2 text-sm text-[#b8b5c9] mt-4 border-t border-white/10 pt-4">
-                  <li>
-                    <span className="text-[var(--c)]">&#9670;</span> <b>Sender:</b> the display name can be faked. Check the real address and domain.
-                  </li>
-                  <li>
-                    <span className="text-[var(--c)]">&#9670;</span> <b>Links:</b> hover to see where they really go. Look-alike domains are a giveaway.
-                  </li>
-                  <li>
-                    <span className="text-[var(--c)]">&#9670;</span> <b>Pressure:</b> "act now" or "account locked" is meant to stop you thinking.
-                  </li>
-                  <li>
-                    <span className="text-[var(--c)]">&#9670;</span> <b>Details:</b> generic greetings, typos and unexpected attachments are all warning signs.
-                  </li>
-                </ul>
-
-                <PrimaryButton onClick={onNext} disabled={csiFeedback === null}>
-                  {csiFeedback === null ? "Analyzing performance..." : "Continue"}
-                </PrimaryButton>
-              </div>
             )}
 
             {/* ───────────── EDIT 7 · Live inspector ───────────── */}
@@ -830,7 +803,8 @@ function BeatView({
                 parts={beat.parts}
                 onComplete={(score, mistakes) => {
                   onAward(Math.round(score / 2));
-                  for (let i = 0; i < Math.min(mistakes, 2); i++) onResult(false); // cap at 2 shields per exam
+                  for (let i = 0; i < Math.min(mistakes, 2); i++)
+                    onResult(false); // cap at 2 shields per exam
                   onMood(mistakes === 0 ? "safe" : "breach");
                   onNext();
                 }}
@@ -853,12 +827,19 @@ function BeatView({
 
         {beat.type === "complete" && mission.debrief && (
           <div className="space-y-3 rounded-2xl border border-[var(--c)]/40 bg-[#181a38]/80 p-5">
-            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--c)]" style={MONO}>
+            <h3
+              className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--c)]"
+              style={MONO}
+            >
               {mission.debrief.title}
             </h3>
             <ul className="space-y-2">
               {mission.debrief.points.map((p, i) => (
-                <li key={i} className="rise-in flex gap-3 text-[#f5f3ff]" style={{ animationDelay: `${i * 0.15}s` }}>
+                <li
+                  key={i}
+                  className="rise-in flex gap-3 text-[#f5f3ff]"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                >
                   <span className="text-[var(--c)]">&#9670;</span>
                   <span>{p}</span>
                 </li>
@@ -892,22 +873,26 @@ export default function MissionPlayer({
   const [virus, setVirus] = useState<VirusState>("idle");
   const [app, setApp] = useState<AppState>({ pass: false, otp: false });
   const [phish, setPhish] = useState<InboxState>({ found: 0, total: 0 });
-  const [flash, setFlash] = useState<{ text: string; color: string } | null>(null);
+  const [flash, setFlash] = useState<{ text: string; color: string } | null>(
+    null,
+  );
   const [showIntro, setShowIntro] = useState(true);
-
 
   const mutedRef = useRef(muted);
   const sfxRef = useRef(sfxOn);
   const checkpoint = useRef({ index: 0, xp: 0 });
 
   const { token } = useAuth();
-  const [access, setAccess] = useState<"checking" | "ok" | "locked">("checking");
+  const [access, setAccess] = useState<"checking" | "ok" | "locked">(
+    "checking",
+  );
   const startedFor = useRef<string | null>(null); // remembers which login already counted this attempt
 
   const shields = Math.max(0, MAX_SHIELDS - mistakes);
   const beat = mission.beats[index];
   const mood: Mood = override ?? beat.mood ?? "calm";
-  const progress = mission.beats.length > 1 ? (index / (mission.beats.length - 1)) * 100 : 100;
+  const progress =
+    mission.beats.length > 1 ? (index / (mission.beats.length - 1)) * 100 : 100;
   const scene = sceneFor(beat, mission.module);
 
   const isWhisper = mission.module === 3;
@@ -942,11 +927,15 @@ export default function MissionPlayer({
     return sum;
   }, 0);
 
-  const security = maxXp > 0 ? Math.min(100, Math.round(10 + 90 * (xp / maxXp))) : 10;
+  const security =
+    maxXp > 0 ? Math.min(100, Math.round(10 + 90 * (xp / maxXp))) : 10;
 
   useEffect(() => {
-    if (!token) { setAccess("ok"); return; }          // preview mode / not logged in: nothing saved, nothing locked
-    if (startedFor.current === token) return;          // already counted (also stops React dev double-run)
+    if (!token) {
+      setAccess("ok");
+      return;
+    } // preview mode / not logged in: nothing saved, nothing locked
+    if (startedFor.current === token) return; // already counted (also stops React dev double-run)
     startedFor.current = token;
     startAttempt(token, mission.module, mission.id).then(setAccess);
   }, [token, mission.module, mission.id]);
@@ -1000,12 +989,12 @@ export default function MissionPlayer({
       setVirus("laugh");
       play("bad");
       setTimeout(() => play("laugh"), 250);
-      
+
       setMistakes((m) => m + 1);
-      
+
       // 👇 ADDED: Deduct 20 XP immediately when they make a mistake
-      setXp((x) => Math.max(0, x - 20)); 
-      
+      setXp((x) => Math.max(0, x - 20));
+
       showFlash(bad, "#fb4b5b");
 
       // Trigger the Screen Glitch and Red Overlay
@@ -1028,12 +1017,21 @@ export default function MissionPlayer({
     setOverride(null);
     setVirus("idle");
     if (!mutedRef.current && !showIntro) speak(beat.say);
-    if (index === 0 && beat.mood === "alert") setTimeout(() => play("buzz"), 500);
+    if (index === 0 && beat.mood === "alert")
+      setTimeout(() => play("buzz"), 500);
     if (
       [
-        "passphrase", "otp", "email", "spot-phish", "csi-investigate",
-        "live-inspector", "damage-control", "se-task", "ai-task",
-        "pw-task", "ph-task" // ───────────── EDIT 9b · hands-on array ─────────────
+        "passphrase",
+        "otp",
+        "email",
+        "spot-phish",
+        "csi-investigate",
+        "live-inspector",
+        "damage-control",
+        "se-task",
+        "ai-task",
+        "pw-task",
+        "ph-task", // ───────────── EDIT 9b · hands-on array ─────────────
       ].includes(beat.type)
     ) {
       play("unlock");
@@ -1082,7 +1080,10 @@ export default function MissionPlayer({
   // While the server answers, show a short loading screen. If the previous module isn't finished, show a lock screen.
   if (access === "checking") {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#070711] text-xs tracking-[0.3em] text-[#b8b5c9]" style={MONO}>
+      <div
+        className="grid min-h-screen place-items-center bg-[#070711] text-xs tracking-[0.3em] text-[#b8b5c9]"
+        style={MONO}
+      >
         CHECKING CLEARANCE...
       </div>
     );
@@ -1090,11 +1091,26 @@ export default function MissionPlayer({
   if (access === "locked") {
     return (
       <div className="grid min-h-screen place-items-center bg-[#070711] p-6 text-[#f5f3ff]">
-        <div className="w-full max-w-md space-y-4 rounded-2xl border-2 border-[#fb4b5b] bg-[#111329] p-6 text-center" style={{ boxShadow: "0 0 50px rgba(251,75,91,.35)" }}>
-          <p className="text-4xl" aria-hidden="true">&#128274;</p>
-          <h1 className="text-2xl font-bold text-[#fb4b5b]" style={MONO}>ACCESS DENIED</h1>
-          <p className="text-sm text-[#b8b5c9]">{mission.title} is locked. Finish the previous mission first to unlock it.</p>
-          <Link href="/map" className="inline-block rounded-xl bg-[#4cc9ff] px-6 py-3 text-sm font-semibold text-[#070711]">Back to the map</Link>
+        <div
+          className="w-full max-w-md space-y-4 rounded-2xl border-2 border-[#fb4b5b] bg-[#111329] p-6 text-center"
+          style={{ boxShadow: "0 0 50px rgba(251,75,91,.35)" }}
+        >
+          <p className="text-4xl" aria-hidden="true">
+            &#128274;
+          </p>
+          <h1 className="text-2xl font-bold text-[#fb4b5b]" style={MONO}>
+            ACCESS DENIED
+          </h1>
+          <p className="text-sm text-[#b8b5c9]">
+            {mission.title} is locked. Finish the previous mission first to
+            unlock it.
+          </p>
+          <Link
+            href="/map"
+            className="inline-block rounded-xl bg-[#4cc9ff] px-6 py-3 text-sm font-semibold text-[#070711]"
+          >
+            Back to the map
+          </Link>
         </div>
       </div>
     );
@@ -1106,20 +1122,29 @@ export default function MissionPlayer({
     if (isMirage) return <MirageIntro onDone={() => setShowIntro(false)} />;
     if (isWhisper) return <WhisperIntro onDone={() => setShowIntro(false)} />;
     if (isOracle) return <OracleIntro onDone={() => setShowIntro(false)} />;
-    return <IntroScene module={mission.module} onDone={() => setShowIntro(false)} />;
+    return (
+      <IntroScene module={mission.module} onDone={() => setShowIntro(false)} />
+    );
   }
 
-  const toggle = "rounded-lg border border-white/15 px-3 py-1 text-xs text-[#b8b5c9]";
+  const toggle =
+    "rounded-lg border border-white/15 px-3 py-1 text-xs text-[#b8b5c9]";
 
   return (
     <div
       aria-hidden={showIntro}
       // 🆕 V2: "vault-cursor" turns on the crosshair cursor for Module 1 only
-      className={`mp-root relative min-h-screen bg-[#070711] text-[#f5f3ff] ${fontClass}`}      style={{ ...DISPLAY, "--c": accent } as CSSProperties}
+      className={`mp-root relative min-h-screen bg-[#070711] text-[#f5f3ff] ${fontClass}`}
+      style={{ ...DISPLAY, "--c": accent } as CSSProperties}
     >
       {/* ───────────── EDIT 11a · render: styles ───────────── */}
       <style>
-        {CSS + SCENE_CSS + (isWhisper ? WHISPER_CSS : "") + (isOracle ? ORACLE_CSS : "") + (isVault ? VAULT_CSS : "") + (isMirage ? MIRAGE_CSS : "")}
+        {CSS +
+          SCENE_CSS +
+          (isWhisper ? WHISPER_CSS : "") +
+          (isOracle ? ORACLE_CSS : "") +
+          (isVault ? VAULT_CSS : "") +
+          (isMirage ? MIRAGE_CSS : "")}
       </style>
 
       {/* ───────────── EDIT 11b · render: backdrop ───────────── */}
@@ -1200,7 +1225,6 @@ export default function MissionPlayer({
             <h1 className="text-xl font-bold">{mission.title}</h1>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
-      
             <p
               className="text-lg"
               title="Shields"
@@ -1254,12 +1278,7 @@ export default function MissionPlayer({
           ) : isOracle ? (
             <OracleStage scene={oScene} mood={mood} />
           ) : (
-            <SceneStage
-              scene={scene}
-              mood={mood}
-              virus={virus}
-              app={app}
-            />
+            <SceneStage scene={scene} mood={mood} virus={virus} app={app} />
           )}
 
           <div className="w-full">
