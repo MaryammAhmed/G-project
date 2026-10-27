@@ -9,7 +9,7 @@ export const spotThePhishMission: Mission = {
   id: "spot-the-phish",
   module: 2,
   title: "Phished",
-  place: "CYBERGUARD HQ // CASE FILE 002",
+  place: "CYBERGUARD // CASE FILE 002",
   badge: "PHISH-SPOTTER",
   accent: "#22D3EE",
 
@@ -40,29 +40,49 @@ export const spotThePhishMission: Mission = {
     },
     {
       id: "m2-inbox-4", type: "learn", mood: "calm",
-      say: "Now let's open up the trap. Every phish is built from the same five parts.",
-      title: "ANATOMY OF A PHISH",
+      say: "You just saw how messy those traps can be. But they aren't random every phish follows the exact same psychological formula. Let's break down the trap.",
+      title: "THE PHISH FORMULA",
       points: [
         "THE GOAL: get you to DO something: click, log in, open a file, reply with details, or pay. The message is only the delivery truck.",
         "THE DISGUISE: a trusted name, a logo, a routine reason. None of these prove who really sent it.",
         "THE PRESSURE: urgency, fear or a reward ('expires today', 'account locked', 'you won') is built to stop you checking.",
-        "THE ASK: a login, a code, personal details, a payment or an unexpected file. What it asks for tells you what they want.",
-        "THE FIX IS A HABIT: don't use the message's own link or number. Go to the real site or app yourself, or contact the sender another way, then report it.",
+        "THE ASK: A login, a code, your info, money, or a file. Their request reveals exactly what they want.",
+        "THE FIX: Don't click their links. Open the official app or website yourself, and report the message.",
       ],
     },
     {
       id: "m2-inbox-5", type: "phish-scale", mood: "calm",
       say: "Let's break down what you just found. The NIST Phish Scale uses 5 categories to help us spot these traps.",
     },
-    {
+        {
       id: "m2-inbox-6", type: "decision", mood: "alert",
-      say: "Sarah forwards you another email from that same morning: 'Metropolitan IT: your mailbox is almost full. Click to increase your storage.' She tells you she wasn't sure what to do. What should she have done first?",
-      hint: "You can inspect a message without clicking anything.",
+      say: "Sarah texts you, panicked: 'I just got an email from SnapGram Support! They say they can get my account back if I click this link. Should I do it?'",
+      hint: "This feels real because she just lost her account. But look at the 'Technical Indicator' — the link itself.",
       choices: [
-        { id: "a", text: "Click it to see where it goes. One click probably won't hurt, and if the page looks sketchy, she can just close the tab and change her password later.", correct: false, fallback: "Even one click can load a fake page or start a download. Inspect first: the real sender address and the link preview." },
-        { id: "b", text: "Reply: 'Is this real?'", correct: false, fallback: "A reply tells the sender your address is live and read. If it's a phish, you've just answered it." },
-        { id: "c", text: "Don't click anything. Open the school portal in a new tab and check her storage there.", correct: true, fallback: "Inspect without clicking, verify through a channel you choose, and report. That's the whole habit." },
-        { id: "d", text: "Forward it to friends to see what they think.", correct: false, fallback: "Forwarding spreads a live trap. Ask for a second opinion by describing it or taking a screenshot." },
+        { 
+          id: "a", 
+          text: "Tell her to click it. As long as the website has a padlock icon (HTTPS), the login page is safe.", 
+          correct: false, 
+          fallback: "A padlock only means the connection is encrypted, not that the site is real. Hackers can get padlocks too." 
+        },
+        { 
+          id: "b", 
+          text: "Tell her to reply to the email and ask them to confirm her old username so she knows it's real support.", 
+          correct: false, 
+          fallback: "The hacker already knows her username—they stole it. Replying just confirms her email is active." 
+        },
+        { 
+          id: "c", 
+          text: "Tell her to ignore the link. She should open the SnapGram app and use the official 'Forgot Password' button.", 
+          correct: true, 
+          fallback: "Perfect. Going straight to the app means she skips the hacker's fake page completely." 
+        },
+        { 
+          id: "d", 
+          text: "Tell her to click it, but use her phone's incognito mode so the hacker can't track her or download a virus.", 
+          correct: false, 
+          fallback: "Incognito mode only stops local tracking. It won't stop a fake website from stealing her new password." 
+        },
       ],
     },
 
@@ -119,63 +139,79 @@ export const spotThePhishMission: Mission = {
     },
 
     /* ================= THE TEXT (SMISHING) ================= */   // ⬅️ CHANGED: removed the duplicate "THE TEXT" header above this one
+        /* ================= THE TEXT (SMISHING) ================= */
     {
-      // Story: sets up smishing and the phone. Same id, so checkpoints and scenes keep working.
+      // 1. THE STORY: Sets up SMISHING and the cafeteria scenario
       id: "m2-text-1", type: "story", mood: "alert",
-      // ⬅️ CHANGED: dropped the parenthetical "(SMS + phishing)" and "has buzzed" → "buzzed" to keep the utterance safely under Chrome's cutoff.
-      say: "THURSDAY, 12:30 P.M. Cafeteria. Phishing isn't only email. Sarah's phone buzzed all morning: a parcel, a bank alert, a prize. Phishing by text is called SMISHING. People tap on their phones first and think second.",
+      say: "THURSDAY, 12:30 P.M. Cafeteria. Sarah finally sits down for lunch and checks her phone. Her inbox is full of texts she ignored during class: a package delivery, a bank alert, a prize. She looks up and sees a warning poster on the wall: 'Phishing isn't just email.' That's when it hits her this is SMISHING. Scams by text. And they work because on a phone, people tap first and think second.",
     },
     {
-      // Hands-on task: the Smishing Simulator (6 texts, typing animation, Phish Scale meter).
-      // `task` stays "textstorm", so MissionPlayer and PHTask need no change.
+      // 2. THE TASK: The Smishing Simulator game
       id: "m2-text-2", type: "ph-task", task: "textstorm", mood: "alert",
-      // ⬅️ CHANGED: dropped "Watch each one arrive" → "Watch each one" and "the better a scam fits" → "the better it fits" to keep the utterance under the cutoff and leave headroom for the task's own speech.
-      say: "Sarah hands you her phone. Six texts hit it today. Watch each one, then call it: smishing or legitimate? Read 'YOUR WEEK' first: the better it fits your life, the harder it is to spot. That's the NIST Phish Scale.",
+      say: "Sarah hands you her phone. Six texts hit it today. Watch each one, then call it: smishing or legitimate? Keep in mind: the better a scam fits your real life, the harder it is to spot.",
       hint: "Ask: does it ask me to tap, pay, scan or log in? Is the link's owner right? Not every text is a scam.",
     },
-    {
-      // Lesson after the task: ties what they just did to the Phish Scale (cues + premise alignment).
+        {
+      // 3. THE LESSON: Ties the game to the Phish Scale
       id: "m2-text-3", type: "learn", mood: "calm",
-      say: "That's smishing. Here's how the experts rate how dangerous a text is.",
+      say: "That's smishing. Let's look at how the NIST Phish Scale breaks down why some texts are so hard to spot.",
       title: "SMISHING AND THE PHISH SCALE",
       points: [
-        "SMISHING: phishing by text. The sender name can be faked, so a familiar name proves nothing.",
-        "CUES: the giveaways inside the text (random number, shortened or look-alike link, threats, deadlines, a small fee or prize). More cues make it easier to spot.",
-        "PREMISE ALIGNMENT: how well the text matches your real week (a parcel you ordered, a bank you use). A better fit makes it feel real and harder to spot.",
-        "DIFFICULTY = FEW CUES + A GOOD FIT: the scams that fool smart people look like your own life.",
-        "NOT EVERY TEXT IS A SCAM: a saved contact that asks for nothing is fine. Check requests, not feelings.",
-        "SAME TRAP, OTHER DELIVERY: vishing is a phone call ('read me the code') and quishing is a QR code (a link you can't read). Report texts to your carrier (in the US, forward them to 7726) and tell IT.",
+        "WHAT IT IS: Smishing is just phishing by text. Anyone can fake a sender name, so a familiar name proves nothing.",
+        "CUES: These are the red flags (weird numbers, fake links, urgent threats, or tiny fees). The more red flags, the easier it is to spot the scam.",
+        "PREMISE ALIGNMENT: A fancy term for how well the text fits your real life. If you actually ordered a package, a fake delivery text is much harder to spot.",
+        "HOW DIFFICULTY WORKS: Few red flags + a story that perfectly fits your life = a very hard scam to catch. That's what fools smart people.",
+        "THE RULE: Not every text is a scam. A text from a saved friend asking for nothing is fine. Always check what it's asking you to do.",
+        "OTHER TRAPS: Vishing is a scam phone call (like someone pretending to be your bank asking for a code). Quishing is a scam QR code (like a fake poster taped in the hallway). Block unknown callers, and report suspicious posters to IT.",
       ],
     },
-    {
-      id: "m2-text-4", type: "story", mood: "alert",
-      say: "Between classes. A bright poster is taped over the cheer-squad notice: 'WIN A $50 GIFT CARD! Scan to enter, today only!' A big QR code sits in the middle. A small crowd is already scanning.",
-    },
-    {
-      id: "m2-text-5", type: "decision", mood: "alert",
-      say: "Sarah texts you a photo of the poster: 'Everyone in my year is scanning it. What should I do?'",
-      hint: "You can't read a QR code, so you can't judge where it leads.",
+        {
+      // 4. THE COFFEE SHOP DECISION (Quishing)
+      id: "m2-text-4", type: "decision", mood: "alert",
+      say: "It's midday. Sarah is at a local coffee shop trying to study, but she needs to connect to the WiFi. The only instruction on the table is a sign that says: 'Scan this QR code to connect.' Based on your training, what is the safest move for her to make?",
+      hint: "This is called Quishing. A QR code is a blind link. You can't read the URL until it's too late.",
       choices: [
-        { id: "a", text: "Scan it but don't enter any personal info.", correct: false, fallback: "A crowd isn't proof. A QR code is a link you can't read, and this poster covers the real notice." },
-        { id: "b", text: "Scan it. If everyone else is doing it, it must be safe.", correct: false, fallback: "The page itself can be fake or try to trick you, and you can't tell where it leads until you've already scanned." },
-        { id: "c", text: "Leave it alone and tell the principal or IT that someone put a fake poster over the real notice.", correct: true, fallback: "Reporting removes the poster before more people scan it." },
-        { id: "d", text: "Take a picture and post it.", correct: false, fallback: "Posting the QR code spreads it. Report it instead." },
+        { 
+          id: "a", 
+          text: "She should scan it. It's a local coffee shop, so they probably just want to give her the WiFi password.", 
+          correct: false, 
+          fallback: "Hackers often put fake QR stickers over real café signs. Scanning it might take her to a fake login page to steal her accounts, or auto-download malware." 
+        },
+        { 
+          id: "b", 
+          text: "She should scan it, but check the URL carefully before typing her password. If the link says 'free-wifi', it's probably fine.", 
+          correct: false, 
+          fallback: "Look-alike domains are easy to fake. Even if the URL looks right, just scanning a malicious QR code can sometimes trigger a silent malware download." 
+        },
+        { 
+          id: "c", 
+          text: "She should ignore the QR code. She needs to walk up to the counter and ask the barista for the WiFi name and password directly.", 
+          correct: true, 
+          fallback: "Perfect call. By asking a real person, she verifies the information through a trusted channel. This bypasses the blind QR code entirely." 
+        },
+        { 
+          id: "d", 
+          text: "She should pack up her stuff and leave the coffee shop immediately. It's too dangerous to be there.", 
+          correct: false, 
+          fallback: "While it's safe, she still needs to study! She doesn't have to leave; she just needs to verify the WiFi through a real person." 
+        },
       ],
     },
     {
-      id: "m2-text-6", type: "ph-task", task: "attach", mood: "alert",
+      // 6. THE FILES TASK
+      id: "m2-text-5", type: "ph-task", task: "attach", mood: "alert",
       say: "Six things are in front of you: files, a QR code, a zip. Decide what to open, what to verify first, and what to leave alone.",
       hint: "Ask: was I expecting it, who really sent it, and what does it want me to enable?",
     },
 
-    /* ================= THE TARGET ================= */
+        /* ================= THE TARGET ================= */
     {
       id: "m2-target-1", type: "story", mood: "alert",
-      say: "THURSDAY, 4:40 P.M. Sarah asks something that's been bothering her: 'The email came the same week IT really DID announce a portal update. How did the hacker know?' They didn't have to. They just guessed what a student would believe that week.",
+      say: "THURSDAY, 4:40 P.M. Sarah asks: 'The email came the exact same week IT really announced a portal update. How did the hacker know?' You tell her it wasn't a lucky guess. Hackers monitor school websites and social media for real events. They saw the IT announcement and built their fake email to perfectly match it. They hijack reality to make the trap believable.",
     },
     {
       id: "m2-target-2", type: "ph-task", task: "audience", mood: "alert",
-      say: "The hacker didn't guess. They copied TRUE details from each person's life so the email felt normal. Fact-check each email: tap a detail to check it, and find the one thing that doesn't check out.",
+      say: "The hacker didn't guess. They copied TRUE details from each person's life so the email felt normal. You have three of these emails in front of you. Click the exact detail in each one that proves it is a fake.",
       hint: "True details are bait. The giveaway is the sender address, the link owner, or how the request arrives.",
     },
     {
@@ -190,55 +226,19 @@ export const spotThePhishMission: Mission = {
         "CHECK THE CHANNEL, NOT THE STORY: however believable it sounds, verify through a site or number you chose.",
       ],
     },
-    {
-      id: "m2-target-4", type: "live-inspector", mood: "alert", parts: [],
-      say: "Now put it all together. This is the actual email that fooled Sarah. Click everything that looks suspicious, then ask the AI mentor to review your findings.",
-    },
-    {
-      id: "m2-target-5", type: "decision", mood: "alert",
-      say: "Another report lands on your desk from the same incident week: teacher Mr. Davies forwards an email from 'Principal Hall' — 'I'm in a meeting. I need 5 gift cards for a staff gift, urgently. Keep it between us.' He asks the investigation team what to do.",
-      hint: "You've seen urgency, secrecy and a payment request together before.",
-      choices: [
-        { id: "a", text: "Buy the gift cards. It's the principal, and you don't want to get in trouble for ignoring him.", correct: false, fallback: "Impersonating a boss is a favourite trick." },
-        { id: "b", text: "Reply asking how many he needs.", correct: false, fallback: "Replying keeps the conversation under the attacker's control." },
-        { id: "c", text: "Don't reply. Call the principal using the number in the school directory to verify it.", correct: true, fallback: "A known channel settles it in minutes, and reporting protects the rest of the staff." },
-        { id: "d", text: "Buy one just in case.", correct: false, fallback: "Two gift cards are still lost money." },
-      ],
-    },
 
     /* ================= THE NET ================= */
     {
       id: "m2-net-1", type: "story", mood: "alert",
       say: "FRIDAY, 7:55 A.M. Time to help Sarah take her accounts back. She typed her password into the fake page, so assume the attacker has it, and every account that shares it.",
     },
-    {
+        {
       id: "m2-net-2", type: "ph-task", task: "recovery", mood: "alert",
-      say: "Build Sarah's recovery plan. Choose the five right moves and put them in the best order, most urgent first.",
-      hint: "Close the door first, then check what the attacker left behind, then warn others.",
+      say: "Build Sarah's recovery plan. Make the four right moves to lock the hacker out and secure her account.",
+      hint: "Lock the door first. Then check what the attacker left behind. Then warn others.",
     },
     {
-      id: "m2-net-3", type: "decision", mood: "calm",
-      say: "Sarah is back in. A week later her friends say her messages sound 'weird' again. What did the attacker most likely leave behind?",
-      hint: "Attackers want a way back in.",
-      choices: [
-        { id: "a", text: "Nothing happened. It's just a coincidence.", correct: false, fallback: "Repeated weirdness after a takeover usually means the attacker kept a way in." },
-        { id: "b", text: "They probably added a hidden forwarding rule or a new recovery email to keep access.", correct: true, fallback: "Attackers often add ways back: a recovery email or a mail-forwarding rule." },
-        { id: "c", text: "Sarah's password is too long.", correct: false, fallback: "A long password isn't the problem." },
-        { id: "d", text: "The hacker is just guessing.", correct: false, fallback: "That has nothing to do with it." },
-      ],
-    },
-    {
-      id: "m2-net-4", type: "decision", mood: "calm",
-      say: "Sarah's friends received strange messages from her hacked account. How should she warn them?",
-      choices: [
-        { id: "a", text: "Post a story on SnapGram.", correct: false, fallback: "A public post can reach the attacker and miss the people who need it." },
-        { id: "b", text: "Text them directly from her phone or message them on a different app to warn them.", correct: true, fallback: "A direct warning on another channel reaches the right people." },
-        { id: "c", text: "Message the hacker and tell them to stop.", correct: false, fallback: "Attackers don't respond to requests." },
-        { id: "d", text: "Wait and see if they figure it out.", correct: false, fallback: "Silence lets the trap keep spreading." },
-      ],
-    },
-    {
-      id: "m2-net-5", type: "learn", mood: "calm",
+      id: "m2-net-3", type: "learn", mood: "calm",
       say: "One last thing, and it's the most important one: what to do when it's YOU who clicked.",
       title: "IF YOU CLICKED",
       points: [
@@ -250,7 +250,7 @@ export const spotThePhishMission: Mission = {
       ],
     },
     {
-      id: "m2-net-7", type: "complete", mood: "safe",
+      id: "m2-net-4", type: "complete", mood: "safe",
       say: "Case closed. You read the trap from the bait to the hook: the address, the pressure, the people it was built for, and the way back out. The line is cut and Sarah's accounts are safe. You are a Phish-Spotter.",
     },
   ],

@@ -27,7 +27,7 @@ const SHOTS: { visual: Visual; ms: number; kicker?: string; line: string }[] = [
   { visual: "light", ms: 4200, kicker: "METROPOLITAN HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
   { visual: "mail", ms: 3800, line: "It sounds like someone you trust." },
   { visual: "clock", ms: 3800, line: "And it's always in a hurry." },
-  { visual: "jaws", ms: 4600, line: "But the light is bait." },
+  { visual: "jaws", ms: 4600, line: "But it's mostly a TRAP." },
   { visual: "title", ms: 0, line: "" },
 ];
 /* which sound plays when a shot begins */
@@ -94,21 +94,88 @@ function Picture({ v }: { v: Visual }) {
   if (v === "jaws")
     return (
       <svg viewBox="0 0 200 200" className="h-56 w-56" aria-hidden="true">
-        {/* the lure on its rod: the "light" */}
-        <path d="M112 84 Q 140 22 176 44" fill="none" stroke="#7dd3e8" strokeWidth="3" strokeLinecap="round" />
-        <g className="mi-lure">
-          <circle className="mi-ring" cx="176" cy="48" r="9" fill="none" stroke={AMBER} strokeWidth="2" />
-          <circle cx="176" cy="48" r="9" fill={AMBER} />
+        <defs>
+          <clipPath id="mi-net-clip">
+            <path d="M100 18 C44 42 12 92 14 140 C16 182 66 196 100 196 C138 196 186 184 188 140 C190 92 156 42 100 18 Z" />
+          </clipPath>
+          <linearGradient id="mi-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#082634" />
+            <stop offset="0.55" stopColor="#0f4a5f" />
+            <stop offset="1" stopColor="#4a9fb3" />
+          </linearGradient>
+          <pattern id="mi-scales" width="10" height="8" patternUnits="userSpaceOnUse">
+            <path d="M0 8 Q5 0 10 8" fill="none" stroke="#7dd3e8" strokeWidth="0.8" opacity="0.35" />
+          </pattern>
+        </defs>
+
+        {/* the fish */}
+        <g transform="translate(12 14) scale(0.85)">
+          {/* tail */}
+          <path d="M158 108 L196 78 Q186 108 196 138 Z" fill="#0b3a4d" stroke={C} strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M166 108 L188 90 M166 108 L190 108 M166 108 L188 126" stroke={C} strokeWidth="1" opacity="0.6" fill="none" />
+
+          {/* dorsal fin */}
+          <path d="M88 74 L96 46 Q116 50 138 80 Z" fill="#0b3a4d" stroke={C} strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M100 74 L102 52 M110 76 L112 56 M120 78 L124 62" stroke={C} strokeWidth="1" opacity="0.6" />
+
+          {/* anal fin */}
+          <path d="M122 146 Q130 166 150 136 Z" fill="#0b3a4d" stroke={C} strokeWidth="2.5" strokeLinejoin="round" />
+
+          {/* body (stops at the jaw hinge) */}
+          <path d="M26 114 C38 86 84 66 122 76 C142 82 156 96 164 108 C156 122 142 138 120 146 C100 152 84 150 68 142 L68 124 Z" fill="url(#mi-body)" stroke={C} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M26 114 C38 86 84 66 122 76 C142 82 156 96 164 108 C156 122 142 138 120 146 C100 152 84 150 68 142 L68 124 Z" fill="url(#mi-scales)" />
+
+          {/* lateral line + gill cover */}
+          <path d="M76 110 Q 120 98 160 108" fill="none" stroke={C} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.6" />
+          <path d="M76 90 Q 64 114 76 140" fill="none" stroke={C} strokeWidth="2" strokeLinecap="round" />
+          <path d="M80 94 Q 71 114 80 136" fill="none" stroke={C} strokeWidth="1" opacity="0.5" />
+
+          {/* pectoral fin */}
+          <path d="M96 124 Q 84 148 112 152 Q 118 136 96 124 Z" fill="#0b3a4d" stroke={C} strokeWidth="2" strokeLinejoin="round" />
+
+          {/* eye */}
+          <circle cx="49" cy="102" r="8" fill="#03101a" stroke={C} strokeWidth="2" />
+          <circle cx="49" cy="102" r="5" fill={AMBER} />
+          <circle cx="49" cy="102" r="2.4" fill="#03101a" />
+          <circle cx="47.5" cy="100.5" r="1" fill="#fff" />
+
+          {/* mouth interior */}
+          <path d="M26 114 L68 124 L68 144 L36 128 Z" fill="#03101a" />
+
+          {/* upper teeth */}
+          {[0, 1, 2, 3, 4, 5].map((i) => {
+            const x = 31 + i * 6.5;
+            const y = 114 + ((x - 26) * 10) / 42;
+            return <path key={i} d={`M${x} ${y} l5 1.2 l-2 9 z`} fill="#e5f6fb" />;
+          })}
+
+          {/* the lower jaw swings open (hinged at the back of the mouth) */}
+          <g className="mi-jaw" style={{ transformOrigin: "68px 124px" }}>
+            <path d="M26 116 L68 124 L68 144 C50 142 34 132 26 116 Z" fill="url(#mi-body)" stroke={C} strokeWidth="2.5" strokeLinejoin="round" />
+            {[0, 1, 2, 3, 4].map((i) => {
+              const x = 34 + i * 7.5;
+              const y = 118 + ((x - 26) * 8) / 42;
+              return <path key={i} d={`M${x} ${y} l5 1 l-3 -9 z`} fill="#e5f6fb" />;
+            })}
+          </g>
         </g>
-        {/* the body */}
-        <path d="M34 134 C30 92 84 76 128 94 C170 110 178 150 140 164 C104 178 40 172 34 134 Z" fill="#06202c" stroke={C} strokeWidth="3" />
-        <circle cx="132" cy="112" r="9" fill="#03101a" stroke={C} strokeWidth="2" /><circle cx="134" cy="111" r="3.5" fill={AMBER} />
-        {/* upper teeth */}
-        {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M${46 + i * 14} 136 l5 14 l5 -14 z`} fill="#e5f6fb" />)}
-        {/* the lower jaw swings open */}
-        <g className="mi-jaw">
-          <path d="M40 138 Q 90 182 140 150 L134 142 Q 90 166 46 134 Z" fill="#06202c" stroke={C} strokeWidth="2.5" />
-          {[0, 1, 2, 3, 4].map((i) => <path key={i} d={`M${56 + i * 16} ${152 - i * 2} l5 -13 l5 13 z`} fill="#e5f6fb" />)}
+
+        {/* the net closing over it: the "trap" */}
+        <g className="mi-net">
+          <g clipPath="url(#mi-net-clip)" stroke="#7dd3e8" strokeWidth="1.6" opacity="0.75" fill="none">
+            {Array.from({ length: 27 }, (_, k) => k - 13).map((i) => (
+              <g key={i}>
+                <line x1={i * 16} y1="0" x2={i * 16 + 200} y2="200" />
+                <line x1={i * 16 + 200} y1="0" x2={i * 16} y2="200" />
+              </g>
+            ))}
+          </g>
+          {/* net outline */}
+          <path d="M100 18 C44 42 12 92 14 140 C16 182 66 196 100 196 C138 196 186 184 188 140 C190 92 156 42 100 18 Z" fill="none" stroke="#7dd3e8" strokeWidth="3" strokeLinejoin="round" />
+          {/* gathered rope + hoisting ring */}
+          <path d="M100 18 L100 2" stroke="#7dd3e8" strokeWidth="3" strokeLinecap="round" />
+          <circle className="mi-ring" cx="100" cy="20" r="8" fill="none" stroke={AMBER} strokeWidth="2" />
+          <circle cx="100" cy="20" r="5" fill={AMBER} />
         </g>
       </svg>
     );

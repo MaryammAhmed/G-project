@@ -238,12 +238,13 @@ function DomainTask({ onComplete, onMood }: TaskCallbacks) {
           </p>
         )}
 
-        {/* VERDICT BUTTONS */}
+                {/* VERDICT BUTTONS */}
         {isTargeted && (
           <div className="ph-in grid gap-3 sm:grid-cols-2 mt-4 max-w-md mx-auto" role="group" aria-label="Your verdict">
             {VERDICTS.map((v) => {
               const right = pick !== null && v.id === a.answer;
               const wrong = pick === v.id && v.id !== a.answer;
+              
               return (
                 <button
                   key={v.id}
@@ -254,9 +255,10 @@ function DomainTask({ onComplete, onMood }: TaskCallbacks) {
                     right ? "scale-105 shadow-[0_0_20px_rgba(74,222,128,0.3)]" : "scale-100"
                   }`}
                   style={{
-                    borderColor: right ? "#4ade80" : wrong ? "#fb4b5b" : "rgba(255,255,255,.2)",
-                    background: right ? "rgba(74,222,128,.15)" : wrong ? "rgba(251,75,91,.15)" : "rgba(255,255,255,.03)",
-                    color: right ? "#4ade80" : wrong ? "#fb4b5b" : "#f5f3ff",
+                    // 👇 CHANGED: Added `pick === null ? v.color :` to use the green/red colors by default
+                    borderColor: pick === null ? v.color : right ? "#4ade80" : wrong ? "#fb4b5b" : "rgba(255,255,255,.2)",
+                    background: pick === null ? `${v.color}20` : right ? "rgba(74,222,128,.15)" : wrong ? "rgba(251,75,91,.15)" : "rgba(255,255,255,.03)",
+                    color: pick === null ? v.color : right ? "#4ade80" : wrong ? "#fb4b5b" : "#f5f3ff",
                     opacity: pick !== null && !right && !wrong ? 0.3 : 1,
                   }}
                 >
@@ -758,105 +760,73 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
    TASK 4: WHO FALLS FOR IT? (UNCHANGED logic, just text swap)
    ====================================================================== */
 /* ======================================================================
-   TASK 4: FACT-CHECK THE EMAIL  (V4.1, replaces VERIFY IT YOURSELF)
-   ----------------------------------------------------------------------
-   THE IDEA (NIST Phish Scale: premise alignment + cues):
-     A phish is written for SOMEONE. It copies TRUE details from your life so it feels real.
-     The only thing it can't fake is what happens when you CHECK it.
-
-   HOW IT PLAYS: a realistic email + a card with the person's real life.
-     Tap any highlighted detail of the email to fact-check it.
-        green tick = it checks out (and that is exactly WHY the email felt real)
-        red cross  = the ONE detail that doesn't check out = the giveaway
-   REAL-LIFE HABIT: true details prove nothing. Check the sender address and the link owner.
-
-   SCORING (max 42): 14 per round if you find the giveaway with 0-1 wrong taps,
-   10 with 2, 6 with 3 or more. No shields are lost in this task.
-
-   V4.1 FIXES: the email card is WHITE, so tappable text is now dark on a yellow highlight
-   (it was near-white and invisible). Checked colours are dark green / dark red for white.
-   The blue button uses light text instead. Chunk spacing is handled outside the buttons.
+   TASK 4: EMAIL INSPECTOR (V6, Interactive Click-to-Scan)
    ====================================================================== */
 
-/* A tappable detail. `ok` = why it checks out. `bad` = why it is the giveaway.
-   Exactly ONE detail per round has `bad`. A chunk with neither is plain text. */
-interface Bit { t: string; ok?: string; bad?: string }
+interface EmailField {
+  text: string;
+  isGiveaway: boolean;
+  reason: string;
+}
 
 interface FRound {
-  who: string;        // "Sarah, junior"
-  facts: string[];    // their real life this week (the "premise")
-  from: Bit;          // sender line
-  subject: string;
-  body: Bit[];        // email text in tappable chunks
-  button: Bit;        // the big button / link
-  lesson: string;     // shown after the giveaway is found
+  who: string;
+  facts: string[];
+  sender: EmailField;
+  subject: EmailField;
+  body: EmailField;
+  button: EmailField;
 }
 
 const FROUNDS: FRound[] = [
   {
     who: "Sarah, junior",
     facts: ["Uses the school portal every day", "IT really announced a portal update on Monday", "Her school address is metropolitan.edu"],
-    from: { t: "Metropolitan IT Desk <it@metropolitan.edu>", ok: "Looks right, but a display name and address can be copied. On its own this proves little." },
-    subject: "Action needed: portal password expires today",
-    body: [
-      { t: "Hi Sarah,", ok: "True: it knows her name. That is easy to find on a public profile." },
-      { t: "as announced on Monday, we are updating the portal.", ok: "True: IT really did announce this. That is the real news the attacker borrowed." },
-      { t: "Your password expires today." },
-    ],
-    button: { t: "Update my password", bad: "The link really goes to metropolitan-portal.verify-login.top. The owner is verify-login.top, not metropolitan.edu." },
-    lesson: "Every fact in the email was true, so it felt normal. Only the link's owner failed the check.",
+    sender: { text: "Metropolitan IT Desk <it@metropolitan.edu>", isGiveaway: false, reason: "The sender address looks perfectly real. Scammers can fake the display name, but this one is actually spoofing the real address." },
+    subject: { text: "Action needed: portal password expires today", isGiveaway: false, reason: "Urgency is a red flag, but the real proof is hiding further down." },
+    body: { text: "Hi Sarah,\n\nAs announced on Monday, we are updating the portal. Your password expires today. Please update it immediately to avoid losing access.", isGiveaway: false, reason: "These are true facts. The hacker borrowed real school news to make it feel safe." },
+    button: { text: "Update my password", isGiveaway: true, reason: "GIVEAWAY! The button actually links to a look-alike domain (verify-login.top), not metropolitan.edu." }
   },
   {
     who: "Diego, senior",
     facts: ["Applied for 2 scholarships last month", "Is waiting to hear back", "Real scholarship emails come from @metropolitan.edu"],
-    from: { t: "Scholarship Office <office@scholarship-docs.help>", bad: "The sender's owner is scholarship-docs.help. The real office writes from @metropolitan.edu." },
-    subject: "Your application is missing a document",
-    body: [
-      { t: "Hello Diego,", ok: "True: his name is no secret." },
-      { t: "your scholarship application is missing one document.", ok: "True: he did apply. He is waiting for exactly this kind of news." },
-      { t: "Upload it by Friday or be removed from consideration." },
-    ],
-    button: { t: "Upload document", ok: "This link is part of the trap too, but the sender is the clearer giveaway. Always check the sender address as well." },
-    lesson: "He is waiting for scholarship news, so it felt perfect. A look-alike sender address gave it away.",
+    sender: { text: "Scholarship Office <office@scholarship-docs.help>", isGiveaway: true, reason: "GIVEAWAY! The sender's domain is a look-alike. Real scholarship emails come from @metropolitan.edu." },
+    subject: { text: "Your application is missing a document", isGiveaway: false, reason: "This matches his real life perfectly. He is waiting for news." },
+    body: { text: "Hello Diego,\n\nYour scholarship application is missing one document. Please upload it by Friday or you will be removed from consideration.", isGiveaway: false, reason: "Again, this uses true facts to scare him into acting fast." },
+    button: { text: "Upload document", isGiveaway: false, reason: "The link is dangerous, but the sender's address is the biggest, most obvious giveaway." }
   },
   {
     who: "Ms. Okafor, office manager",
     facts: ["Approves school purchases every week", "Purchases are approved inside the finance system", "Principal Hall never asks for approvals by email link"],
-    from: { t: "Principal Hall <principal@metropolitan.edu>", ok: "Looks right, but a boss's name is the easiest thing to fake." },
-    subject: "Approval needed today",
-    body: [
-      { t: "Hi Ms. Okafor,", ok: "True: her name and job are on the staff page." },
-      { t: "I need your approval for 12 new lab laptops.", ok: "True: she approves purchases weekly, so this feels routine." },
-      { t: "Please approve through this link today.", bad: "The giveaway is the channel: real approvals happen inside the finance system, not through an emailed link with 'today' pressure." },
-    ],
-    button: { t: "Approve now", ok: "This link is part of the trap. The real giveaway is that the approval is being requested by email at all." },
-    lesson: "Her real job made it feel routine. The way the request arrived did not match how approvals really work.",
-  },
+    sender: { text: "Principal Hall <principal@metropolitan.edu>", isGiveaway: false, reason: "The address is 100% real. The hacker hacked the principal's actual account." },
+    subject: { text: "Approval needed today", isGiveaway: false, reason: "Urgency is a cue, but not the main giveaway." },
+    body: { text: "Hi Ms. Okafor,\n\nI need your approval for 12 new lab laptops. Please approve through this link today.", isGiveaway: false, reason: "The request for laptops is normal, but the way he asks for approval is wrong." },
+    button: { text: "Approve now", isGiveaway: true, reason: "GIVEAWAY! Real approvals happen inside the secure finance system, never through an emailed link." }
+  }
 ];
 
 function AudienceTask({ onComplete, onMood }: TaskCallbacks) {
   const [r, setR] = useState(0);
-  const [checked, setChecked] = useState<string[]>([]);   // keys of details already fact-checked
-  const [last, setLast] = useState<Bit | null>(null);     // the detail checked most recently (shows its note)
-  const [wrong, setWrong] = useState(0);                  // true details tapped in this round
-  const [found, setFound] = useState(false);              // the giveaway was found
   const [pts, setPts] = useState(0);
+  const [clicked, setClicked] = useState<string[]>([]);
+  const [found, setFound] = useState(false);
   const [finished, setFinished] = useState(false);
   const round = FROUNDS[r];
 
-  /* fact-check one detail */
-  function check(key: string, bit: Bit) {
-    if (found || checked.includes(key)) return;
-    setChecked((c) => [...c, key]);
-    setLast(bit);
-    if (bit.bad) {
-      const gain = wrong <= 1 ? 14 : wrong === 2 ? 10 : 6;   // fewer wrong taps = more points
+  function handleClick(field: "sender" | "subject" | "body" | "button") {
+    if (found || clicked.includes(field)) return;
+    
+    const isGiveaway = round[field].isGiveaway;
+    setClicked((prev) => [...prev, field]);
+
+    if (isGiveaway) {
+      // Award points: fewer clicks = more points
+      const gain = clicked.length <= 1 ? 14 : clicked.length === 2 ? 10 : 6;
       setPts((p) => p + gain);
       setFound(true);
       onMood?.("safe");
       snd("good");
     } else {
-      setWrong((w) => w + 1);
       onMood?.("alert");
       snd("tick");
     }
@@ -864,215 +834,247 @@ function AudienceTask({ onComplete, onMood }: TaskCallbacks) {
 
   function next() {
     if (r + 1 >= FROUNDS.length) { setFinished(true); return; }
-    setR(r + 1); setChecked([]); setLast(null); setWrong(0); setFound(false);
+    setR(r + 1);
+    setClicked([]);
+    setFound(false);
     onMood?.("calm");
   }
 
-  /* ----- end summary ----- */
   if (finished) {
     return (
       <Summary
-        title="You fact-check before you trust"
+        title="You dissected the traps"
         score={Math.min(42, pts)} max={42}
         lines={[
-          "Phishers write for someone. They copy TRUE details (your name, your school, real news) so the email feels normal.",
-          "True details prove nothing. The two things they can't fake: the sender's real address and the link's real owner.",
-          "Nobody is too smart to be fooled. A quick check beats a gut feeling.",
+          "Phishers write for someone. They copy TRUE details so the email feels normal.",
+          "The giveaway is always technical: the sender's real address, the link's real owner, or a broken process.",
+          "If you clicked the wrong thing, you learned that true facts are just bait.",
         ]}
         onDone={() => onComplete(Math.min(42, pts), 0)}
       />
     );
   }
 
-  /* One tappable detail.
-     onDark = true when it sits on the blue button (light text); false on the white email (dark text).
-     Unchecked: yellow highlight + dotted underline, so the player can SEE what is tappable.
-     Checked:   dark green (true) or dark red (giveaway), readable on white. */
-  const piece = (key: string, bit: Bit, onDark = false) => {
-    if (!bit.ok && !bit.bad) return <span key={key}>{bit.t}</span>;   // plain text, not tappable
-    const done = checked.includes(key);
-    const color = !done
-      ? (onDark ? "#ffffff" : "#1f2328")
-      : bit.bad
-      ? (onDark ? "#fecaca" : "#b91c1c")
-      : (onDark ? "#bbf7d0" : "#15803d");
-    const bg = !done
-      ? (onDark ? "rgba(255,255,255,.18)" : "rgba(250,204,21,.28)")
-      : bit.bad
-      ? "rgba(239,68,68,.22)"
-      : "rgba(34,197,94,.2)";
+  // Helper to render a clickable field
+  const ScanField = ({ field, children, className }: { field: "sender" | "subject" | "body" | "button", children: React.ReactNode, className?: string }) => {
+    const isClicked = clicked.includes(field);
+    const isBad = isClicked && round[field].isGiveaway;
+    const isGood = isClicked && !round[field].isGiveaway;
+
     return (
-      <button
-        key={key} type="button" onClick={() => check(key, bit)} disabled={found || done}
-        className={`rounded px-0.5 text-start transition active:scale-95 disabled:cursor-default ${done ? "font-bold" : "underline decoration-dotted decoration-current hover:brightness-95"}`}
-        style={{ color, background: bg }}
+      <div 
+        onClick={() => handleClick(field)}
+        className={`cursor-crosshair transition-all duration-200 rounded ${className} ${
+          isBad ? "bg-red-500/20 ring-2 ring-red-500 text-red-700 font-bold" :
+          isGood ? "bg-yellow-500/10 ring-1 ring-yellow-500/50 text-gray-500 opacity-60" :
+          "hover:bg-blue-100 hover:ring-2 hover:ring-blue-400 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+        }`}
       >
-        {done && (bit.bad ? "\u2717 " : "\u2713 ")}{bit.t}
-      </button>
+        {children}
+      </div>
     );
   };
 
-  return (
-    <Panel title="FACT-CHECK THE EMAIL" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{r + 1} / {FROUNDS.length}</span>}>
-      <div className="space-y-4 p-4">
-        {/* THE ONE INSTRUCTION */}
-        <p className="text-center text-sm font-bold text-[#f5f3ff]">
-          Tap the highlighted details to fact-check them. Find the <span className="text-[#fb4b5b]">one thing that doesn&apos;t check out</span>.
-        </p>
+  const clickedNote = clicked.length > 0 ? round[clicked[clicked.length - 1] as keyof FRound] as EmailField : null;
 
-        {/* THE PERSON'S REAL LIFE (the premise the attacker used) */}
-        <div key={r} className="ph-in rounded-xl border border-[#22D3EE]/40 bg-[#22D3EE]/10 p-3">
-          <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>{round.who.toUpperCase()}&apos;S REAL LIFE</p>
-          <ul className="mt-1 space-y-0.5 text-xs text-[#f5f3ff]">
-            {round.facts.map((f) => <li key={f}>&#9679; {f}</li>)}
-          </ul>
+  return (
+    <Panel title="EMAIL INSPECTOR" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{r + 1} / {FROUNDS.length}</span>}>
+      <div className="space-y-4 p-4">
+        
+        {/* HEADER INSTRUCTION */}
+        <div className="flex items-center justify-between rounded-xl border border-[#22D3EE]/40 bg-[#22D3EE]/10 p-3">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>MISSION</p>
+            <p className="text-sm text-[#f5f3ff]">Click the exact detail in the email that proves it is a fake.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>TARGET</p>
+            <p className="text-sm font-bold text-white">{round.who}</p>
+          </div>
         </div>
 
-        {/* A REALISTIC EMAIL (white card, so all text inside uses dark colours) */}
-        <div className="overflow-hidden rounded-xl bg-white text-[#1f2328] shadow-xl">
-          <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-xs">
-            <p><b className="text-gray-500">From:</b> {piece("from", round.from)}</p>
-            <p className="mt-0.5"><b className="text-gray-500">Subject:</b> <b>{round.subject}</b></p>
+        {/* THE INTERACTIVE EMAIL */}
+        <div className="overflow-hidden rounded-xl border-2 border-white/10 bg-white text-[#1f2328] shadow-2xl">
+          
+          {/* Email Header */}
+          <div className="border-b border-gray-200 bg-gray-50 p-4 space-y-2">
+            <ScanField field="sender" className="px-2 py-1 -mx-2 inline-block">
+              <span className="text-xs text-gray-500">From: </span> 
+              <span className="text-sm">{round.sender.text}</span>
+            </ScanField>
+            <br/>
+            <ScanField field="subject" className="px-2 py-1 -mx-2 inline-block">
+              <span className="text-xs text-gray-500">Subject: </span> 
+              <span className="text-sm font-bold">{round.subject.text}</span>
+            </ScanField>
           </div>
-          <div className="space-y-3 px-4 py-4 text-sm leading-relaxed">
-            {/* each chunk is trimmed and followed by a space OUTSIDE the button, so words never run together */}
-            <p>
-              {round.body.map((b, k) => (
-                <span key={k}>{piece(`b${k}`, { ...b, t: b.t.trim() })}{" "}</span>
-              ))}
-            </p>
-            {/* the big button, styled like a real email button (light text on blue) */}
-            <div>
-              <span className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold">
-                {piece("btn", round.button, true)}
-              </span>
+
+          {/* Email Body */}
+          <div className="p-4">
+            <ScanField field="body" className="p-2 -m-2 whitespace-pre-wrap text-sm leading-relaxed">
+              {round.body.text}
+            </ScanField>
+
+            {/* Email Button */}
+            <div className="mt-6 mb-2">
+              <ScanField field="button" className="inline-block px-2 py-2 -m-2">
+                <span className="inline-block rounded bg-blue-600 px-6 py-2 text-sm font-bold text-white shadow-md">
+                  {round.button.text}
+                </span>
+              </ScanField>
             </div>
           </div>
         </div>
 
-        {/* RESULT OF THE LAST CHECK */}
-        {last && (
-          <div className="ph-in rounded-xl border bg-[#070711]/70 p-3" aria-live="polite" style={{ borderColor: last.bad ? "#fb4b5b" : "#4ade80" }}>
-            <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: last.bad ? "#fb4b5b" : "#4ade80" }}>
-              {last.bad ? "\u2717 THIS DOES NOT CHECK OUT" : "\u2713 THIS CHECKS OUT"}
+        {/* SCAN RESULTS / FEEDBACK */}
+        {clickedNote && (
+          <div className={`ph-in rounded-xl border-2 p-4 ${found ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#f6c453] bg-[#f6c453]/10"}`}>
+            <p className={`text-xs font-bold tracking-[0.2em] ${found ? "text-[#4ade80]" : "text-[#f6c453]"}`} style={MONO}>
+              {found ? "\u2705 TARGET NEUTRALIZED" : "\u26A0\uFE0F NOT THE GIVEAWAY"}
             </p>
-            <p className="mt-1 text-sm text-[#f5f3ff]">{last.bad ?? last.ok}</p>
-            {!last.bad && <p className="mt-1 text-xs text-[#f6c453]">True details are bait. Keep checking.</p>}
+            <p className="mt-2 text-sm text-[#f5f3ff] leading-relaxed">{clickedNote.reason}</p>
+            
+            {found && (
+              <button onClick={next} className="mt-4 rounded-lg bg-[#4ade80] px-6 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-95">
+                {r + 1 < FROUNDS.length ? "Next Email" : "Finish Inspection"}
+              </button>
+            )}
           </div>
         )}
 
-        {/* ROUND END */}
-        {found && (
-          <div className="ph-in space-y-3 rounded-xl border border-white/10 bg-[#070711]/60 p-4" aria-live="polite">
-            <p className="text-sm text-[#f6c453]">{round.lesson}</p>
-            <Btn onClick={next}>{r + 1 < FROUNDS.length ? "Next email" : "Finish"}</Btn>
-          </div>
-        )}
       </div>
     </Panel>
   );
 }
 
 /* ======================================================================
-   TASK 5: DAMAGE CONTROL (UNCHANGED)
+   TASK 5: EMERGENCY RECOVERY (Hacker vs. Defender Card Battle)
    ====================================================================== */
-interface RAct { id: string; text: string; step?: number; unsafe?: boolean; why: string }
-const RACTS: RAct[] = [
-  { id: "reply", text: "Reply to the hacker and ask for the account back.", unsafe: true, why: "Attackers don't give accounts back, and replying confirms the account is watched." },
-  { id: "signout", text: "Sign out every other device and session.", step: 2, why: "This kicks the attacker out of any session that's still open, even with the new password." },
-  { id: "pay", text: "Pay the 'recovery fee' someone DM'd to restore it.", unsafe: true, why: "Anyone offering to recover your account for a fee is part of the scam." },
-  { id: "password", text: "From a clean device, go to the real site and change the password (and any account that shared it).", step: 1, why: "First, close the door the attacker used. Use a device you trust and type the real address yourself." },
-  { id: "delete", text: "Delete the phishing email so nobody sees it.", why: "Keep it. It's evidence IT and the platform can use, and it helps protect other people." },
-  { id: "mfa", text: "Turn on 2-step sign-in, ideally with an authenticator app.", step: 3, why: "A second step means a stolen password alone is no longer enough next time." },
-  { id: "wait", text: "Wait a day and see if it fixes itself.", unsafe: true, why: "Every hour gives the attacker more time to message your friends and dig through your account." },
-  { id: "leftovers", text: "Check the recovery email and phone, forwarding rules and connected apps for changes you didn't make.", step: 4, why: "Attackers add ways back in. Remove anything you don't recognise." },
-  { id: "report", text: "Warn contacts on another channel, and report it to the school's IT team and the platform.", step: 5, why: "A warning stops the spread, and a report lets others be protected." },
-];
-const IDEAL = RACTS.filter((a) => a.step).sort((a, b) => (a.step ?? 0) - (b.step ?? 0));
-
 function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
-  const [order, setOrder] = useState<string[]>([]);
-  const [locked, setLocked] = useState(false);
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [mistakes, setMistakes] = useState(0);
+  const [feedback, setFeedback] = useState<{ text: string; isGood: boolean } | null>(null);
+  const [shake, setShake] = useState(false);
 
-  const chosen = order.map((id) => RACTS.find((a) => a.id === id) as RAct);
-  const score = chosen.reduce((s, a, idx) => (a.step ? s + (a.step === idx + 1 ? 8 : 4) : s), 0);
-  const unsafe = chosen.filter((a) => a.unsafe).length;
-  const mistakes = Math.min(2, unsafe);
+  // The 4 rounds of the battle
+  const ROUNDS = [
+    {
+      hackerText: "I still have Sarah's old password. I'm logging into her account right now!",
+      hackerIcon: "🔑",
+      options: [
+        { text: "Reply to the hacker and ask them to stop.", isCorrect: false, why: "The hacker won't stop. You need to close the door they are using." },
+        { text: "Change the password from a clean device.", isCorrect: true, why: "CRITICAL HIT! By changing the password, the hacker's stolen key is now useless." },
+        { text: "Turn off Sarah's computer.", isCorrect: false, why: "Turning off the computer doesn't kick the hacker out of the server." }
+      ]
+    },
+    {
+      hackerText: "Nice password change. But I'm still logged in on my laptop from earlier!",
+      hackerIcon: "💻",
+      options: [
+        { text: "Sign out all other devices and active sessions.", isCorrect: true, why: "CRITICAL HIT! This instantly forces the hacker's laptop offline." },
+        { text: "Wait a day and see if they leave on their own.", isCorrect: false, why: "Waiting gives the hacker more time to steal her data." },
+        { text: "Change the profile picture.", isCorrect: false, why: "The hacker is still in the account. A new profile picture doesn't kick them out." }
+      ]
+    },
+    {
+      hackerText: "I left a secret rule in her settings. Every new email she gets is forwarded to ME.",
+      hackerIcon: "📨",
+      options: [
+        { text: "Delete the whole account to be safe.", isCorrect: false, why: "That destroys all of Sarah's data. We just need to remove the hacker's trap." },
+        { text: "Check forwarding rules and recovery emails for changes.", isCorrect: true, why: "CRITICAL HIT! Finding and deleting the hacker's hidden rule breaks their backdoor." },
+        { text: "Just send an email to the hacker asking them to delete it.", isCorrect: false, why: "Hackers don't follow instructions. You have to fix the settings yourself." }
+      ]
+    },
+    {
+      hackerText: "I'm using Sarah's account to message all her friends and ask them for gift cards!",
+      hackerIcon: "🎣",
+      options: [
+        { text: "Warn her friends on a different app (like a text message) and report the hack.", isCorrect: true, why: "CRITICAL HIT! Warning them through a different channel stops the trap from spreading." },
+        { text: "Pay the 'recovery fee' someone is DMing you.", isCorrect: false, why: "Anyone offering to recover the account for money is part of the scam." },
+        { text: "Tell Sarah to post a story on SnapGram.", isCorrect: false, why: "A public story might miss the friends who are currently falling for the trap." }
+      ]
+    }
+  ];
 
-  function toggle(id: string) {
-    if (locked) return;
-    setOrder((o) => (o.includes(id) ? o.filter((x) => x !== id) : o.length < 5 ? [...o, id] : o));
-    snd("tick");
+  const current = ROUNDS[round];
+
+  function handlePlay(opt: { text: string; isCorrect: boolean; why: string }) {
+    if (feedback) return; // Prevent clicking while feedback is showing
+
+    if (opt.isCorrect) {
+      setScore((s) => s + 10);
+      setFeedback({ text: opt.why, isGood: true });
+      onMood?.("safe");
+      snd("good");
+    } else {
+      setMistakes((m) => m + 1);
+      setFeedback({ text: opt.why, isGood: false });
+      onMood?.("breach");
+      snd("bad");
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+    }
   }
-  function lock() {
-    setLocked(true);
-    onMood?.(mistakes === 0 ? "safe" : "breach");
-    snd(mistakes === 0 ? "good" : "bad");
+
+  function nextRound() {
+    setFeedback(null);
+    if (round + 1 >= ROUNDS.length) {
+      onComplete(Math.min(40, score), mistakes);
+    } else {
+      setRound(round + 1);
+      onMood?.("calm");
+    }
   }
 
   return (
-    <Panel title="DAMAGE CONTROL" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{order.length} / 5 CHOSEN</span>}>
-      <div className="space-y-4 p-4">
-        <p className="text-sm text-[#b8b5c9]">
-          {locked ? "Here's the plan that works, in order:" : "Tap five moves, most urgent first. Tap again to remove one."}
-        </p>
+    <Panel title="HACKER BATTLE" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>ROUND {round + 1} / 4</span>}>
+      <div className="p-4 space-y-6">
+        
+        {/* THE HACKER'S ATTACK CARD */}
+        <div className={`relative overflow-hidden rounded-xl border-2 border-[#fb4b5b] bg-[#2a0d12] p-5 text-center shadow-[0_0_20px_rgba(251,75,91,0.2)] ${shake ? "ph-shake" : ""}`}>
+          <div className="absolute top-0 left-0 h-1 w-full bg-[#fb4b5b] animate-pulse" />
+          <p className="text-[10px] font-bold tracking-[0.25em] text-[#fb4b5b] mb-2" style={MONO}>HACKER ATTACKS</p>
+          <div className="text-4xl mb-2">{current.hackerIcon}</div>
+          <p className="text-sm font-bold text-white leading-relaxed">{current.hackerText}</p>
+        </div>
 
-        {!locked && (
-          <ul className="space-y-2">
-            {RACTS.map((a) => {
-              const pos = order.indexOf(a.id);
-              return (
-                <li key={a.id}>
-                  <button
-                    type="button"
-                    aria-pressed={pos !== -1}
-                    disabled={pos === -1 && order.length >= 5}
-                    onClick={() => toggle(a.id)}
-                    className="flex w-full items-center gap-3 rounded-xl border p-3 text-start transition active:scale-[0.99] disabled:opacity-40"
-                    style={{
-                      borderColor: pos !== -1 ? "var(--c)" : "rgba(255,255,255,.12)",
-                      background: pos !== -1 ? "color-mix(in srgb, var(--c) 12%, transparent)" : "rgba(7,7,17,.6)",
-                    }}
-                  >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-sm font-bold" style={{ borderColor: "var(--c)", color: "var(--c)", ...MONO }}>
-                      {pos !== -1 ? pos + 1 : ""}
-                    </span>
-                    <span className="text-sm text-[#f5f3ff]">{a.text}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        {/* THE PLAYER'S HAND (OPTIONS) */}
+        {!feedback && (
+          <div className="space-y-3">
+            <p className="text-center text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>PLAY A DEFENSE CARD</p>
+            {current.options.map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => handlePlay(opt)}
+                className="group relative w-full flex items-center gap-4 rounded-xl border-2 border-[#22D3EE]/30 bg-[#0f1420] p-4 text-start transition hover:border-[#22D3EE] hover:bg-[#181a38] active:scale-[0.98]"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#22D3EE]/10 text-[#22D3EE] group-hover:bg-[#22D3EE]/20 transition">
+                  🛡️
+                </div>
+                <span className="text-sm text-[#f5f3ff] font-medium">{opt.text}</span>
+              </button>
+            ))}
+          </div>
         )}
 
-        {!locked ? (
-          <Btn onClick={lock} disabled={order.length < 5}>Lock in the plan</Btn>
-        ) : (
-          <div className="ph-in space-y-3">
-            <ol className="space-y-2">
-              {IDEAL.map((a) => {
-                const at = order.indexOf(a.id);
-                const inPlace = at === (a.step ?? 0) - 1;
-                return (
-                  <li key={a.id} className="rounded-xl border bg-[#070711]/60 p-3" style={{ borderColor: at === -1 ? "#fb4b5b" : inPlace ? "#4ade80" : "#f6c453" }}>
-                    <p className="text-sm text-[#f5f3ff]"><span className="font-bold" style={{ color: "var(--c)", ...MONO }}>{a.step}. </span>{a.text}</p>
-                    <p className="mt-1 text-xs text-[#b8b5c9]">{a.why}</p>
-                    <p className="mt-1 text-[10px] font-bold tracking-[0.2em]" style={{ ...MONO, color: at === -1 ? "#fb4b5b" : inPlace ? "#4ade80" : "#f6c453" }}>
-                      {at === -1 ? "YOU MISSED THIS" : inPlace ? "RIGHT MOVE, RIGHT PLACE" : "RIGHT MOVE, WRONG PLACE"}
-                    </p>
-                  </li>
-                );
-              })}
-            </ol>
-            {chosen.filter((a) => !a.step).map((a) => (
-              <p key={a.id} className="rounded-xl border border-[#fb4b5b]/40 bg-[#fb4b5b]/5 p-3 text-xs text-[#f5f3ff]">
-                <span className="font-bold text-[#fb4b5b]" style={MONO}>{a.unsafe ? "UNSAFE PICK: " : "POOR PICK: "}</span>{a.text} {a.why}
-              </p>
-            ))}
-            <p className="text-sm text-[#f5f3ff]">
-              {mistakes > 0 ? `${unsafe} unsafe pick(s) cost shields. ` : "No unsafe picks. "}<span className="text-[#f6c453]">+{score} XP</span>
+        {/* BATTLE FEEDBACK */}
+        {feedback && (
+          <div className={`ph-in rounded-xl border-2 p-5 text-center ${
+            feedback.isGood ? "border-[#4ade80] bg-[#052e16]/60 shadow-[0_0_30px_rgba(74,222,128,0.2)]" : "border-[#fb4b5b] bg-[#2a0d12]/60"
+          }`}>
+            <p className={`text-xl font-bold mb-2 ${feedback.isGood ? "text-[#4ade80]" : "text-[#fb4b5b]"}`}>
+              {feedback.isGood ? "🛡️ BLOCKED!" : "💥 ATTACK SUCCEEDED"}
             </p>
-            <Btn onClick={() => onComplete(Math.min(40, score), mistakes)}>Continue</Btn>
+            <p className="text-sm text-[#f5f3ff] leading-relaxed mb-4">{feedback.text}</p>
+            <button
+              onClick={nextRound}
+              className={`rounded-lg px-6 py-2 text-sm font-bold text-black transition active:scale-95 ${
+                feedback.isGood ? "bg-[#4ade80]" : "bg-[#fb4b5b] text-white"
+              }`}
+            >
+              {round + 1 < ROUNDS.length ? "Next Round →" : "Finish Battle"}
+            </button>
           </div>
         )}
       </div>

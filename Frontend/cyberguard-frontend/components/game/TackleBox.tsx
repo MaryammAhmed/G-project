@@ -4,7 +4,7 @@ import { useState } from "react";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-type ClueId = "typos" | "address" | "design" | "urgency";
+type ClueId = "typos" | "address" | "design" | "urgency" | "tactics";
 
 interface Clue {
   id: ClueId;
@@ -20,7 +20,7 @@ const CLUES: Clue[] = [
     id: "typos",
     title: "Sloppy Mistakes",
     icon: "📝",
-    shortDesc: "Bad grammar and spelling errors.",
+    shortDesc: "Bad grammar and spelling errors (NIST: Errors).",
     fullDesc: "Real companies use spellcheck. If an email is full of typos, weird formatting, or broken sentences, it's a huge red flag.",
     hackerTip: "Careful: Hackers use AI to write perfect emails now. A clean message doesn't mean it's safe."
   },
@@ -28,7 +28,7 @@ const CLUES: Clue[] = [
     id: "address",
     title: "Fake Sender",
     icon: "✉️",
-    shortDesc: "Look-alike domains and hidden links.",
+    shortDesc: "Look-alike domains and hidden links (NIST: Technical).",
     fullDesc: "Official organizations never use free emails like @gmail.com. And watch out for look-alike domains, like @metropolitan-helpdesk.com instead of @metropolitan.edu.",
     hackerTip: "This is the hardest clue for a hacker to fake. Always read the domain name."
   },
@@ -36,7 +36,7 @@ const CLUES: Clue[] = [
     id: "design",
     title: "Stolen Logos",
     icon: "🖼️",
-    shortDesc: "Blurry graphics and copied designs.",
+    shortDesc: "Blurry graphics and copied designs (NIST: Visual).",
     fullDesc: "A blurry logo or wrong colors can give a fake away. But be careful, hackers can copy a perfect logo in 5 seconds.",
     hackerTip: "Never trust a message just because the logo looks right."
   },
@@ -44,9 +44,17 @@ const CLUES: Clue[] = [
     id: "urgency",
     title: "Fake Urgency",
     icon: "🚨",
-    shortDesc: "Scary threats and fake deadlines.",
+    shortDesc: "Scary threats and fake deadlines (NIST: Language).",
     fullDesc: "'Your account will be deleted in 24 hours!' or 'You won a prize!' Hackers want you to panic so you click without thinking.",
     hackerTip: "The pressure is designed to make you skip the verification step."
+  },
+  {
+    id: "tactics",
+    title: "The Trap",
+    icon: "🎣",
+    shortDesc: "Authority figures or free prizes (NIST: Common Tactics).",
+    fullDesc: "Scammers pose as your boss, your bank, or a friend in need. They also offer things that are too good to be true, like a free gift card or a lottery win.",
+    hackerTip: "If it feels too good to be true, or if a 'boss' is asking for a weird favor, verify it somewhere else."
   },
 ];
 
@@ -69,18 +77,18 @@ export default function TackleBox({ onNext }: { onNext: () => void }) {
       {/* HEADER SECTION */}
       <div className="text-center space-y-3">
         <h2 className="text-2xl font-black tracking-widest text-[#22D3EE]" style={MONO}>
-          THREAT INTEL
+          THE NIST PHISH SCALE
         </h2>
         <p className="text-sm text-[#b8b5c9] max-w-lg mx-auto">
-          Why do smart people fall for scams? Because attackers use two tricks: they leave <strong className="text-white">clues</strong>, and they make the message <strong className="text-white">fit your life perfectly</strong> (like a fake delivery text on the day you ordered shoes). Let's expose their playbook.
+          Why do smart people fall for scams? Because attackers leave <strong className="text-white">cues</strong> while making the message <strong className="text-white">fit your life perfectly</strong>. Experts use the NIST Phish Scale to count these clues. Tap to expose the 5 types of cues.
         </p>
       </div>
 
       {/* PROGRESS METER */}
       <div className="space-y-1 max-w-md mx-auto">
         <div className="flex justify-between text-[10px] font-bold text-[#22D3EE]" style={MONO}>
-          <span>DECRYPTING CLUES</span>
-          <span>{opened.length} / 4 FOUND</span>
+          <span>DECRYPTING CUES</span>
+          <span>{opened.length} / 5 FOUND</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/10">
           <div 
@@ -91,7 +99,7 @@ export default function TackleBox({ onNext }: { onNext: () => void }) {
       </div>
 
       {/* CLUE CARDS */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 max-w-2xl mx-auto">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 max-w-3xl mx-auto">
         {CLUES.map((c) => {
           const isOpened = opened.includes(c.id);
           return (
@@ -148,11 +156,11 @@ export default function TackleBox({ onNext }: { onNext: () => void }) {
       <div className="text-center pt-4">
         <button
           onClick={onNext}
-          disabled={opened.length < 4}
+          disabled={opened.length < 5}
           className="rounded-xl bg-[#22D3EE] px-8 py-3 text-sm font-bold tracking-widest text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
           style={MONO}
         >
-          {opened.length < 4 ? `EXPOSE ALL CLUES TO CONTINUE (${opened.length}/4)` : "CONTINUE INVESTIGATION →"}
+          {opened.length < 5 ? `EXPOSE ALL CUES TO CONTINUE (${opened.length}/5)` : "CONTINUE INVESTIGATION →"}
         </button>
       </div>
 

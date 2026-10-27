@@ -52,7 +52,6 @@ import XpRewardModal from "@/components/game/XpRewardModal";
 
 import CSIInvestigation from "@/components/game/CSIInvestigation";
 import TackleBox from "@/components/game/TackleBox";
-import LiveEmailInspector from "@/components/game/LiveEmailInspector";
 import LearnPanel from "@/components/game/LearnPanel";
 
 // Visual & Companion Components
@@ -792,32 +791,6 @@ function BeatView({
                   }
 
                   // Immediately move to the next beat
-                  onNext();
-                }}
-              />
-            )}
-
-            {/* ───────────── EDIT 7 · Live inspector ───────────── */}
-            {beat.type === "live-inspector" && (
-              <LiveEmailInspector
-                parts={beat.parts}
-                onComplete={(score, mistakes) => {
-                  onAward(Math.round(score / 2));
-                  for (let i = 0; i < Math.min(mistakes, 2); i++)
-                    onResult(false); // cap at 2 shields per exam
-                  onMood(mistakes === 0 ? "safe" : "breach");
-                  onNext();
-                }}
-              />
-            )}
-
-            {beat.type === "damage-control" && (
-              <LiveEmailInspector
-                parts={[]}
-                onComplete={(score, mistakes) => {
-                  onAward(Math.round(score / 2));
-                  for (let i = 0; i < mistakes; i++) onResult(false);
-                  onMood(mistakes === 0 ? "safe" : "breach");
                   onNext();
                 }}
               />
