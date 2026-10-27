@@ -216,21 +216,26 @@ async def resend_otp(payload: ResendOtpPayload, db: AsyncSession = Depends(get_d
 
 MODULE_STANDARDS = {
     1: "NIST SP 800-63B (Digital Identity Guidelines — memorized secrets and authentication)",
-    2: "CISA Secure Our World (phishing recognition and reporting guidance)",
-    3: "CISA Social Engineering Awareness guidance",
+    2: "NIST TN 2276 (NIST Phish Scale User Guide)",
+    3: "NIST SP 800-50 & MITRE ATT&CK (Social Engineering Techniques)",
     4: "OWASP Top 10 for Large Language Model Applications",
 }
 
 MODULE_CORE_GUIDANCE = {
-    1: "Length is the primary driver of password strength, not symbol complexity. "
-       "NIST explicitly does NOT require mixed character types or forced complexity rules — "
-       "a long passphrase (15+ characters) is stronger and easier to remember than a short complex password.",
-    2: "Phishing relies on urgency and impersonation. Verify sender addresses and links before clicking, "
-       "and report suspicious messages rather than just deleting them.",
-    3: "Social engineering exploits trust and authority, not technical vulnerabilities. "
-       "Always verify unusual requests through a separate, known communication channel.",
-    4: "Never share sensitive personal, financial, or proprietary data with an AI system, "
-       "and treat AI-generated output as unverified until checked against a reliable source.",
+  1: "Length is the primary driver of password strength, not symbol complexity. "
+     "NIST explicitly does NOT require mixed character types or forced complexity rules — "
+     "a long passphrase (15+ characters) is stronger and easier to remember than a short complex password.",
+  
+  2: "Phishing detection requires checking both the technical Cues (sender address, link owner) "
+     "and Premise Alignment (how well the story matches your real life). When few cues are present "
+     "and the story fits perfectly, the scam is hardest to spot. Always verify through the official app.",
+  
+  3: "Social engineering exploits trust and authority, not technical vulnerabilities. "
+     "Always verify unusual requests (like urgent calls or strange DMs) by hanging up and "
+     "reaching out through a separate, known communication channel.",
+  
+  4: "Never share sensitive personal, financial, or proprietary data with an AI system, "
+     "and treat AI-generated output as unverified until checked against a reliable source.",
 }
 
 

@@ -27,9 +27,9 @@ export const WHISPER_CHECKPOINTS = ["m3-call-1", "m3-chat-1", "m3-door-1", "m3-p
 export const socialEngineeringMission: Mission = {
   id: "social-engineering",
   module: 3,
-  title: "The Whisper",
-  place: "ELMHURST HIGH // THE WHISPER",
-  badge: "WHISPER BREAKER",
+  title: "Manipulated",
+  place: "CYBERGUARD // CASE FILE 003",
+  badge: "HUMAN FIREWALL",
   accent: "#A855F7", // purple = the mystery of a voice you can't verify
   flashGood: "GOOD CALL: TRUST VERIFIED",
   flashBad: "SHIELD CRACKED: TRUST EXPLOITED",
@@ -44,15 +44,15 @@ export const socialEngineeringMission: Mission = {
     /* ================= MONDAY: THE CALL ================= */
     {
       id: "m3-call-1", type: "story", mood: "calm",
-      say: "MONDAY, 7:42 A.M. You're in the Elmhurst cafeteria, half-finishing a chemistry worksheet. Your phone buzzes: Mom, 'pls grab milk after school'. A completely normal day.",
+      say: "MONDAY, 7:42 A.M. You're in the Metropolitan school cafeteria, finishing a chemistry worksheet. Your phone buzzes: Mom, 'pls grab milk after school'. A completely normal day.",
     },
     {
       id: "m3-call-2", type: "story", mood: "alert",
-      say: "Then the phone rings. Caller ID says 'Mr. Davies, School IT'. You don't have that number saved, but he's staff, so you pick up.",
+      say: "Then the phone rings. Caller ID says 'Mr. David, School IT'. You pick up.",
     },
     {
       id: "m3-call-3", type: "story", mood: "alert",
-      say: "'Hi, it's Davies from IT,' he says, sounding rushed. 'Your account was flagged for suspicious activity. If I don't fix it before 3 p.m., you're locked out of the exam portal. I just need your student ID and your password.'",
+      say: "'Hi, it's David from IT,' he says, sounding rushed. 'Your account was flagged for suspicious activity. If I don't fix it before 3 p.m., you're locked out of the exam portal. I just need your student ID and your password.'",
     },
     {
       id: "m3-call-4", type: "decision", mood: "alert",
@@ -71,7 +71,7 @@ export const socialEngineeringMission: Mission = {
     },
     {
       id: "m3-call-5", type: "story", mood: "safe",
-      say: "You hang up and call the office from the school website. Ms. Okafor answers: 'IT never phones students for passwords. That wasn't us.' Your hands are still shaking a little. Then she asks: 'Did you get the number?'",
+      say: "You hang up and call the main office. Ms. Jasmin picks up on the second ring. You explain. She says: IT doesn't call students, ever. Do you still have the number he called from?'",
     },
     {
       id: "m3-call-6", type: "decision", mood: "alert",
@@ -84,21 +84,21 @@ export const socialEngineeringMission: Mission = {
           fallback: "Replying confirms your number is live and gives him another chance to work on you. Don't engage; report." },
         { id: "c", text: "Report it: the number, the time and what he asked for, to the IT helpdesk and the office.", correct: true,
           fallback: "Reporting turns one close call into protection for everyone: the school can block the number and warn other students." },
-        { id: "d", text: "Save the number as 'Mr. Davies IT' so you know it next time.", correct: false,
-          fallback: "Labelling it builds false trust. Next time the screen says 'Mr. Davies' and you'd answer without thinking." },
+        { id: "d", text: "Save the number as 'Mr. David IT' so you know it next time.", correct: false,
+          fallback: "Labelling it builds false trust. Next time the screen says 'Mr. David' and you'd answer without thinking." },
       ],
     },
     {
       id: "m3-mind-1", type: "learn", mood: "calm",
-      say: "You stopped it. Now let's open up the attack. Social engineering doesn't hack computers, it hacks the moment you stop checking.",
-      title: "ANATOMY OF A PRETEXT",
+      say: "Threat neutralized. Let's break down the attacker's method. Social engineering bypasses firewalls by getting you to drop your guard.",
+      title: "THE HUMAN HACK",
       points: [
-        "PRETEXT: a made-up story ('IT, account flagged') that gives the attacker a reason to ask for something.",
-        "AUTHORITY: a title like 'IT' or 'Mr. Davies' borrows trust. Titles cost nothing to fake.",
-        "URGENCY + FEAR: 'locked out by 3 p.m.' makes you panic, and panic skips verification.",
-        "THE CALL WAS UNSOLICITED: you didn't contact them. Caller ID can be spoofed, so a familiar name on screen proves nothing.",
-        "THE FIX IS A HABIT: hang up, look up the official number yourself, call back. You choose the channel.",
-      ],
+        "PRETEXT: A fake story. They invent a reason (like an expired password) to ask for your info.",
+        "AUTHORITY: They pretend to be someone in charge. Titles and badges are easy to fake.",
+        "URGENCY: 'Act now or else!' They want you to panic so you skip checking the facts.",
+        "SPOOFING: The caller ID looks real, but names and numbers on a screen can be faked.",
+        "THE FIX: Hang up. Look up the real number yourself, and call them back.",
+      ]
     },
     {
       id: "m3-call-7", type: "se-task", task: "tactics", mood: "alert",
@@ -114,70 +114,93 @@ export const socialEngineeringMission: Mission = {
       id: "m3-chat-2", type: "se-task", task: "chat", mood: "alert",
       say: "Reply to Noor. Every message you send changes what happens next, so think before you tap.",
     },
-    {
+        {
       id: "m3-mind-2", type: "learn", mood: "calm",
-      say: "That scam works because the DM comes from someone you already trust. Here's what was really going on.",
+      say: "That scam almost worked because it came from someone you already trust. But a familiar name doesn't mean a familiar face. Here is what was really happening.",
       title: "WHY THE CODE ISN'T YOURS TO SHARE",
       points: [
-        "A verification code is a one-time KEY to YOUR account. The 'friend' triggered a login on your account and needs you to hand over the key.",
-        "Hacked friend accounts are used to scam their contacts. A real person you know can still be an attacker's mouthpiece.",
-        "2-step verification only protects you while the code stays secret. No company, friend or teacher ever needs it from you.",
-        "VERIFY ON A DIFFERENT CHANNEL: call the person, or ask in person. If the attacker has their account, they control that chat.",
-        "IF YOU SENT A CODE: change your password, sign out of all devices, turn on 2-step verification and tell the platform and your friend.",
+        "THE KEY: A verification code is a one-time password for YOUR account. If a friend asks for it, the hacker is the one asking.",
+        "THE HACKED ACCOUNT: A familiar name proves nothing. Scammers use stolen accounts to trick everyone on the contact list.",
+        "NEVER SHARE: No legitimate person, company, or teacher will ever ask for your 2FA code. Keep it secret, always.",
+        "VERIFY DIFFERENTLY: Don't reply in the chat. Call them or talk in person. If their account is hacked, the attacker is reading the messages.",
+        "IF YOU SENT IT: Act fast. Change your password, sign out all devices, enable 2-step verification, and warn your friend.",
       ],
     },
 
     /* ================= WEDNESDAY: THE DOOR AND THE USB ================= */
-    {
-      id: "m3-door-1", type: "story", mood: "alert",
-      say: "WEDNESDAY, 8:05 A.M. You swipe your card at the science wing door. A man in a delivery vest rushes up behind you, arms full of boxes. 'Ugh, my pass is in the truck. Can you hold it? I'm already late.'",
-    },
-    {
-      id: "m3-door-2", type: "decision", mood: "alert",
-      say: "He looks harmless and tired, and you hate being rude. The door is already open in your hand.",
-      hint: "Politeness is a feature attackers count on.",
+          {
+      id: "m3-door-1", type: "decision", mood: "alert",
+      say: "WEDNESDAY, 8:05 A.M. You're visiting your dad's office for a school project. You swipe his guest badge to unlock the secure elevator lobby. Just as the doors open, a guy in a delivery uniform hurries up behind you carrying a thick envelope. Hey, hold the elevator! I have to deliver these papers for the 4th floor. I left my badge in the van. He looks stressed. What do you do?",
+      hint: "This is called tailgating. Attackers use fake deliveries, urgency, and your politeness to bypass locked doors.",
       choices: [
-        { id: "a", text: "Hold the door. Being helpful is just good manners.", correct: false,
-          fallback: "Tailgating works because we hate seeming rude. The door lock exists for a reason: anyone could follow you in." },
-        { id: "b", text: "Let him in, but follow him to see where he goes.", correct: false,
-          fallback: "Following him doesn't undo the breach; you've already let an unverified person inside. Don't be the guard, be the filter." },
-        { id: "c", text: "Say 'Sorry, the front office can badge you in' and let the door close.", correct: true,
-          fallback: "Politely sending people to the front office is the safe move. Anyone legitimate gets a visitor pass in two minutes." },
-        { id: "d", text: "Tap your own card again to let him in, 'just this once'.", correct: false,
-          fallback: "Your card is tied to YOU. Whatever he does inside is traced back to your badge, and 'just this once' is how breaches start." },
+        { 
+          id: "a", 
+          text: "Hold the door. He's carrying legal papers and it's just an elevator.", 
+          correct: false,
+          fallback: "Tailgating works because we want to be helpful. A uniform and a clipboard are easy to fake. If you let him in, he's inside a secure area without being logged." 
+        },
+        { 
+          id: "b", 
+          text: "Let him in, but watch him to make sure he gets off on the right floor.", 
+          correct: false,
+          fallback: "Following him doesn't fix the breach. You've already let an unverified person bypass security. Don't play guard; be the filter." 
+        },
+        { 
+          id: "c", 
+          text: "Tell him 'Sorry, I'm just a guest. You need to check in with security at the front gate.", 
+          correct: true,
+          fallback: "Perfect. It feels awkward, but it's the rule. If the delivery is real, security will log him in and give him a visitor badge. You keep the building safe." 
+        },
+        { 
+          id: "d", 
+          text: "Tell him to hop in, but ask to see the paperwork first.", 
+          correct: false,
+          fallback: "You are not a security guard. You can't verify the authenticity of the papers, and letting him in is still a breach." 
+        },
       ],
     },
     {
-      id: "m3-door-3", type: "story", mood: "alert",
-      say: "Later in the library you spot a USB stick on the floor by the printer. A sticker on it reads 'EXAM ANSWERS Gr11'. You glance around. Nobody is looking.",
-    },
-    {
-      id: "m3-door-4", type: "decision", mood: "alert",
-      say: "Curiosity is pulling at you hard. What do you do with it?",
-      hint: "The label is the bait. What is it designed to make you do?",
+      id: "m3-door-2", type: "decision", mood: "alert",
+      say: "Later, you're waiting in the breakroom while your dad finishes a meeting. You find a USB stick on the table. It has a typed label: 'CEO Layoffs - Confidential'. The room is empty. What do you do?",
+      hint: "This is called baiting. The label is designed to trigger your curiosity. What happens if you plug it in?",
       choices: [
-        { id: "a", text: "Plug it into a library PC to find out whose it is.", correct: false,
-          fallback: "That's the trap. A USB can install malware the moment it's plugged in, and 'find the owner' is the story it uses to get you to try." },
-        { id: "b", text: "Plug it into your own laptop, but only to peek at the file names.", correct: false,
-          fallback: "Just plugging it in can be enough to run malicious code. Your own laptop is a worse place to find out." },
-        { id: "c", text: "Leave it and walk away. Not your problem.", correct: false,
-          fallback: "The next curious student may plug it in. Leaving a known risk behind isn't safe; report it." },
-        { id: "d", text: "Don't plug it in. Hand it to the front office or IT desk and say where you found it.", correct: true,
-          fallback: "Unknown USB drives are never plugged in. Handing it to IT keeps the risk away from everyone and lets them check it safely." },
+        { 
+          id: "a", 
+          text: "Plug it into the breakroom computer to see if it's real.", 
+          correct: false,
+          fallback: "That's the trap. A USB can install malware the second it connects, and company computers are prime targets for hackers." 
+        },
+        { 
+          id: "b", 
+          text: "Plug it into your own laptop, just to peek at the file names.", 
+          correct: false,
+          fallback: "Just plugging it in can run malicious code. Your personal laptop is a worse place to find out, and you could carry the virus home." 
+        },
+        { 
+          id: "c", 
+          text: "Leave it alone and tell your dad's IT team or security that you found it.", 
+          correct: true,
+          fallback: "Perfect. Unknown USBs are never plugged in. Handing it to security keeps the risk away from everyone and lets them check it safely." 
+        },
+        { 
+          id: "d", 
+          text: "Throw it in the trash so nobody else finds it.", 
+          correct: false,
+          fallback: "Throwing it away isn't safe. IT needs to investigate it. It could be evidence of an attempted breach in the building." 
+        },
       ],
     },
     {
       id: "m3-mind-3", type: "learn", mood: "calm",
-      say: "Social engineering isn't only phones and DMs. It also happens in hallways and on library floors.",
+      say: "Social engineering isn't only phones and DMs. It also happens in the real world, right in front of you.",
       title: "PHYSICAL SOCIAL ENGINEERING",
       points: [
-        "TAILGATING: following an authorised person through a door. It works because politeness feels safer than a confrontation.",
-        "BAITING: leaving something tempting (a labelled USB, 'free' gear) so curiosity does the attacker's work.",
-        "BADGES AND VISITOR PASSES EXIST FOR THIS: sending someone to the front office is the system working, not rudeness.",
-        "REPORT, DON'T INVESTIGATE: your job is to hand it off, not to play detective with an unknown device or person.",
+        "TAILGATING: Following someone through a locked door. Attackers use this because holding a door feels polite, and they rely on you not wanting to be rude.",
+        "BAITING: Leaving something tempting (like a USB labeled 'Confidential') so curiosity does the attacker's work.",
+        "SECURITY EXISTS FOR A REASON: Sending someone to the front gate isn't rude; it's literally the system working.",
+        "REPORT, DON'T INVESTIGATE: If you find a suspicious device or person, hand it off to security. Don't try to be a hero.",
       ],
     },
-
     /* ================= THURSDAY: HOW DID HE KNOW? ================= */
     {
       id: "m3-prof-1", type: "story", mood: "alert",
@@ -192,48 +215,65 @@ export const socialEngineeringMission: Mission = {
       say: "Most pretexts aren't improvised. They're assembled from things you posted yourself.",
       title: "THE RESEARCH PHASE",
       points: [
-        "ATTACKERS RESEARCH FIRST: names, routines, pets, school, teachers. Each detail is harmless alone; stacked together they sound like a friend or a colleague.",
-        "SECURITY QUESTIONS ARE GUESSABLE: a pet's name or birthday can be found online. Treat them like extra passwords, or avoid them.",
-        "LOCK THE EASY DOORS: private account, hidden birthday, no location tags, no photos showing IDs or tickets.",
-        "TURN ON 2-STEP VERIFICATION: even if someone guesses a password, they still need the code (which you never share).",
+        "THE RESEARCH: Hackers read your posts to find your routines, school, teachers, and pet names. These details make their lies sound completely real.",
+        "SECURITY QUESTIONS: Pet names or birthdays are easy to find online. Never use them as security answers (or don't post them at all).",
+        "DON'T OVERSHARE: Never post photos of your ID, your exact location, or anything hinting at your password.",
+        "USE 2-STEP VERIFICATION: Even if a hacker guesses your password, they can't get in without the secret code sent to your phone.",
       ],
     },
 
     /* ================= FRIDAY: THE BOSS CALL ================= */
-    {
+    /* ================= FRIDAY: THE BOSS CALL ================= */
+        {
       id: "m3-mind-5", type: "story", mood: "calm",
-      say: "FRIDAY, 1:00 P.M. The counselor runs a 'Defence Day' drill: eight real-life situations, rapid-fire. Some are genuine, some are manipulation. Being suspicious of everything isn't the goal; telling them apart is.",
+      say: "FRIDAY, 1:00 P.M. It's Cyber Awareness Day at school! The gym is packed with booths and games. The Cyber Club is running a giant screen challenge: eight real-life scenarios flash on the screen. Some are totally normal, some are scams. Your goal isn't to be paranoid it's to spot the fakes and win the high score.",
     },
     {
       id: "m3-mind-6", type: "se-task", task: "gauntlet", mood: "alert",
-      say: "For each situation decide: genuine, or manipulation? If it's manipulation, name the main tactic.",
+      say: "For each situation, decide: genuine or manipulation? If it's manipulation, name the main tactic.",
     },
     {
       id: "m3-call-8", type: "story", mood: "alert",
-      say: "3:15 P.M. Your phone rings again. The ID says 'Mr. Davies, School IT'. You know what this is now, but you answer on purpose. You want to see how good he really is.",
+      say: "3:15 P.M. Your phone rings again. The caller ID says 'Mr. David, School IT'. You know it's the scammer, but you answer on purpose. You're ready for him this time.",
     },
     {
       id: "m3-call-9", type: "se-task", task: "call", mood: "alert",
-      say: "He's back, and this time he's done his homework. Hold the line, one tactic at a time.",
+      say: "He's back, and this time he's using the details he found on your public profile. Hold the line and block his tactics.",
     },
     {
       id: "m3-call-10", type: "decision", mood: "safe",
-      say: "The line goes dead. Your heart is racing, but your accounts are intact. What's the smartest thing to do in the next ten minutes?",
-      hint: "Protect yourself AND everyone after you.",
+      say: "The line goes dead. He finally gave up. Your accounts are safe, but he used your real public details to try and trick you. What's the smartest next move?",
+      hint: "Protect yourself AND protect the next student.",
       choices: [
-        { id: "a", text: "Tell no one. You handled it.", correct: false,
-          fallback: "He got further this time because he used your public details. Without a report, the school can't warn the next student." },
-        { id: "b", text: "Report the call to IT and the office, change any password or security answer that uses your public details, and turn on 2-step verification.", correct: true,
-          fallback: "Report AND repair: the report protects others, and changing the details he knows (plus 2-step verification) protects you." },
-        { id: "c", text: "Delete all your social media accounts right now.", correct: false,
-          fallback: "Deleting everything is an overreaction. Tightening privacy, using 2-step verification and not reusing details does the job." },
-        { id: "d", text: "Call him back and threaten to report him.", correct: false,
-          fallback: "Engaging confirms your number is live and gives him another try. Don't talk to him; report and block." },
+        { 
+          id: "a", 
+          text: "Ignore it and block the number. The scam is over, so there's nothing else to do.", 
+          correct: false,
+          fallback: "Blocking him stops this number, but it doesn't fix the fact that he knows your security answers. He'll just try another account." 
+        },
+        { 
+          id: "b", 
+          text: "Report it to IT, then change any passwords or security answers he knew.", 
+          correct: true,
+          fallback: "Perfect. Reporting protects the school, and updating the details he found on your profile locks him out for good." 
+        },
+        { 
+          id: "c", 
+          text: "Delete all your social media accounts right now so he can't research you anymore.", 
+          correct: false,
+          fallback: "That's a massive overreaction. You don't need to disappear from the internet; you just need to remove the sensitive details." 
+        },
+        { 
+          id: "d", 
+          text: "Call him back and threaten to report him to the police if he doesn't delete your data.", 
+          correct: false,
+          fallback: "Never engage with the attacker. Calling him back just confirms your number is live and gives him another chance to trick you." 
+        },
       ],
     },
     {
       id: "m3-mind-7", type: "complete", mood: "safe",
-      say: "You didn't just avoid one scam, you learned how all of them work. Pressure, trust and fear are the attacker's tools. Pause. Verify. Report. You are a Whisper Breaker.",
+      say: "You didn't just avoid one scam, you learned how all of them work. Pressure, trust and fear are the attacker's tools. Pause. Verify. Report.",
     },
   ],
 

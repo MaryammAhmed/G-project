@@ -31,7 +31,7 @@ export const vault: Mission = {
   id: "vault",
   module: 1,
   title: "Locked Out",
-  place: "MIDNIGHT // ZERO HOUR",
+  place: "CYBERGUARD // CASE FILE 001",
   badge: "ACCOUNT DEFENDER",
   accent: "#34D399",
   flashGood: "THREAT BLOCKED",

@@ -200,6 +200,16 @@ function TacticSpotter({ onComplete }: TaskCallbacks) {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
 
+  // 👇 ADDED THIS: Shuffles the tactics once when the task starts
+  const [shuffledTactics] = useState(() => {
+    const arr = [...TACTICS];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  });
+
   const line = TRANSCRIPT[i];
   const totalTactics = TRANSCRIPT.filter((l) => l.answer !== "harmless").length;
   const heard = TRANSCRIPT.slice(0, i + (picked ? 1 : 0)).filter((l) => l.answer !== "harmless").length;
@@ -256,7 +266,8 @@ function TacticSpotter({ onComplete }: TaskCallbacks) {
 
         <p className="text-[11px] tracking-[0.2em] text-[#b8b5c9]" style={MONO}>WHAT IS HE DOING IN THIS SENTENCE?</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Choose the tactic">
-          {TACTICS.map((t) => {
+          {/* 👇 CHANGED: Uses shuffledTactics instead of TACTICS */}
+          {shuffledTactics.map((t) => {
             const isRight = picked && t.id === line.answer;
             const isWrong = picked === t.id && t.id !== line.answer;
             return (
@@ -492,45 +503,96 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 3: PROFILE RECON  (open-source research + privacy lockdown)
-   Step 1: play the attacker and flag the posts you'd use. Step 2: switch sides and
-   secure the profile. Leaving CRITICAL settings exposed costs shields (max 2).
+   TASK 3: PROFILE RECON  (spot it → see the attack → lock it down)
+   Step 1 SPOT:   think like an attacker and flag usable posts
+   Step 2 ATTACK: watch those details become a phishing message + password guesses
+   Step 3 DEFEND: secure the profile and watch the exposure meter drop live
    ====================================================================== */
-interface Post { id: string; time: string; text: string; risk: "risky" | "neutral" | "safe"; use: string }
+type Goal = "Impersonate" | "Crack password" | "Track you" | "Phish you";
+interface Intel { icon: string; label: string; value: string }
+interface Post { id: string; time: string; text: string; risk: "risky" | "neutral" | "safe"; use: string; goals: Goal[]; intel?: Intel }
 
 const POSTS: Post[] = [
-  { id: "p1", time: "Mar 14", text: "Turning 17 today!! \u{1F382} Thanks for all the birthday wishes", risk: "risky",
+  { id: "p1", time: "Mar 14", text: "Turning 17 today!! \u{1F382} Thanks for all the birthday wishes", risk: "risky", goals: ["Impersonate", "Crack password"],
+    intel: { icon: "\u{1F382}", label: "Birth date", value: "Mar 14, born 2008" },
     use: "Your full birth date: used in identity checks, 'verify your identity' calls and as a password base." },
-  { id: "p2", time: "2d", text: "Biscuit stole my sandwich AGAIN \u{1F436} (golden retriever, 3 yrs)", risk: "risky",
+  { id: "p2", time: "2d", text: "Biscuit stole my sandwich AGAIN \u{1F436} (golden retriever, 3 yrs)", risk: "risky", goals: ["Crack password"],
+    intel: { icon: "\u{1F436}", label: "Pet name", value: "Biscuit" },
     use: "A pet's name is a classic security-question answer and a common password base." },
-  { id: "p3", time: "3d", text: "Bus 14 is late AGAIN. Stuck at Oak & 5th at 7:10 like every single day \u{1F629}", risk: "risky",
+  { id: "p3", time: "3d", text: "Bus 14 is late AGAIN. Stuck at Oak & 5th at 7:10 like every single day \u{1F629}", risk: "risky", goals: ["Track you"],
+    intel: { icon: "\u{1F4CD}", label: "Daily routine", value: "Oak & 5th, 7:10 am, Bus 14" },
     use: "Reveals your daily routine and exactly where you stand at a known time." },
-  { id: "p4", time: "4d", text: "Go Falcons! Varsity soccer #7 \u{1F3C6}", risk: "neutral",
+  { id: "p4", time: "4d", text: "Go Falcons! Varsity soccer #7 \u{1F3C6}", risk: "neutral", goals: [],
+    intel: { icon: "\u{26BD}", label: "School team", value: "Falcons, #7" },
     use: "School and team are public by nature. Harmless alone, but it adds credibility when stacked with other details." },
-  { id: "p5", time: "5d", text: "Library grind \u{1F4DA} (photo: student ID visible on the lanyard)", risk: "risky",
+  { id: "p5", time: "5d", text: "Library grind \u{1F4DA} (photo: student ID visible on the lanyard)", risk: "risky", goals: ["Impersonate"],
+    intel: { icon: "\u{1FAAA}", label: "Student ID", value: "Name + ID number" },
     use: "A readable ID number and name can be copied or used to impersonate you." },
-  { id: "p6", time: "6d", text: "New phone! DM me: jordan.r2008@mailbox.test", risk: "risky",
+  { id: "p6", time: "6d", text: "New phone! DM me: jordan.r2008@mailbox.test", risk: "risky", goals: ["Phish you", "Crack password"],
+    intel: { icon: "\u{2709}\u{FE0F}", label: "Email", value: "jordan.r2008@mailbox.test" },
     use: "Gives away your email AND your birth year, ready for password-reset and phishing attempts." },
-  { id: "p7", time: "1w", text: "This song on repeat all week \u{1F3B5}", risk: "safe",
+  { id: "p7", time: "1w", text: "This song on repeat all week \u{1F3B5}", risk: "safe", goals: [],
     use: "Nothing useful here." },
-  { id: "p8", time: "1w", text: "Mr. Davies' class is honestly my favourite \u{1F602}", risk: "risky",
+  { id: "p8", time: "1w", text: "Mr. Davies' class is honestly my favourite \u{1F602}", risk: "risky", goals: ["Phish you", "Impersonate"],
+    intel: { icon: "\u{1F9D1}\u{200D}\u{1F3EB}", label: "Trusted adult", value: "Mr. Davies" },
     use: "Names a real staff member, perfect material for someone who wants to pretend to be him." },
 ];
 
-interface Setting { id: string; label: string; bad: string; good: string; critical: boolean }
+interface Setting { id: string; label: string; bad: string; good: string; critical: boolean; weight: number; why: string }
 const SETTINGS: Setting[] = [
-  { id: "private", label: "Account visibility", bad: "Public: anyone can see", good: "Friends only", critical: true },
-  { id: "location", label: "Location tags on posts", bad: "On", good: "Off", critical: true },
-  { id: "idpost", label: "Post with your student ID", bad: "Still up", good: "Deleted", critical: true },
-  { id: "twostep", label: "2-step verification", bad: "Off", good: "On", critical: true },
-  { id: "birthday", label: "Show birthday and age", bad: "Visible", good: "Hidden", critical: false },
-  { id: "dm", label: "Who can message me", bad: "Anyone", good: "Friends only", critical: false },
+  { id: "private", label: "Account visibility", bad: "Public: anyone can see", good: "Friends only", critical: true, weight: 30,
+    why: "Strangers (and attackers) can no longer browse your posts, photos or friend list to research you." },
+  { id: "location", label: "Location tags on posts", bad: "On", good: "Off", critical: true, weight: 20,
+    why: "Location tags turn every post into a map pin. Without them, your routine is much harder to piece together." },
+  { id: "idpost", label: "Post with your student ID", bad: "Still up", good: "Deleted", critical: true, weight: 20,
+    why: "Deleting it removes a ready-made fake ID. Tip: crop or blur IDs, tickets and cards before posting anything." },
+  { id: "twostep", label: "2-step verification", bad: "Off", good: "On", critical: true, weight: 15,
+    why: "Even if someone guesses your password, they're stuck without the second code. It's the single best account upgrade." },
+  { id: "birthday", label: "Show birthday and age", bad: "Visible", good: "Hidden", critical: false, weight: 8,
+    why: "Your birth date is a key for identity checks and password guesses, so keep it to yourself." },
+  { id: "dm", label: "Who can message me", bad: "Anyone", good: "Friends only", critical: false, weight: 7,
+    why: "Phishing and scam messages mostly arrive as DMs from people you don't know." },
 ];
 
+const GOAL_STYLE: Record<Goal, string> = { Impersonate: "#c084fc", "Crack password": "#f6c453", "Track you": "#fb4b5b", "Phish you": "#38bdf8" };
+
+function Stepper({ step }: { step: number }) {
+  const labels = ["SPOT", "ATTACK", "DEFEND"];
+  return (
+    <ol className="flex items-center gap-2" aria-label="Progress">
+      {labels.map((l, i) => (
+        <li key={l} className="flex flex-1 items-center gap-2" aria-current={i === step ? "step" : undefined}>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px]" style={{ ...MONO, borderColor: i <= step ? "var(--c)" : "rgba(255,255,255,.15)", color: i <= step ? "var(--c)" : "#77748c", background: i === step ? "color-mix(in srgb, var(--c) 15%, transparent)" : "transparent" }}>
+            {i < step ? "\u2713" : i + 1}
+          </span>
+          <span className="text-[10px] tracking-widest" style={{ ...MONO, color: i === step ? "#f5f3ff" : "#77748c" }}>{l}</span>
+          {i < 2 && <span className="h-px flex-1 bg-white/10" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ExposureMeter({ pct }: { pct: number }) {
+  const [label, color] = pct >= 60 ? ["EASY TARGET", "#fb4b5b"] : pct >= 30 ? ["STILL RISKY", "#f6c453"] : pct > 0 ? ["ALMOST THERE", "#a3e635"] : ["LOCKED DOWN", "#4ade80"];
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-[10px]" style={MONO}>
+        <span className="text-[#b8b5c9]">EXPOSURE</span>
+        <span style={{ color }}>{label} {pct}%</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Profile exposure">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
 function ProfileRecon({ onComplete }: TaskCallbacks) {
-  const [phase, setPhase] = useState<"scan" | "reveal" | "lock" | "done">("scan");
+  const [phase, setPhase] = useState<"scan" | "reveal" | "attack" | "lock" | "done">("scan");
   const [flagged, setFlagged] = useState<string[]>([]);
   const [secure, setSecure] = useState<string[]>([]);
+  const [lastTouched, setLastTouched] = useState<string | null>(null);
 
   const risky = POSTS.filter((p) => p.risk === "risky");
   const caught = flagged.filter((id) => POSTS.find((p) => p.id === id)?.risk === "risky").length;
@@ -540,6 +602,9 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
   const exposedCritical = SETTINGS.filter((s) => s.critical && !secure.includes(s.id)).length;
   const mistakes = Math.min(2, exposedCritical);
   const total = Math.min(48, scanScore + lockScore);
+  const exposure = SETTINGS.filter((s) => !secure.includes(s.id)).reduce((n, s) => n + s.weight, 0);
+  const has = (id: string) => secure.includes(id);
+  const step = phase === "scan" || phase === "reveal" ? 0 : phase === "attack" ? 1 : 2;
 
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
@@ -552,6 +617,7 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
           `You spotted ${caught} of ${risky.length} posts an attacker could use.`,
           mistakes === 0 ? "Every critical setting is secure." : `${exposedCritical} critical setting(s) are still exposed, and each one costs a shield.`,
           "Small details stack: birthday + pet + routine + a teacher's name sounds exactly like a friend.",
+          "Never build a password from your pet, birthday or team. A random passphrase plus 2-step verification beats any guess.",
         ]}
         onDone={() => onComplete(total, mistakes)}
       />
@@ -560,23 +626,43 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
 
   return (
     <Panel
-      title={phase === "lock" ? "STEP 2: LOCK IT DOWN" : "STEP 1: THE ATTACKER'S VIEW"}
-      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>@jordan.plays | PUBLIC</span>}
+      title={phase === "lock" ? "STEP 3: LOCK IT DOWN" : phase === "attack" ? "STEP 2: THE ATTACK" : "STEP 1: THE ATTACKER'S VIEW"}
+      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>@jordan.plays | {has("private") ? "FRIENDS ONLY" : "PUBLIC"}</span>}
     >
+      <style>{`
+        @keyframes pr-in { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
+        .pr-in { animation: pr-in .35s ease-out both }
+        @keyframes pr-scan { 0% { top: 0 } 100% { top: 100% } }
+        @media (prefers-reduced-motion: reduce) { .pr-in { animation: none } }
+      `}</style>
+
       <div className="space-y-4 p-4">
-        {/* ---------- scan + reveal ---------- */}
-        {phase !== "lock" && (
+        <Stepper step={step} />
+
+        {/* ===================== STEP 1: SPOT ===================== */}
+        {(phase === "scan" || phase === "reveal") && (
           <>
-            <p className="text-sm text-[#b8b5c9]">
-              {phase === "scan"
-                ? "This is Jordan's public profile. Tap every post an attacker could use to impersonate, guess a password or find Jordan."
-                : "Here's what the attacker sees in each post:"}
-            </p>
+            {phase === "scan" ? (
+              <div className="space-y-2">
+                <p className="text-sm text-[#b8b5c9]">This is Jordan's public profile. Tap every post an attacker could use. Ask yourself: could it help me&hellip;</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(Object.keys(GOAL_STYLE) as Goal[]).map((g) => (
+                    <span key={g} className="rounded-full border px-2 py-0.5 text-[10px]" style={{ ...MONO, color: GOAL_STYLE[g], borderColor: GOAL_STYLE[g] + "66" }}>
+                      {g === "Impersonate" ? "pretend to be Jordan" : g === "Crack password" ? "guess a password / answer" : g === "Track you" ? "find where Jordan is" : "trick Jordan with a fake message"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[#b8b5c9]">Here's what the attacker sees in each post:</p>
+            )}
+
             <ul className="space-y-2">
               {POSTS.map((p) => {
                 const on = flagged.includes(p.id);
                 const reveal = phase === "reveal";
                 const color = p.risk === "risky" ? "#fb4b5b" : p.risk === "neutral" ? "#f6c453" : "#4ade80";
+                const missed = reveal && p.risk === "risky" && !on;
                 return (
                   <li key={p.id}>
                     <button
@@ -584,48 +670,139 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
                       disabled={reveal}
                       aria-pressed={on}
                       onClick={() => { setFlagged((f) => toggle(f, p.id)); snd("tick"); }}
-                      className="w-full rounded-xl border p-3 text-start transition active:scale-[0.99] disabled:cursor-default"
+                      className="relative w-full overflow-hidden rounded-xl border p-3 text-start transition active:scale-[0.99] disabled:cursor-default"
                       style={{
                         borderColor: reveal ? color : on ? "var(--c)" : "rgba(255,255,255,.12)",
+                        borderStyle: missed ? "dashed" : "solid",
                         background: on && !reveal ? "color-mix(in srgb, var(--c) 12%, transparent)" : "rgba(7,7,17,.6)",
                       }}
                     >
+                      {on && !reveal && <span className="pointer-events-none absolute inset-x-0 h-px bg-[var(--c)] opacity-60" style={{ animation: "pr-scan 1.6s linear infinite" }} />}
                       <p className="flex justify-between text-[10px] text-[#77748c]" style={MONO}>
                         <span>{p.time}</span>
-                        <span>{on ? "\u{1F50D} FLAGGED" : reveal ? "" : "tap to flag"}</span>
+                        <span style={{ color: on ? "var(--c)" : undefined }}>
+                          {reveal ? (on && p.risk === "risky" ? "\u2713 CAUGHT" : missed ? "MISSED" : on && p.risk === "safe" ? "FALSE ALARM" : "") : on ? "\u{1F50D} FLAGGED" : "tap to flag"}
+                        </span>
                       </p>
                       <p className="text-sm text-[#f5f3ff]">{p.text}</p>
                       {reveal && (
-                        <p className="se-in mt-2 text-xs" style={{ color }}>
-                          {p.risk === "risky" ? "USEFUL TO AN ATTACKER: " : p.risk === "neutral" ? "LOW RISK: " : "SAFE: "}
-                          <span className="text-[#b8b5c9]">{p.use}</span>
-                        </p>
+                        <div className="pr-in mt-2 space-y-1.5">
+                          <p className="text-xs" style={{ color }}>
+                            {p.risk === "risky" ? "USEFUL TO AN ATTACKER: " : p.risk === "neutral" ? "LOW RISK: " : "SAFE: "}
+                            <span className="text-[#b8b5c9]">{p.use}</span>
+                          </p>
+                          {p.goals.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {p.goals.map((g) => <span key={g} className="rounded-full px-2 py-0.5 text-[10px]" style={{ ...MONO, color: GOAL_STYLE[g], background: GOAL_STYLE[g] + "1f" }}>{g.toUpperCase()}</span>)}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </button>
                   </li>
                 );
               })}
             </ul>
+
             {phase === "scan" ? (
-              <Btn onClick={() => { setPhase("reveal"); snd(caught >= 4 ? "good" : "bad"); }} disabled={flagged.length === 0}>
-                Run the attacker analysis
-              </Btn>
-            ) : (
               <div className="space-y-2">
+                <p className="text-center text-[11px] text-[#77748c]" style={MONO}>{flagged.length} POST{flagged.length === 1 ? "" : "S"} FLAGGED</p>
+                <Btn onClick={() => { setPhase("reveal"); snd(caught >= 4 ? "good" : "bad"); }} disabled={flagged.length === 0}>Run the attacker analysis</Btn>
+              </div>
+            ) : (
+              <div className="space-y-3">
                 <p className="text-sm text-[#f5f3ff]">You caught {caught} of {risky.length} risky posts{falseAlarms > 0 ? `, with ${falseAlarms} false alarm(s)` : ""}. +{scanScore} XP</p>
-                <Btn onClick={() => { setPhase("lock"); snd("unlock"); }}>Switch sides: lock the profile</Btn>
+
+                {/* the attacker's dossier */}
+                <div className="rounded-xl border border-white/10 bg-[#070711]/60 p-3">
+                  <p className="mb-2 text-[10px] tracking-widest text-[#fb4b5b]" style={MONO}>ATTACKER'S DOSSIER ON JORDAN</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {POSTS.filter((p) => p.intel).map((p, i) => {
+                      const found = flagged.includes(p.id);
+                      const isRisky = p.risk === "risky";
+                      return (
+                        <div key={p.id} className="pr-in rounded-lg border p-2" style={{ animationDelay: `${i * 90}ms`, borderColor: isRisky ? (found ? "#fb4b5b" : "#f6c453") : "rgba(255,255,255,.1)", borderStyle: isRisky && !found ? "dashed" : "solid", opacity: isRisky ? 1 : 0.6 }}>
+                          <p className="text-[10px] text-[#77748c]" style={MONO}>{p.intel!.icon} {p.intel!.label.toUpperCase()}</p>
+                          <p className="break-words text-xs text-[#f5f3ff]">{p.intel!.value}</p>
+                          {isRisky && !found && <p className="mt-0.5 text-[10px] text-[#f6c453]">you missed this, it's still public</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <Btn onClick={() => { setPhase("attack"); snd("unlock"); }}>See how an attacker uses this</Btn>
               </div>
             )}
           </>
         )}
 
-        {/* ---------- lockdown ---------- */}
+        {/* ===================== STEP 2: ATTACK ===================== */}
+        {phase === "attack" && (
+          <div className="space-y-4">
+            <p className="text-sm text-[#b8b5c9]">No hacking skills needed. The attacker just copies details from the profile. Here's what they build in two minutes:</p>
+
+            <div className="pr-in rounded-xl border border-[#38bdf8]/40 bg-[#070711]/60 p-3">
+              <p className="mb-2 text-[10px] tracking-widest text-[#38bdf8]" style={MONO}>FAKE MESSAGE TO JORDAN</p>
+              <p className="text-sm leading-relaxed text-[#f5f3ff]">
+                Hi Jordan, it's <mark className="rounded bg-[#c084fc]/25 px-1 text-[#f5f3ff]">Mr. Davies</mark> from school. Before Friday's trip we have to re-verify every student on <mark className="rounded bg-[#fb4b5b]/25 px-1 text-[#f5f3ff]">Bus 14</mark>. Please reply with your <mark className="rounded bg-[#f6c453]/25 px-1 text-[#f5f3ff]">student ID number</mark> and <mark className="rounded bg-[#f6c453]/25 px-1 text-[#f5f3ff]">birth date (Mar 14)</mark> by tonight.
+              </p>
+              <p className="mt-2 text-xs text-[#b8b5c9]">It feels real because every detail is true. That's the trick: <span className="text-[#f5f3ff]">real details make fake messages believable.</span></p>
+            </div>
+
+            <div className="pr-in rounded-xl border border-[#f6c453]/40 bg-[#070711]/60 p-3" style={{ animationDelay: "150ms" }}>
+              <p className="mb-2 text-[10px] tracking-widest text-[#f6c453]" style={MONO}>FIRST PASSWORDS AN ATTACKER TRIES</p>
+              <ul className="space-y-1.5">
+                {[["Biscuit2008", "pet + birth year"], ["biscuit0314", "pet + birthday"], ["Biscuit7!", "pet + jersey number"]].map(([pw, src]) => (
+                  <li key={pw} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5">
+                    <code className="text-sm text-[#f5f3ff]" style={MONO}>{pw}</code>
+                    <span className="text-[10px] text-[#77748c]" style={MONO}>{src}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-[#b8b5c9]">If your password is built from things people can see about you, it's already on the attacker's list.</p>
+            </div>
+
+            <Btn onClick={() => { setPhase("lock"); snd("unlock"); }}>Switch sides: lock the profile</Btn>
+          </div>
+        )}
+
+        {/* ===================== STEP 3: DEFEND ===================== */}
         {phase === "lock" && (
           <>
-            <p className="text-sm text-[#b8b5c9]">Switch every setting to its safe state. Critical ones (marked) cost a shield each if you leave them exposed.</p>
+            <p className="text-sm text-[#b8b5c9]">Flip each setting to its safe state and watch what an attacker can still see. Critical ones cost a shield each if left exposed.</p>
+
+            {/* live profile preview */}
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-[#070711]/60 p-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--c)] text-sm text-[var(--c)]" style={MONO}>J</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-[#f5f3ff]">Jordan R.</p>
+                  <p className="text-[11px] text-[#77748c]" style={MONO}>@jordan.plays</p>
+                </div>
+                <span className="rounded-full border px-2 py-0.5 text-[10px]" style={{ ...MONO, color: has("private") ? "#4ade80" : "#fb4b5b", borderColor: has("private") ? "#4ade80" : "#fb4b5b" }}>
+                  {has("private") ? "\u{1F512} FRIENDS" : "\u{1F310} PUBLIC"}
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {[
+                  { id: "birthday", on: has("birthday"), good: "\u{1F382} Birthday hidden", bad: "\u{1F382} Mar 14 \u00B7 turns 17" },
+                  { id: "location", on: has("location"), good: "\u{1F4CD} No location tags", bad: "\u{1F4CD} Tagged: Oak & 5th" },
+                  { id: "idpost", on: has("idpost"), good: "\u{1FAAA} ID photo deleted", bad: "\u{1FAAA} ID visible in photo" },
+                  { id: "dm", on: has("dm"), good: "\u{1F4AC} DMs: friends only", bad: "\u{1F4AC} DMs: anyone" },
+                  { id: "twostep", on: has("twostep"), good: "\u{1F510} Password + code", bad: "\u{1F510} Password only" },
+                ].map((r) => (
+                  <li key={r.id} className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-all duration-300" style={{ background: r.on ? "rgba(74,222,128,.1)" : "rgba(251,75,91,.12)", color: r.on ? "#4ade80" : "#fb4b5b" }}>
+                    <span className="truncate">{r.on ? r.good : r.bad}</span>
+                    <span aria-hidden="true">{r.on ? "\u2713" : "!"}</span>
+                  </li>
+                ))}
+              </ul>
+              <ExposureMeter pct={exposure} />
+            </div>
+
             <ul className="space-y-2">
               {SETTINGS.map((s) => {
-                const on = secure.includes(s.id);
+                const on = has(s.id);
                 return (
                   <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#070711]/60 p-3">
                     <div className="min-w-0">
@@ -637,7 +814,7 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
                       role="switch"
                       aria-checked={on}
                       aria-label={s.label}
-                      onClick={() => { setSecure((l) => toggle(l, s.id)); snd("tick"); }}
+                      onClick={() => { setSecure((l) => toggle(l, s.id)); setLastTouched(s.id); snd("tick"); }}
                       className="relative h-7 w-12 shrink-0 rounded-full border transition"
                       style={{ borderColor: on ? "#4ade80" : "#fb4b5b", background: on ? "rgba(74,222,128,.2)" : "rgba(251,75,91,.15)" }}
                     >
@@ -647,6 +824,22 @@ function ProfileRecon({ onComplete }: TaskCallbacks) {
                 );
               })}
             </ul>
+
+            {/* "why it matters" coach box */}
+            <div className="min-h-[3.25rem] rounded-xl border border-[var(--c)]/30 bg-[var(--c)]/5 p-3" aria-live="polite">
+              {lastTouched ? (
+                <p key={lastTouched + has(lastTouched)} className="pr-in text-xs text-[#b8b5c9]">
+                  <span className="text-[var(--c)]" style={MONO}>WHY IT MATTERS: </span>
+                  {has(lastTouched) ? SETTINGS.find((s) => s.id === lastTouched)!.why : "Switched back? The attacker can see this again."}
+                </p>
+              ) : (
+                <p className="text-xs text-[#77748c]">Flip a switch to see why it matters.</p>
+              )}
+            </div>
+
+            {exposedCritical > 0 && (
+              <p className="text-center text-[11px] text-[#fb4b5b]" style={MONO}>{exposedCritical} CRITICAL SETTING{exposedCritical === 1 ? "" : "S"} STILL EXPOSED</p>
+            )}
             <Btn onClick={() => { setPhase("done"); snd(mistakes === 0 ? "good" : "bad"); }}>Save settings</Btn>
           </>
         )}
@@ -669,7 +862,7 @@ const SCENARIOS: Scenario[] = [
     se: false, why: "Known sender, normal channel, no request for secrets or action under pressure. Genuine." },
   { channel: "\u{1F4F1} DM", text: "'SnapGram Support' DMs you: 'Your account will be deleted in 24h. Log in here to appeal.'",
     se: true, tactic: "fear", why: "Real support doesn't DM you threats with login links. Threat + deadline = pressure." },
-  { channel: "\u{1F68F} Bus stop", text: "A friendly stranger: 'You go to Elmhurst, right? My kid's applying. Can I see your student ID to check the name of the school?'",
+  { channel: "\u{1F68F} Bus stop", text: "A friendly stranger: 'You go to Metropolitan, right? My kid's applying. Can I see your student ID to check the name of the school?'",
     se: true, tactic: "rapport", why: "Friendliness is the tool here; the ask (your ID) is the goal." },
   { channel: "\u{1F4F1} Text", text: "A text from the counselor's office number already saved in your student file: 'Appointment moved to 2:30. Reply YES to confirm.'",
     se: false, why: "A pre-verified number and a harmless request (no secrets, no links). Genuine." },
