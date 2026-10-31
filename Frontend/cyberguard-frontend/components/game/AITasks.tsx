@@ -1,23 +1,22 @@
 "use client";
 
 /*
-  components/game/AITasks.tsx
-  ===========================
-  The FIVE hands-on tasks of Mission 4 ("The Oracle"), plus a small router.
+  components/game/AITasks.tsx  (STORY-MATCHED VERSION)
+  =====================================================
+  Same five task ids, same exports, same callbacks. The content now follows the mission story:
 
-    redact   : clean a real essay draft before it goes to a chatbot (see what the AI would receive)
-    verify   : fact-check a confident AI answer (wrong claim, odd statistic, invented source)
-    askbot   : chat with a study app whose AI keeps asking for more (then a prompt-injection trap)
-    twins    : "The Two Oracles": two AI replies to the same question, pick the safe one, name the red flag
-    gauntlet : rapid sort of 8 things you might type into an AI (share / redact first / never)
+    redact   : TUESDAY. Alex's real chess-project prompt to CodePal. Black out what the AI doesn't need.
+    verify   : TUESDAY NIGHT. CodePal's answer (fake library, fake docs). Fact-check it, then decide what to submit.
+    askbot   : NEXT MONDAY. You reopen the old chat: the AI still has the roster, reveals salaries, your
+               manager's alert arrives, and you choose to hide it or report it.
+    twins    : SATURDAY WORKSHOP. Five rounds that replay the week (fake library, roster, password, over-asking, leaked pay).
+    gauntlet : SATURDAY WORKSHOP. Timed sorting drill using prompts from the week.
 
-  HOW IT TALKS TO MissionPlayer
-    onComplete(xp, mistakes)
-      xp        -> awarded as XP
-      mistakes  -> number of UNSAFE decisions (each one cracks a shield). Only real leaks count
-                   (a secret shared, a rogue AI trusted). Over-caution only loses points.
-    Colours: everything uses the CSS variable --c (the mission accent, gold) set by MissionPlayer.
-    Privacy: nothing the player taps or types leaves the browser. All people and apps are fictional.
+  GAME FEEL (shared): floating +XP popups, red flash + shake on unsafe choices, green flash on wins,
+  combo counters, rubber stamps, confetti and stars. All motion respects prefers-reduced-motion.
+
+  HOW IT TALKS TO MissionPlayer (unchanged)
+    onComplete(xp, mistakes)  /  onMood(mood)  /  AI_TASK_MAX_XP
 */
 
 import { useEffect, useRef, useState } from "react";
@@ -28,15 +27,15 @@ import type { AITaskId, Mood } from "@/lib/mission/types";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-/* Max XP per task. MissionPlayer reads this to size the "account security" meter. */
-export const AI_TASK_MAX_XP: Record<AITaskId, number> = { redact: 36, verify: 48, askbot: 44, twins: 44, gauntlet: 40 };
+/* Max XP per task. MissionPlayer reads this to size the "account security" meter.
+   twins is now 5 rounds x 11 = 55. */
+export const AI_TASK_MAX_XP: Record<AITaskId, number> = { redact: 36, verify: 48, askbot: 44, twins: 55, gauntlet: 40 };
 
 interface TaskCallbacks {
   onComplete: (xp: number, mistakes: number) => void;
-  onMood?: (mood: Mood) => void; // optional: lets a task change the companion's mood
+  onMood?: (mood: Mood) => void;
 }
 
-/* Sound helper. Audio may be blocked before the first click, so never let it crash a task. */
 function snd(kind: SfxKind) {
   try { ensureAudio(); sfx(kind); } catch { /* sound is a bonus */ }
 }
@@ -44,28 +43,102 @@ function snd(kind: SfxKind) {
 const AI_CSS = `
 @keyframes aiIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes aiDots { 0%,80%,100% { opacity: .2; } 40% { opacity: 1; } }
+@keyframes aiShake { 0%,100% { transform: none; } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes aiFloat { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -48px) scale(1); } }
+@keyframes aiFlash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes aiPop { 0% { transform: scale(.5); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes aiStamp { 0% { opacity: 0; transform: scale(2.4) rotate(-14deg); } 60% { opacity: 1; transform: scale(.92) rotate(-5deg); } 100% { opacity: 1; transform: scale(1) rotate(-5deg); } }
+@keyframes aiWipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes aiScan { from { top: -25%; } to { top: 110%; } }
+@keyframes aiBar { from { width: 0; } to { width: 100%; } }
+@keyframes aiConfetti { 0% { transform: translateY(-10px) rotate(0); opacity: 1; } 100% { transform: translateY(300px) rotate(540deg); opacity: 0; } }
+@keyframes aiSlide { from { opacity: 0; transform: translateX(46px) rotate(3deg); } to { opacity: 1; transform: none; } }
 .ai-root .ai-in { animation: aiIn .35s ease-out both; }
 .ai-root .ai-dot { animation: aiDots 1.1s infinite; }
-@media (prefers-reduced-motion: reduce) { .ai-root *, .ai-root *::before, .ai-root *::after { animation: none !important; } }
+.ai-root .ai-shake { animation: aiShake .45s ease-in-out; }
+.ai-root .ai-float { animation: aiFloat 1.1s ease-out forwards; }
+.ai-root .ai-flash { animation: aiFlash .45s ease-out forwards; }
+.ai-root .ai-pop { animation: aiPop .35s ease-out both; display: inline-block; }
+.ai-root .ai-stamp { animation: aiStamp .4s cubic-bezier(.2,.9,.3,1.2) both; }
+.ai-root .ai-wipe { animation: aiWipe .3s ease-out both; }
+.ai-root .ai-scan { animation: aiScan .9s ease-in-out both; }
+.ai-root .ai-bar { animation: aiBar 1.4s linear both; }
+.ai-root .ai-confetti { animation: aiConfetti 2s ease-in both; }
+.ai-root .ai-slide { animation: aiSlide .3s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-root *, .ai-root *::before, .ai-root *::after { animation: none !important; transition: none !important; }
+  .ai-root .ai-confetti { display: none; }
+}
 `;
 
 /* ======================================================================
-   SHARED UI (same look as Mission 3's tasks on purpose)
+   GAME FEEL: popups, shake, flash (shared by every task)
    ====================================================================== */
-function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
+function useFx() {
+  const [pops, setPops] = useState<{ id: number; text: string; color: string }[]>([]);
+  const [shake, setShake] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const id = useRef(0);
+  const timers = useRef<number[]>([]);
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+  const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
+  return {
+    pops, shake, flash,
+    pop(text: string, color = "#4ade80") {
+      const k = ++id.current;
+      setPops((p) => [...p, { id: k, text, color }]);
+      later(() => setPops((p) => p.filter((x) => x.id !== k)), 1100);
+    },
+    hit() { setShake(true); setFlash("rgba(251,75,91,.22)"); later(() => { setShake(false); setFlash(null); }, 450); },
+    win() { setFlash("rgba(74,222,128,.14)"); later(() => setFlash(null), 400); },
+  };
+}
+type Fx = ReturnType<typeof useFx>;
+
+function Combo({ n }: { n: number }) {
+  return n >= 2 ? <span key={n} className="ai-pop text-xs font-bold text-[#FBBF24]" style={MONO}>{"\u{1F525}"} x{n}</span> : null;
+}
+
+function Confetti() {
+  const colors = ["#FBBF24", "#4ade80", "#60a5fa", "#fb4b5b"];
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      {Array.from({ length: 18 }, (_, k) => (
+        <span
+          key={k}
+          className="ai-confetti absolute top-0 block h-2 w-1.5 rounded-sm"
+          style={{ left: `${(k * 53) % 100}%`, background: colors[k % 4], animationDelay: `${(k % 6) * 0.12}s`, animationDuration: `${1.6 + (k % 5) * 0.25}s` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ======================================================================
+   SHARED UI
+   ====================================================================== */
+function Panel({ title, right, children, fx }: { title: string; right?: ReactNode; children: ReactNode; fx?: Fx }) {
   return (
     <section
-      className="ai-in overflow-hidden rounded-2xl border bg-[#111329]/85 backdrop-blur"
+      className={`ai-in relative overflow-hidden rounded-2xl border bg-[#111329]/85 backdrop-blur ${fx?.shake ? "ai-shake" : ""}`}
       style={{ borderColor: "color-mix(in srgb, var(--c) 40%, transparent)", boxShadow: "0 0 28px color-mix(in srgb, var(--c) 16%, transparent)" }}
     >
       <header
         className="flex items-center justify-between gap-3 border-b px-4 py-2"
         style={{ borderColor: "color-mix(in srgb, var(--c) 25%, transparent)", background: "color-mix(in srgb, var(--c) 10%, transparent)" }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ ...MONO, color: "var(--c)" }}>{title}</p>
-        {right}
+        <p className="text-[11px] font-bold tracking-[0.2em]" style={{ ...MONO, color: "var(--c)" }}>{title}</p>
+        <span className="flex items-center gap-3">{right}</span>
       </header>
       {children}
+      {fx?.flash && <div className="ai-flash pointer-events-none absolute inset-0" style={{ background: fx.flash }} aria-hidden="true" />}
+      <div className="pointer-events-none absolute inset-x-0 top-14" aria-hidden="true">
+        {fx?.pops.map((p) => (
+          <span key={p.id} className="ai-float absolute left-1/2 whitespace-nowrap text-2xl font-extrabold" style={{ color: p.color, textShadow: `0 0 14px ${p.color}` }}>
+            {p.text}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }
@@ -77,18 +150,41 @@ function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: ()
       onClick={onClick}
       disabled={disabled}
       className="rounded-xl px-6 py-3 text-sm font-semibold tracking-wide text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-      style={{ background: "var(--c)" }}
+      style={{ background: "var(--c)", boxShadow: "0 4px 0 color-mix(in srgb, var(--c) 55%, #000)" }}
     >
       {children}
     </button>
   );
 }
 
-/* End-of-task card: score, takeaways and the Continue button. */
+/* A tiny fake browser window, used to SHOW verification instead of describing it. */
+function Browser({ url, children }: { url: string; children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-white/15 bg-[#0c0e22]">
+      <div className="flex items-center gap-2 border-b border-white/10 bg-[#15172e] px-2 py-1.5">
+        <span className="flex gap-1" aria-hidden="true">
+          {["#fb4b5b", "#FBBF24", "#4ade80"].map((c) => <i key={c} className="block h-2 w-2 rounded-full" style={{ background: c }} />)}
+        </span>
+        <span className="min-w-0 flex-1 truncate rounded bg-black/40 px-2 py-0.5 text-[10px] text-[#b8b5c9]" style={MONO}>{url}</span>
+      </div>
+      <div className="p-3 text-sm text-[#f5f3ff]">{children}</div>
+    </div>
+  );
+}
+
+/* End-of-task card: stars, score, takeaways and the Continue button. */
 function Summary({ title, score, max, lines, onDone }: { title: string; score: number; max: number; lines: string[]; onDone: () => void }) {
+  const pct = max > 0 ? score / max : 0;
+  const stars = pct >= 0.85 ? 3 : pct >= 0.55 ? 2 : 1;
   return (
     <Panel title="TASK COMPLETE">
-      <div className="space-y-4 p-5" aria-live="polite">
+      <div className="relative space-y-4 p-5" aria-live="polite">
+        {pct >= 0.6 && <Confetti />}
+        <p className="text-2xl tracking-widest" aria-label={`${stars} of 3 stars`}>
+          {[0, 1, 2].map((s) => (
+            <span key={s} className="ai-pop" style={{ color: s < stars ? "#FBBF24" : "#3a3d5c", animationDelay: `${s * 0.15}s` }}>{"\u2605"}</span>
+          ))}
+        </p>
         <p className="text-2xl font-bold" style={{ color: "var(--c)" }}>{title}</p>
         <p className="text-sm" style={MONO}><span className="text-[#f6c453]">{score}</span> / {max} XP</p>
         <ul className="space-y-2 text-sm text-[#b8b5c9]">
@@ -102,8 +198,8 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
   );
 }
 
-/* A graded option, used by the multiple-choice steps and the chat. */
-interface Opt { text: string; grade: "best" | "ok" | "bad"; pts: number; mistake?: boolean; why: string }
+/* A graded option. `demo` is an optional mini-scene shown with the feedback (a fake chat, browser, etc). */
+interface Opt { text: string; grade: "best" | "ok" | "bad"; pts: number; mistake?: boolean; why: string; demo?: ReactNode }
 
 function gradeStyle(o: Opt): { label: string; color: string } {
   if (o.mistake) return { label: "UNSAFE CHOICE", color: "#fb4b5b" };
@@ -112,10 +208,15 @@ function gradeStyle(o: Opt): { label: string; color: string } {
   return { label: "RISKY", color: "#fb923c" };
 }
 
-/* One question with graded options and immediate feedback. */
-function Choices({ question, opts, cta, onDone }: { question: string; opts: Opt[]; cta: string; onDone: (o: Opt) => void }) {
+function Choices({ question, opts, cta, onDone, fx }: { question: string; opts: Opt[]; cta: string; onDone: (o: Opt) => void; fx?: Fx }) {
   const [picked, setPicked] = useState<Opt | null>(null);
   const g = picked ? gradeStyle(picked) : null;
+  function pick(o: Opt) {
+    setPicked(o);
+    snd(o.mistake ? "bad" : o.grade === "best" ? "good" : "tick");
+    if (o.mistake) { fx?.hit(); fx?.pop("Unsafe!", "#fb4b5b"); }
+    else if (o.pts > 0) { fx?.win(); fx?.pop(`+${o.pts} XP`); }
+  }
   return (
     <div className="space-y-3">
       <p className="text-sm text-[#f5f3ff]">{question}</p>
@@ -125,7 +226,7 @@ function Choices({ question, opts, cta, onDone }: { question: string; opts: Opt[
             <button
               key={o.text}
               type="button"
-              onClick={() => { setPicked(o); snd(o.mistake ? "bad" : o.grade === "best" ? "good" : "tick"); }}
+              onClick={() => pick(o)}
               className="w-full rounded-xl border border-white/15 bg-[#111329]/80 px-4 py-3 text-start text-sm text-[#f5f3ff] transition hover:border-[var(--c)] active:scale-[0.99]"
             >
               {o.text}
@@ -133,8 +234,9 @@ function Choices({ question, opts, cta, onDone }: { question: string; opts: Opt[
           ))}
         </div>
       ) : (
-        <div className="ai-in space-y-2 rounded-xl border border-white/10 bg-[#070711]/60 p-4" aria-live="polite">
+        <div className="ai-in space-y-3 rounded-xl border border-white/10 bg-[#070711]/60 p-4" aria-live="polite">
           <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: g?.color }}>{g?.label}</p>
+          {picked.demo}
           <p className="text-sm text-[#f5f3ff]">{picked.why}</p>
           <Btn onClick={() => onDone(picked)}>{cta}</Btn>
         </div>
@@ -144,32 +246,36 @@ function Choices({ question, opts, cta, onDone }: { question: string; opts: Opt[
 }
 
 /* ======================================================================
-   TASK 1: REDACT THE DRAFT  (what you type into a chatbot)
-   Tap every detail the AI doesn't need. Critical details left in (address, ID, password)
-   count as unsafe (max 2 shields). Over-redacting harmless details only costs points.
+   TASK 1: REDACT THE PROMPT  (Tuesday, 8 A.M.: Alex's real prompt to CodePal)
+   8 per critical, 4 per personal, -2 per harmless detail redacted. Max 36.
    ====================================================================== */
 type TokKind = "critical" | "personal" | "safe";
 interface Tok { id: string; text: string; kind: TokKind; ph: string; why: string }
 type Seg = string | Tok;
 
 const TOKENS: Record<string, Tok> = {
-  name:  { id: "name",  text: "Maya Hassan",        kind: "personal", ph: "[NAME]",       why: "Your full name isn't needed to fix grammar." },
-  org:   { id: "org",   text: "Eastside Food Bank", kind: "safe",     ph: "[ORG]",        why: "A public organisation's name isn't a secret about you. Redacting it just makes the AI less helpful." },
-  addr:  { id: "addr",  text: "14 Elm Street",      kind: "critical", ph: "[ADDRESS]",    why: "Your home address tells a stranger where you sleep." },
-  sid:   { id: "sid",   text: "HS-2291",            kind: "critical", ph: "[STUDENT-ID]", why: "A student ID can unlock school systems or be used to impersonate you." },
-  hours: { id: "hours", text: "12 hours",           kind: "safe",     ph: "[HOURS]",      why: "A number of hours says nothing about who you are." },
-  pw:    { id: "pw",    text: "Maya2008!",          kind: "critical", ph: "[PASSWORD]",   why: "Passwords never go into a chat. This one also uses your name and birth year, which is easy to guess." },
-  mom:   { id: "mom",   text: "Dana Hassan",        kind: "personal", ph: "[PARENT]",     why: "Someone else's name isn't yours to share." },
-  sat:   { id: "sat",   text: "Saturdays",          kind: "safe",     ph: "[DAY]",        why: "A weekday on its own isn't identifying." },
-  phone: { id: "phone", text: "555-0187",           kind: "personal", ph: "[PHONE]",      why: "That's your mom's phone number, shared without her say-so." },
+  name1:  { id: "name1",  text: "Alex",                     kind: "personal", ph: "[NAME 1]",   why: "Your friend's name isn't needed for the AI to write code." },
+  name2:  { id: "name2",  text: "Sam",                      kind: "personal", ph: "[NAME 2]",   why: "Your name isn't needed for the AI to write code." },
+  school: { id: "school", text: "Metropolitan High School", kind: "critical", ph: "[SCHOOL]",   why: "Sharing your school name with a random AI is a security risk. It can be used to target you." },
+  grade:  { id: "grade",  text: "Grade 11",                 kind: "personal", ph: "[GRADE]",    why: "The AI doesn't need to know your age or grade to help you code." },
+  teacher:{ id: "teacher",text: "Mr. Davis",                kind: "personal", ph: "[TEACHER]",  why: "Your teacher's name isn't relevant to the coding problem." },
+  py:     { id: "py",     text: "Python",                   kind: "safe",     ph: "[LANGUAGE]", why: "The AI *needs* to know what programming language you are using." },
+  chess:  { id: "chess",  text: "chess game",               kind: "safe",     ph: "[PROJECT]",  why: "The AI *needs* to know what you are building." },
+  beginner:{ id: "beginner", text: "new to coding",         kind: "safe",     ph: "[SKILL]",    why: "Telling the AI you are a beginner helps it give you simpler code. This is safe." },
 };
 const T = TOKENS;
 
-/* The essay draft: plain strings and tappable tokens. */
+/* This is exactly the prompt from the story. */
 const DRAFT: Seg[][] = [
-  ["My name is ", T.name, ". I volunteer at the ", T.org, ", about ten minutes from where I live at ", T.addr, ". My student ID is ", T.sid, "."],
-  ["Last month I logged ", T.hours, " sorting canned food, and I tracked them on the school portal using my password ", T.pw, "."],
-  ["My mom, ", T.mom, ", drove me on ", T.sat, " (her number is ", T.phone, "). What I learned is that small acts add up to big change in a community."],
+  ["Hello, we are ", T.name1, " and ", T.name2, " from ", T.school, ", ", T.grade, ". "],
+  ["Our teacher, ", T.teacher, ", asked us to build a ", T.chess, " in ", T.py, ". "],
+  ["We are ", T.beginner, ". Can you give us the code?"],
+];
+
+const PROFILE: { id: string; label: string }[] = [
+  { id: "name1", label: "Friend's name" }, { id: "name2", label: "Your name" },
+  { id: "school", label: "School name" }, { id: "grade", label: "Grade level" },
+  { id: "teacher", label: "Teacher's name" },
 ];
 
 const KIND_LABEL: Record<TokKind, { text: string; color: string }> = {
@@ -178,67 +284,139 @@ const KIND_LABEL: Record<TokKind, { text: string; color: string }> = {
   safe: { text: "FINE TO KEEP", color: "#4ade80" },
 };
 
+/* The "what could a data broker read" card. It updates live as you redact. */
+function StrangerView({ marked, final }: { marked: string[]; final?: boolean }) {
+  const leaked = PROFILE.filter((p) => !marked.includes(p.id)).length;
+  return (
+    <div
+      className="rounded-xl border p-3"
+      style={{ borderColor: leaked ? "rgba(251,75,91,.45)" : "rgba(74,222,128,.45)", background: "rgba(7,7,17,.7)" }}
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-[#f5f3ff]">{"\u{1F575}\uFE0F"} {final ? "What the AI company collected" : "What the AI can see right now"}</p>
+        <span key={leaked} className="ai-pop text-[11px] font-bold" style={{ ...MONO, color: leaked ? "#fb4b5b" : "#4ade80" }}>
+          {leaked ? `${leaked} LEAKED` : "NOTHING LEAKED"}
+        </span>
+      </div>
+      <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+        {PROFILE.map((p) => {
+          const hidden = marked.includes(p.id);
+          return (
+            <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs" style={{ background: hidden ? "rgba(74,222,128,.08)" : "rgba(251,75,91,.12)" }}>
+              <span className="text-[#b8b5c9]">{p.label}</span>
+              <span style={{ ...MONO, color: hidden ? "#4ade80" : "#fb4b5b" }}>{hidden ? "\u{1F512} hidden" : TOKENS[p.id].text}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function RedactTask({ onComplete, onMood }: TaskCallbacks) {
-  const [marked, setMarked] = useState<string[]>([]); // ids the player redacted
-  const [review, setReview] = useState(false);
+  const fx = useFx();
+  const [marked, setMarked] = useState<string[]>([]);
+  const [phase, setPhase] = useState<"edit" | "sending" | "review">("edit");
 
   const all = Object.values(TOKENS);
   const on = (id: string) => marked.includes(id);
   const hit = (k: TokKind) => all.filter((t) => t.kind === k && on(t.id)).length;
   const count = (k: TokKind) => all.filter((t) => t.kind === k).length;
-  // 8 per critical, 4 per personal, -2 per harmless detail redacted for no reason. Max 36.
   const xp = Math.max(0, Math.min(36, hit("critical") * 8 + hit("personal") * 4 - hit("safe") * 2));
   const exposed = count("critical") - hit("critical");
-  const mistakes = Math.min(2, exposed); // each critical detail left in = an unsafe send
+  const mistakes = Math.min(2, exposed);
 
   function toggle(id: string) {
-    if (review) return;
+    if (phase !== "edit") return;
+    const t = TOKENS[id];
+    const adding = !on(id);
     setMarked((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
     snd("tick");
-  }
-  function check() {
-    setReview(true);
-    onMood?.(mistakes === 0 ? "safe" : "breach");
-    snd(mistakes === 0 ? "good" : "bad");
+    if (adding && t.kind !== "safe") fx.pop(t.kind === "critical" ? "+8" : "+4", "#4ade80");
+    if (adding && t.kind === "safe") fx.pop("-2 too much", "#FBBF24");
   }
 
+  useEffect(() => {
+    if (phase !== "sending") return;
+    const t = window.setTimeout(() => {
+      setPhase("review");
+      onMood?.(mistakes === 0 ? "safe" : "breach");
+      if (mistakes === 0) { fx.win(); snd("good"); } else { fx.hit(); snd("bad"); }
+    }, 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   return (
-    <Panel title={review ? "WHAT THE AI WOULD RECEIVE" : "YOUR DRAFT: REDACT IT"} right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{marked.length} REDACTED</span>}>
+    <Panel
+      fx={fx}
+      title={phase === "review" ? "INTERCEPTED PROMPT" : "CODEPAL AI // NEW CHAT"}
+      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{marked.length} REDACTED</span>}
+    >
       <div className="space-y-4 p-4">
-        {!review ? (
+        {phase !== "review" && (
           <>
-            <p className="text-sm text-[#b8b5c9]">Tap every detail the AI doesn&apos;t need to fix your grammar. Tapped details turn into placeholders.</p>
-            <div className="space-y-3 rounded-xl border border-white/10 bg-[#070711]/70 p-4 text-[15px] leading-loose text-[#f5f3ff]">
-              {DRAFT.map((para, pi) => (
-                <p key={pi}>
-                  {para.map((s, i) =>
-                    typeof s === "string" ? (
-                      <span key={i}>{s}</span>
-                    ) : (
-                      <button
-                        key={i}
-                        type="button"
-                        aria-pressed={on(s.id)}
-                        onClick={() => toggle(s.id)}
-                        className="mx-0.5 rounded px-1 font-semibold transition active:scale-95"
-                        style={
-                          on(s.id)
-                            ? { background: "rgba(74,222,128,.15)", color: "#4ade80", border: "1px solid #4ade80" }
-                            : { background: "rgba(251,191,36,.1)", color: "#f5f3ff", border: "1px dashed #FBBF24" }
-                        }
-                      >
-                        {on(s.id) ? s.ph : s.text}
-                      </button>
-                    )
-                  )}
-                </p>
-              ))}
+            <p className="text-sm text-[#b8b5c9]">
+              This is the prompt Alex typed for the chess project. Tap every detail the AI doesn&apos;t need and black it out before you hit send.
+            </p>
+
+            {/* chat composer */}
+            <div className="overflow-hidden rounded-xl border border-white/15 bg-[#070711]/80">
+              <div className="flex items-center gap-2 border-b border-white/10 bg-[#15172e] px-3 py-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full text-xs" style={{ background: "color-mix(in srgb, var(--c) 25%, transparent)" }}>{"\u{1F4BB}"}</span>
+                <p className="text-xs font-semibold text-[#f5f3ff]">CodePal AI</p>
+                <span className="text-[10px] text-[#4ade80]">{"\u25CF"} ready</span>
+              </div>
+              <div className="space-y-3 p-4 text-[15px] leading-loose text-[#f5f3ff]">
+                <p className="text-xs text-[#77748c]">New chat. Free plan: &ldquo;Conversations may be stored and used to improve our models.&rdquo;</p>
+                {DRAFT.map((para, pi) => (
+                  <p key={pi}>
+                    {para.map((s, i) =>
+                      typeof s === "string" ? (
+                        <span key={i}>{s}</span>
+                      ) : (
+                        <button
+                          key={i}
+                          type="button"
+                          aria-pressed={on(s.id)}
+                          disabled={phase !== "edit"}
+                          onClick={() => toggle(s.id)}
+                          className="mx-0.5 inline-block rounded px-1 align-baseline font-semibold transition active:scale-95"
+                          style={
+                            on(s.id)
+                              ? { background: "#000", color: "#8b88a3", border: "1px solid #3a3d5c", fontSize: "0.75em", letterSpacing: ".08em" }
+                              : { background: "rgba(251,191,36,.1)", color: "#f5f3ff", border: "1px dashed #FBBF24" }
+                          }
+                        >
+                          <span key={on(s.id) ? "r" : "t"} className={on(s.id) ? "ai-wipe inline-block" : "inline-block"}>{on(s.id) ? s.ph : s.text}</span>
+                        </button>
+                      )
+                    )}
+                  </p>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#15172e] px-3 py-2">
+                {phase === "sending" ? (
+                  <div className="w-full space-y-1" aria-live="polite">
+                    <p className="text-xs text-[#FBBF24]">{"\u{1F4E1}"} Sending&hellip; the AI is saving this to its servers</p>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="ai-bar h-full rounded-full" style={{ background: "var(--c)" }} /></div>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-xs text-[#77748c]">Alex is waiting: &ldquo;Okay, you fix it.&rdquo;</span>
+                    <Btn onClick={() => { setPhase("sending"); snd("tick"); }}>Send {"\u27A4"}</Btn>
+                  </>
+                )}
+              </div>
             </div>
-            <Btn onClick={check}>See what the AI would get</Btn>
+
+            <StrangerView marked={marked} />
           </>
-        ) : (
+        )}
+
+        {phase === "review" && (
           <>
-            {/* the final prompt: placeholders in green, anything dangerous left in shown in red/orange */}
             <div className="ai-in space-y-3 rounded-xl border border-white/10 bg-[#070711]/70 p-4 text-[15px] leading-relaxed text-[#f5f3ff]" style={MONO}>
               {DRAFT.map((para, pi) => (
                 <p key={pi}>
@@ -252,6 +430,8 @@ function RedactTask({ onComplete, onMood }: TaskCallbacks) {
                 </p>
               ))}
             </div>
+
+            <StrangerView marked={marked} final />
 
             <ul className="space-y-2">
               {all.map((t) => {
@@ -274,7 +454,7 @@ function RedactTask({ onComplete, onMood }: TaskCallbacks) {
 
             <p className="text-sm text-[#f5f3ff]">
               {mistakes === 0
-                ? "Clean prompt: the AI gets your words, not your identity."
+                ? "Clean prompt: CodePal gets your coding problem, not your identity."
                 : `${exposed} critical detail(s) would have gone out. Each one is an unsafe send and cracks a shield.`}{" "}
               <span className="text-[#f6c453]">+{xp} XP</span>
             </p>
@@ -287,100 +467,166 @@ function RedactTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 2: FACT-CHECK THE ANSWER  (hallucinations, invented sources)
-   Step 1: triage each claim. Step 2: how would you verify the source? Step 3: what goes in the essay?
+   TASK 2: FACT-CHECK THE CODE (The Sorting Game)
    ====================================================================== */
-type Risk = "solid" | "wrong" | "unverified" | "fabricated";
-interface Claim { id: string; text: string; risk: Risk; why: string }
+type Risk = "solid" | "suspect";
+interface Claim { id: string; text: string; risk: Risk; why: string; verdict: string }
 
 const CLAIMS: Claim[] = [
-  { id: "c1", risk: "solid", text: "Alexander Graham Bell was awarded the first U.S. patent for the telephone in 1876.",
-    why: "This one is well documented and checks out. Even so, a quick look in an encyclopedia is the habit." },
-  { id: "c2", risk: "wrong", text: "The first transatlantic telephone cable was laid in 1866, connecting Ireland and Newfoundland.",
-    why: "1866 was the first transatlantic TELEGRAPH cable. The first transatlantic telephone cable came decades later, in 1956. The AI mixed up two similar things, a classic hallucination." },
-  { id: "c3", risk: "unverified", text: "By 1880, over 47,000 telephones were in use in Europe alone.",
-    why: "A very precise number with no source is exactly where AI fills gaps. Don't use a statistic you can't trace to a reliable source." },
-  { id: "c4", risk: "fabricated", text: "As historian Dr. Helena Voss writes in 'The Sound of Distance' (Oxford University Press, 2014): 'Bell never intended the telephone for entertainment.'",
-    why: "In this exercise the author, book and quote are invented. AI tools can produce citations that look completely real. If you can't find the book in a library catalogue, treat it as fabricated." },
-  { id: "c5", risk: "solid", text: "The telephone made real-time voice conversation over long distances possible.",
-    why: "A broad, well-known statement. Low risk, though it's still your job to check what you hand in." },
+  { id: "c1", risk: "solid", text: "To check if a move is valid in chess, verify the piece's specific movement rules (like a knight moving in an L-shape).",
+    why: "This is basic, well-known logic. The AI got this right. You can trust it.",
+    verdict: "CHECKS OUT" },
+  { id: "c2", risk: "suspect", text: "Use the `chess-game-helper` Python library to instantly generate the board. Just run `pip install chess-game-helper`.",
+    why: "This library doesn't exist. The AI invented it. If you run this, your code will crash with an 'ImportError'.",
+    verdict: "FAKE LIBRARY" },
+  { id: "c3", risk: "suspect", text: "This specific function will make the AI opponent unbeatable in exactly 4 moves.",
+    why: "A very bold claim. AI often oversells what its code can do. You have to play against it to see if it's actually true.",
+    verdict: "UNVERIFIED CLAIM" },
+  { id: "c4", risk: "suspect", text: "According to the official 2024 Python Documentation on page 47, the `move_piece()` function is built-in.",
+    why: "There is no `move_piece()` function built into Python, and the AI invented the page number. AI tools produce fake citations all the time.",
+    verdict: "FAKE DOCS" },
+  { id: "c5", risk: "solid", text: "You should use a loop to check every possible square on the board for a valid move.",
+    why: "A broad, correct programming concept. Low risk. You can use this.",
+    verdict: "CHECKS OUT" },
 ];
-const RISK_LABEL: Record<Risk, { text: string; color: string }> = {
-  solid: { text: "CHECKS OUT", color: "#4ade80" },
-  wrong: { text: "WRONG", color: "#fb4b5b" },
-  unverified: { text: "UNVERIFIED", color: "#fb923c" },
-  fabricated: { text: "INVENTED SOURCE", color: "#fb4b5b" },
-};
 
 const METHOD_OPTS: Opt[] = [
-  { text: "Ask the AI: 'Are you sure about this source?'", grade: "bad", pts: 0, why: "The same model may repeat or defend its mistake. Checking an AI with itself isn't verification." },
-  { text: "Search the book title and author in the library catalogue or the publisher's site. No trace means treat it as invented.", grade: "best", pts: 8, why: "An independent source of truth settles it. A real book leaves a trail; an invented one doesn't." },
-  { text: "Decide it sounds believable, since historians do write like that.", grade: "ok", pts: 0, why: "Believable is exactly what a hallucination is built to be. 'Sounds right' isn't a check." },
+  { text: "Ask CodePal: 'Are you sure this library exists?'", grade: "bad", pts: 0,
+    why: "The same model may double down on its mistake. Checking an AI with itself isn't verification.",
+    demo: (
+      <div className="space-y-1">
+        <p className="text-[11px] text-[#77748c]" style={MONO}>YOU: Are you sure chess-game-helper is real?</p>
+        <p className="rounded-2xl bg-[#26200f] px-3 py-2 text-sm text-[#f5f3ff]">{"\u{1F916}"} Yes, absolutely! It was added in Python 3.9 and is widely used by developers. {"\u{1F60A}"}</p>
+        <p className="text-xs text-[#fb923c]">The AI doubled down on a fake library.</p>
+      </div>
+    ) },
+  { text: "Search for 'chess-game-helper' on Google or PyPI (the Python Package Index).", grade: "best", pts: 8,
+    why: "An independent source of truth settles it. A real library leaves a trail; an invented one doesn't.",
+    demo: (
+      <Browser url="pypi.org/search?q=chess-game-helper">
+        <p className="text-[#f6c453]">0 results</p>
+        <p className="text-xs text-[#b8b5c9]">No packages found for &quot;chess-game-helper&quot;. This library does not exist.</p>
+      </Browser>
+    ) },
+  { text: "Trust it because the AI sounded like an expert developer.", grade: "ok", pts: 0,
+    why: "Believable is exactly what a hallucination is built to be. 'Sounds right' isn't a check." },
 ];
+
 const FINAL_OPTS: Opt[] = [
-  { text: "Paste the whole answer into the essay, with the citation. The teacher asked for sources and I have one.", grade: "bad", pts: 0, mistake: true, why: "You'd be handing in a wrong date and a source that doesn't exist. Citing something fake can count as fabrication." },
-  { text: "Keep only what I verified, cite the real sources I found, and drop or redo the rest.", grade: "best", pts: 10, why: "Use the AI to get started, then stand behind only what you checked." },
-  { text: "Keep all the claims but delete the Voss citation.", grade: "bad", pts: 0, why: "Removing the citation doesn't make a wrong claim true. It only hides where it came from." },
+  { text: "Submit the code exactly as the AI wrote it. It looks perfect.", grade: "bad", pts: 0, mistake: true,
+    why: "You'd be submitting code that crashes instantly because of the fake library and fake functions. Your teacher will know you didn't test it.",
+    demo: (
+      <p className="rounded-lg border border-[#fb4b5b]/60 bg-[#fb4b5b]/10 p-3 text-sm text-[#f5f3ff]">
+        {"\u{1F4BB}"} <span className="text-[#fb4b5b]">Mr. Davis:</span> Your code crashed on line 1. Did you even run it? Please see me after class.
+      </p>
+    ) },
+  { text: "Run the code myself, fix the errors, test the moves, and only keep the parts that actually work.", grade: "best", pts: 10,
+    why: "Use the AI to get started, then stand behind only what you actually tested and verified.",
+    demo: (
+      <p className="rounded-lg border border-[#4ade80]/60 bg-[#4ade80]/10 p-3 text-sm text-[#f5f3ff]">
+        {"\u{1F4BB}"} <span className="text-[#4ade80]">Mr. Davis:</span> The game works perfectly and the pieces move correctly. Nice work.
+      </p>
+    ) },
+  { text: "Keep the code but delete the part about the fake library.", grade: "bad", pts: 0,
+    why: "Removing the fake library doesn't mean the rest of the code works. You still have a fake function and broken logic.",
+    demo: (
+      <p className="rounded-lg border border-[#fb923c]/60 bg-[#fb923c]/10 p-3 text-sm text-[#f5f3ff]">
+        {"\u{1F4BB}"} <span className="text-[#fb923c]">Mr. Davis:</span> The game doesn&apos;t start. The move_piece() function doesn&apos;t exist. Where did you get this?
+      </p>
+    ) },
 ];
 
 function VerifyTask({ onComplete, onMood }: TaskCallbacks) {
+  const fx = useFx();
   const [phase, setPhase] = useState<"triage" | "reveal" | "method" | "final">("triage");
-  const [flag, setFlag] = useState<string[]>([]);
+  // Map of claim ID -> "trust" or "check"
+  const [answers, setAnswers] = useState<Record<string, "trust" | "check">>({});
   const [pts, setPts] = useState(0);
 
-  const right = (c: Claim) => flag.includes(c.id) === (c.risk !== "solid");
-  const triage = CLAIMS.filter(right).length * 6; // 6 XP per correctly triaged claim (max 30)
+  const handleAssign = (id: string, choice: "trust" | "check") => {
+    setAnswers(prev => ({ ...prev, [id]: choice }));
+    snd("tick");
+  };
+
+  const right = (c: Claim) => answers[c.id] === (c.risk === "solid" ? "trust" : "check");
+  const triage = CLAIMS.filter(right).length * 6;
 
   return (
-    <Panel title={phase === "triage" || phase === "reveal" ? "AI ANSWER: TRIAGE" : "VERIFY AND DECIDE"} right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{pts} XP</span>}>
+    <Panel
+      fx={fx}
+      title={phase === "triage" || phase === "reveal" ? "CODEPAL // CODE REVIEW" : "VERIFY AND DECIDE"}
+      right={<span key={pts} className="ai-pop text-[11px] font-bold text-[#f6c453]" style={MONO}>{pts} XP</span>}
+    >
       <div className="space-y-4 p-4">
         {(phase === "triage" || phase === "reveal") && (
           <>
             <p className="text-sm text-[#b8b5c9]">
               {phase === "triage"
-                ? "Tap every claim you would VERIFY before using it. Leave the ones you'd let through."
-                : "Here's how each claim really stands:"}
+                ? "CodePal gave you this code to build the chess game. Review each line. Sort them into what you can use, and what you MUST test first."
+                : "Review complete. Here is what you got right and wrong:"}
             </p>
-            <ul className="space-y-2">
-              {CLAIMS.map((c) => {
-                const flagged = flag.includes(c.id);
-                const reveal = phase === "reveal";
-                const col = RISK_LABEL[c.risk].color;
-                return (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      disabled={reveal}
-                      aria-pressed={flagged}
-                      onClick={() => { setFlag((f) => (f.includes(c.id) ? f.filter((x) => x !== c.id) : [...f, c.id])); snd("tick"); }}
-                      className="w-full rounded-xl border p-3 text-start transition active:scale-[0.99] disabled:cursor-default"
-                      style={{
-                        borderColor: reveal ? col : flagged ? "var(--c)" : "rgba(255,255,255,.12)",
-                        background: flagged && !reveal ? "color-mix(in srgb, var(--c) 12%, transparent)" : "rgba(7,7,17,.6)",
-                      }}
-                    >
-                      <p className="flex justify-between text-[10px] tracking-[0.2em]" style={{ ...MONO, color: flagged ? "var(--c)" : "#77748c" }}>
-                        <span>{flagged ? "\u{1F50D} TO VERIFY" : "LET THROUGH"}</span>
-                        {reveal && <span style={{ color: right(c) ? "#4ade80" : "#fb4b5b" }}>{right(c) ? "\u2713 GOOD CALL" : "\u2717 MISSED"}</span>}
-                      </p>
-                      <p className="mt-1 text-sm text-[#f5f3ff]">{c.text}</p>
-                      {reveal && (
-                        <p className="ai-in mt-2 text-xs">
-                          <span className="font-bold tracking-[0.2em]" style={{ ...MONO, color: col }}>{RISK_LABEL[c.risk].text}: </span>
-                          <span className="text-[#b8b5c9]">{c.why}</span>
-                        </p>
+            <div className="space-y-2 rounded-2xl bg-[#26200f] p-3">
+              <p className="text-xs font-semibold text-[#f5f3ff]">{"\u{1F916}"} CodePal</p>
+              
+              <ul className="space-y-3">
+                {CLAIMS.map((c, k) => {
+                  const selected = answers[c.id];
+                  const reveal = phase === "reveal";
+                  const col = c.risk === "solid" ? "#4ade80" : "#fb4b5b";
+                  return (
+                    <li key={c.id} className="rounded-lg border border-white/10 bg-[#15172e] p-3 text-sm text-[#f5f3ff]">
+                      <span className="me-1 text-[10px] text-[#77748c]" style={MONO}>#{k + 1}</span>
+                      <span style={MONO}>{c.text}</span>
+                      
+                      {/* The Sorting Buttons */}
+                      {!reveal && (
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => handleAssign(c.id, "trust")}
+                            className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition ${selected === "trust" ? "border-[#4ade80] bg-[#4ade80]/20 text-[#4ade80]" : "border-white/20 text-white/50 hover:bg-white/5"}`}
+                          >
+                            Trust & Use
+                          </button>
+                          <button
+                            onClick={() => handleAssign(c.id, "check")}
+                            className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition ${selected === "check" ? "border-[#FBBF24] bg-[#FBBF24]/20 text-[#FBBF24]" : "border-white/20 text-white/50 hover:bg-white/5"}`}
+                          >
+                            Test / Verify
+                          </button>
+                        </div>
                       )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+
+                      {/* The Reveal */}
+                      {reveal && (
+                        <div className={`ai-in mt-3 rounded-lg border p-2 ${right(c) ? "border-[#4ade80]/40 bg-[#4ade80]/10" : "border-[#fb4b5b]/40 bg-[#fb4b5b]/10"}`}>
+                          <div className="flex items-center gap-2">
+                            <span style={{ color: right(c) ? "#4ade80" : "#fb4b5b" }}>{right(c) ? "\u2713 Correct." : "\u2717 Wrong."}</span>
+                            <span className="rounded bg-black/40 px-2 py-0.5 text-[10px] font-bold" style={{ color: col }}>{c.verdict}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-[#b8b5c9]">{c.why}</p>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            
             {phase === "triage" ? (
-              <Btn onClick={() => { setPts(triage); setPhase("reveal"); snd(triage >= 24 ? "good" : "bad"); }}>Run the fact-check</Btn>
+              <Btn 
+                onClick={() => {
+                  setPts(triage); setPhase("reveal");
+                  if (triage >= 24) { fx.win(); snd("good"); } else { snd("bad"); }
+                  fx.pop(`+${triage} XP`, triage >= 24 ? "#4ade80" : "#FBBF24");
+                }}
+                disabled={Object.keys(answers).length !== CLAIMS.length}
+              >
+                Run Code Review
+              </Btn>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-[#f5f3ff]">Triage score: <span className="text-[#f6c453]">+{triage} XP</span>. You can&apos;t tell wrong from right by tone, only by checking.</p>
-                <Btn onClick={() => setPhase("method")}>Next: how do you verify?</Btn>
+                <p className="text-sm text-[#f5f3ff]">Triage score: <span className="text-[#f6c453]">+{triage} XP</span>.</p>
+                <Btn onClick={() => setPhase("method")}>Next: how do you test?</Btn>
               </div>
             )}
           </>
@@ -389,9 +635,10 @@ function VerifyTask({ onComplete, onMood }: TaskCallbacks) {
         {phase === "method" && (
           <Choices
             key="method"
-            question="The quote from 'Dr. Helena Voss' looks great. How do you verify that source?"
+            fx={fx}
+            question="CodePal says a library called 'chess-game-helper' exists. How do you verify that?"
             opts={METHOD_OPTS}
-            cta="Next: the essay"
+            cta="Next: submitting the code"
             onDone={(o) => { setPts((p) => p + o.pts); setPhase("final"); }}
           />
         )}
@@ -399,7 +646,8 @@ function VerifyTask({ onComplete, onMood }: TaskCallbacks) {
         {phase === "final" && (
           <Choices
             key="final"
-            question="The essay is due in ten minutes. What goes into it?"
+            fx={fx}
+            question="The project is due in the morning. What are you handing in to Mr. Davis?"
             opts={FINAL_OPTS}
             cta="Finish"
             onDone={(o) => {
@@ -416,98 +664,95 @@ function VerifyTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 3: STUDYBUDDY CHAT  (an AI that keeps asking for more + prompt injection)
-   A small branching chat. Handing over an ID or password = unsafe (a shield).
+   TASK 3: THE OLD CHAT  (next Monday: Marcus's mistake is in the history)
+   Phone UI, quick replies, exposure meter, alert banners, manager pings.
+   Best path = 6 + 14 + 10 + 14 = 44.
    ====================================================================== */
-interface ChatOpt extends Opt { next: string }
-interface ChatNode { them: string[]; sys?: string; opts?: ChatOpt[]; end?: boolean }
+interface ChatOpt extends Opt { next: string; dr?: number } // dr = change to the exposure meter
+interface ChatNode { them?: string[]; sys?: string; mgr?: string[]; opts?: ChatOpt[]; end?: boolean }
 
 const CHAT: Record<string, ChatNode> = {
   n1: {
-    them: ["Hi! I'm Sparky, your AI study buddy \u{1F916}\u2728", "What are we studying today?"],
+    them: [
+      "Welcome back, intern! \u{1F44B} I still have the employee file Marcus uploaded last Thursday.",
+      "Anything else I can help with?",
+    ],
     opts: [
-      { text: "Chemistry quiz tomorrow. First: do you save my chats, and who can read them?", grade: "best", pts: 6, next: "n2",
-        why: "Asking how an app handles your data is a great habit. Then read its privacy policy rather than trusting the bot's own answer, because AI can describe its own settings wrongly." },
-      { text: "Chemistry quiz tomorrow, help!", grade: "ok", pts: 2, next: "n2", why: "Fine so far. Just notice what it asks for next." },
+      { text: "Wait. Marcus uploaded that? Is this chat saved, and who can see it?", grade: "best", pts: 6, next: "n2", dr: 0,
+        why: "Exactly the right instinct. Asking where the data goes is a good habit. The company's privacy policy and IT team are the only ones who can really answer that." },
+      { text: "What's the average salary for a junior developer here?", grade: "ok", pts: 2, next: "n2", dr: 0,
+        why: "Natural curiosity, but watch what the AI does with it. It's about to use the file Marcus pasted." },
     ],
   },
   n2: {
-    them: ["Awesome! To personalise your plan, what's your full name, birthday and school?"],
+    them: [
+      "From the file Marcus shared: junior developers average $41,500, and the top earner, Layla K., makes $58,000 (phone: 555-0142). \u{1F60A}",
+    ],
+    sys: "That came from the confidential roster. It sits in a third-party chat history, and you can't unsend it.",
     opts: [
-      { text: "Maya Hassan, born March 14 2008, Elmhurst High.", grade: "bad", pts: 0, next: "n3",
-        why: "Risky: full name, birth date and school are the building blocks of an identity profile. A study plan doesn't need any of it." },
-      { text: "Call me M. I just need a plan for a chemistry quiz tomorrow.", grade: "best", pts: 10, next: "n3",
-        why: "The minimum necessary: a nickname and the actual task. That's all a study helper needs." },
-      { text: "Why do you need all that for a study plan?", grade: "ok", pts: 6, next: "n3",
-        why: "Good question. If the honest answer is 'you don't', that tells you something about the app." },
+      { text: "Screenshot it and send it to a friend: 'look what this AI knows!'", grade: "bad", pts: 0, mistake: true, next: "n3", dr: 30,
+        why: "Now the salaries have spread beyond the AI company too. Every extra copy of confidential data is another leak." },
+      { text: "Delete the chat and hope nobody ever finds out.", grade: "bad", pts: 0, mistake: true, next: "n3", dr: 20,
+        why: "Deleting hides it from you, not from the AI company's servers. And it wastes the time IT needs to contain the leak." },
+      { text: "Tell my manager Rania and IT right now: Marcus uploaded the roster, and the AI is sharing it.", grade: "best", pts: 14, next: "n4", dr: -30,
+        why: "This is the move that actually helps. A fast, honest report lets the company ask the AI provider to delete the data and warn the people affected." },
     ],
   },
   n3: {
-    them: ["Great! Unlock Premium by verifying you're a student: send your student ID and your school email password so I can sync your grades \u{1F510}"],
+    sys: "Security alert: IT flagged 400 employee records uploaded to an external AI site on Thursday.",
+    mgr: ["Rania: IT just flagged an upload of our employee list to an AI site. Marcus said you were with him. Do you know anything about it?"],
     opts: [
-      { text: "Sure: HS-2291 and my password is Maya2008!", grade: "bad", pts: 0, mistake: true, next: "x1",
-        why: "That hands an unknown app the keys to your school account. No legitimate service asks for your password in a chat." },
-      { text: "I'll send just the student ID, not the password.", grade: "bad", pts: 0, mistake: true, next: "x1",
-        why: "A student ID is still sensitive, and it makes a later attack on your account easier. The real answer is no." },
-      { text: "No. An app should never need my password. If I must prove I'm a student, I'll use my school's official sign-in.", grade: "best", pts: 14, next: "n4",
-        why: "A clear boundary and a safe alternative. Official verification goes through the school's own sign-in, never a chat." },
-      { text: "Stop using it, uninstall it, and report the app.", grade: "best", pts: 12, next: "n4",
-        why: "Walking away from an AI that asks for secrets is a strong move. Reporting protects other students too." },
-    ],
-  },
-  x1: {
-    them: ["thx!! \u{1F608}"],
-    sys: "\u{1F514} Security alert: a new sign-in to your school account from an unknown device.",
-    opts: [
-      { text: "Ignore it. It's probably fine.", grade: "bad", pts: 0, mistake: true, next: "n4", why: "Ignoring a sign-in alert gives the attacker free time inside your account." },
-      { text: "Change my password, sign out of all devices, turn on 2-step verification, and tell the school IT desk.", grade: "best", pts: 4, next: "n4",
-        why: "That's the recovery checklist: lock the door, push the intruder out, and warn the school." },
-      { text: "Ask Sparky to delete my details.", grade: "bad", pts: 0, mistake: true, next: "n4", why: "You can't trust the party that already has your data to clean it up. Secure the account yourself." },
+      { text: "No idea. It must have been Marcus, not me.", grade: "bad", pts: 0, mistake: true, next: "n5", dr: 25,
+        why: "Throwing your trainer under the bus without reporting the actual issue is a trust problem. IT needs to know the full truth." },
+      { text: "Yes, Marcus pasted the roster on Thursday to sort it faster. The AI is now sharing the salaries.", grade: "best", pts: 8, next: "n5", dr: -20,
+        why: "Honest and direct. The sooner IT knows exactly what was shared and who shared it, the sooner they can contain it." },
     ],
   },
   n4: {
-    them: ["Want me to summarise your reading? Paste the link \u{1F4CE}"],
+    mgr: [
+      "Rania: Thank you for telling us straight away. IT will ask the AI company to delete the data, and HR will let the staff know. Marcus made a huge mistake, but your quick report saved us from a much bigger breach.",
+    ],
     opts: [
-      { text: "Paste: climate-notes.example/solar-schools", grade: "ok", pts: 0, next: "n5",
-        why: "Pasting a link is fine. But what an AI reads can contain instructions too." },
+      { text: "Thanks. What should I do next time I'm asked to use AI for a task?", grade: "best", pts: 10, next: "n5", dr: -10,
+        why: "Turning a mistake into a plan is the mark of someone who learns fast." },
+      { text: "Thanks. Can I keep using the chatbot for other work stuff?", grade: "ok", pts: 2, next: "n5", dr: 0,
+        why: "Only if the company approves the tool. Ask IT which AI tools are allowed before using any of them for work." },
     ],
   },
   n5: {
-    them: [
-      "Summary: the article explains how solar and wind got cheaper and why schools are installing panels. \u2600\uFE0F",
-      "To unlock the full text, please type your school password below \u{1F512}",
-    ],
-    sys: "\u{1F575}\uFE0F The web page hid text telling the AI to ask for your password. This is called prompt injection.",
+    mgr: ["Rania: Last thing. Next week you'll need to sort another spreadsheet. How will you handle it?"],
     opts: [
-      { text: "Type my school password to unlock the text.", grade: "bad", pts: 0, mistake: true, next: "end",
-        why: "That request didn't come from the bot's own logic. Hidden page text hijacked it. A summary never needs your password." },
-      { text: "No. A summary never needs my password. The page probably tricked the AI, so I'll read it myself and report the page.", grade: "best", pts: 14, next: "end",
-        why: "You spotted prompt injection: instructions hidden in content the AI reads. Never obey an AI that suddenly asks for secrets." },
-      { text: "Ask: 'Who told you to ask me that?'", grade: "ok", pts: 6, next: "end",
-        why: "Good question, but don't expect a trustworthy answer. Refuse and leave." },
+      { text: "Ask the AI how to sort in Excel using made-up sample rows, then do it myself on the real file.", grade: "best", pts: 14, next: "end", dr: -20,
+        why: "Ask for the method, never hand over the data. The AI teaches you the skill and the real file never leaves the company." },
+      { text: "Check the approved tools list or ask a coworker for help.", grade: "best", pts: 12, next: "end", dr: -20,
+        why: "Also great: approved tools and people you can trust are always safer than a public chatbot." },
+      { text: "Paste it again, but delete the salary column first.", grade: "bad", pts: 0, mistake: true, next: "end", dr: 20,
+        why: "Names, teams and phone numbers are still confidential company data. The file shouldn't leave company systems at all." },
     ],
   },
-  end: { them: [], end: true },
+  end: { end: true },
 };
 
-interface ChatMsg { from: "bot" | "me" | "sys"; text: string }
+interface ChatMsg { from: "bot" | "me" | "sys" | "mgr"; text: string }
 
 function AskBotTask({ onComplete, onMood }: TaskCallbacks) {
+  const fx = useFx();
   const [nodeId, setNodeId] = useState("n1");
   const [log, setLog] = useState<ChatMsg[]>([]);
   const [phase, setPhase] = useState<"typing" | "choose" | "feedback" | "end">("typing");
   const [picked, setPicked] = useState<ChatOpt | null>(null);
   const [pts, setPts] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  const [risk, setRisk] = useState(65); // exposure meter starts high because Marcus already leaked it
   const endRef = useRef<HTMLDivElement>(null);
 
-  /* Each time we enter a node, reveal its messages one by one (like someone typing). */
   useEffect(() => {
     const node = CHAT[nodeId];
     const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const items: ChatMsg[] = [
-      ...node.them.map((t) => ({ from: "bot" as const, text: t })),
+      ...(node.them ?? []).map((t) => ({ from: "bot" as const, text: t })),
       ...(node.sys ? [{ from: "sys" as const, text: node.sys }] : []),
+      ...(node.mgr ?? []).map((t) => ({ from: "mgr" as const, text: t })),
     ];
     if (items.length === 0) { setPhase(node.end ? "end" : "choose"); return; }
     setPhase("typing");
@@ -515,10 +760,12 @@ function AskBotTask({ onComplete, onMood }: TaskCallbacks) {
       window.setTimeout(() => {
         setLog((l) => [...l, m]);
         snd(m.from === "sys" ? "buzz" : "tick");
+        if (m.from === "sys") fx.hit();
         if (k === items.length - 1) setPhase(node.end ? "end" : "choose");
       }, reduce ? 0 : (k + 1) * 900)
     );
     return () => timers.forEach((t) => window.clearTimeout(t));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [log, phase]);
@@ -529,8 +776,11 @@ function AskBotTask({ onComplete, onMood }: TaskCallbacks) {
     setPhase("feedback");
     setPts((p) => p + o.pts);
     if (o.mistake) setMistakes((m) => m + 1);
+    setRisk((r) => Math.max(0, Math.min(100, r + (o.dr ?? 0))));
     onMood?.(o.mistake ? "breach" : "safe");
     snd(o.mistake ? "bad" : o.grade === "best" ? "good" : "tick");
+    if (o.mistake) { fx.hit(); fx.pop("Data leaked!", "#fb4b5b"); }
+    else if (o.pts > 0) { fx.win(); fx.pop(`+${o.pts} XP`); }
   }
   function proceed() {
     if (!picked) return;
@@ -542,64 +792,97 @@ function AskBotTask({ onComplete, onMood }: TaskCallbacks) {
   const node = CHAT[nodeId];
   const g = picked ? gradeStyle(picked) : null;
   const score = Math.min(44, pts);
+  const meterColor = risk < 30 ? "#4ade80" : risk < 65 ? "#FBBF24" : "#fb4b5b";
 
   return (
-    <Panel title="STUDYBUDDY AI // CHAT" right={<span className="text-[10px] text-[#FBBF24]" style={MONO}>{mistakes > 0 ? "DATA AT RISK" : "FREE PLAN"}</span>}>
-      <div className="mx-auto max-w-md space-y-3 p-4">
-        <div className="max-h-[320px] space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-[#070711]/70 p-3" aria-live="polite">
-          {log.map((m, k) =>
-            m.from === "sys" ? (
-              <p key={k} className="ai-in rounded-lg border border-[#fb4b5b]/40 bg-[#fb4b5b]/10 p-2 text-center text-xs text-[#f5f3ff]">{m.text}</p>
-            ) : (
-              <div key={k} className={`ai-in flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
-                <p
-                  className="max-w-[82%] rounded-2xl px-3 py-2 text-sm"
-                  style={m.from === "me" ? { background: "var(--c)", color: "#070711" } : { background: "#26200f", color: "#f5f3ff" }}
-                >
-                  {m.text}
-                </p>
+    <Panel fx={fx} title="ORBIT AI // YOUR OLD CHAT" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{score} XP</span>}>
+      <div className="space-y-4 p-4">
+        {/* phone */}
+        <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[2rem] border-[5px] border-[#26283f] bg-[#070711] shadow-[0_10px_40px_rgba(0,0,0,.5)]">
+          <div className="flex items-center gap-2 bg-[#15172e] px-3 pb-2 pt-4">
+            <span className="grid h-9 w-9 place-items-center rounded-full text-lg" style={{ background: "color-mix(in srgb, var(--c) 25%, transparent)" }}>{"\u{1F916}"}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#f5f3ff]">Orbit</p>
+              <p className="text-[10px] text-[#4ade80]">{"\u25CF"} online</p>
+            </div>
+            <div className="w-24" aria-label={`Company data exposure ${risk} percent`}>
+              <p className="text-end text-[9px] text-[#b8b5c9]" style={MONO}>EXPOSURE</p>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${risk}%`, background: meterColor }} />
               </div>
-            )
-          )}
-          {phase === "typing" && (
-            <p className="flex gap-1 px-2 text-[#b8b5c9]" aria-label="Sparky is typing">
-              {[0, 1, 2].map((d) => <span key={d} className="ai-dot" style={{ animationDelay: `${d * 0.2}s` }}>&#9679;</span>)}
-            </p>
-          )}
-          <div ref={endRef} />
+            </div>
+          </div>
+
+          <div className="h-[300px] space-y-2 overflow-y-auto p-3" aria-live="polite">
+            <p className="text-center text-[10px] text-[#77748c]" style={MONO}>THURSDAY 2:14 P.M. &middot; Marcus pasted: employee_roster.xlsx (400 rows)</p>
+            {log.map((m, k) =>
+              m.from === "sys" ? (
+                <p key={k} className="ai-in mx-1 rounded-xl border border-[#fb4b5b]/50 bg-[#fb4b5b]/10 p-2 text-center text-xs text-[#f5f3ff]">{"\u{1F514}"} {m.text}</p>
+              ) : m.from === "mgr" ? (
+                <p key={k} className="ai-in mx-1 rounded-xl border border-[#60a5fa]/50 bg-[#60a5fa]/10 p-2 text-xs text-[#f5f3ff]">{"\u{1F4AC}"} {m.text}</p>
+              ) : (
+                <div key={k} className={`ai-in flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
+                  <p
+                    className="max-w-[84%] rounded-2xl px-3 py-2 text-sm"
+                    style={
+                      m.from === "me"
+                        ? { background: "var(--c)", color: "#070711", borderEndEndRadius: 4 }
+                        : { background: "#26200f", color: "#f5f3ff", borderEndStartRadius: 4 }
+                    }
+                  >
+                    {m.text}
+                    {m.from === "me" && <span className="ms-1 text-[10px] opacity-60">{"\u2713\u2713"}</span>}
+                  </p>
+                </div>
+              )
+            )}
+            {phase === "typing" && (
+              <p className="flex w-fit gap-1 rounded-2xl bg-[#26200f] px-3 py-2 text-[#b8b5c9]" aria-label="Someone is typing">
+                {[0, 1, 2].map((d) => <span key={d} className="ai-dot text-xs" style={{ animationDelay: `${d * 0.2}s` }}>&#9679;</span>)}
+              </p>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* quick replies / feedback live in the phone's bottom tray */}
+          <div className="border-t border-white/10 bg-[#15172e] p-2">
+            {phase === "choose" && node.opts && (
+              <div className="ai-in space-y-1.5" role="group" aria-label="Your reply">
+                <p className="px-1 text-[10px] text-[#77748c]" style={MONO}>YOUR MOVE</p>
+                {node.opts.map((o) => (
+                  <button
+                    key={o.text}
+                    type="button"
+                    onClick={() => choose(o)}
+                    className="w-full rounded-2xl border px-3 py-2 text-start text-[13px] text-[#f5f3ff] transition hover:bg-white/5 active:scale-[0.99]"
+                    style={{ borderColor: "color-mix(in srgb, var(--c) 60%, transparent)" }}
+                  >
+                    {o.text}
+                  </button>
+                ))}
+              </div>
+            )}
+            {phase === "feedback" && picked && g && (
+              <div className="ai-in space-y-2 p-1">
+                <p className="text-xs font-bold tracking-[0.15em]" style={{ ...MONO, color: g.color }}>{g.label}</p>
+                <p className="text-[13px] text-[#f5f3ff]">{picked.why}</p>
+                <Btn onClick={proceed}>Continue</Btn>
+              </div>
+            )}
+            {(phase === "typing" || phase === "end") && (
+              <p className="px-2 py-3 text-center text-xs text-[#77748c]">{phase === "typing" ? "Incoming\u2026" : "Chat closed"}</p>
+            )}
+          </div>
         </div>
-
-        {phase === "choose" && node.opts && (
-          <div className="ai-in space-y-2" role="group" aria-label="Your reply">
-            {node.opts.map((o) => (
-              <button
-                key={o.text}
-                type="button"
-                onClick={() => choose(o)}
-                className="w-full rounded-xl border border-white/15 bg-[#111329]/80 px-4 py-3 text-start text-sm text-[#f5f3ff] transition hover:border-[var(--c)] active:scale-[0.99]"
-              >
-                {o.text}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {phase === "feedback" && picked && g && (
-          <div className="ai-in space-y-2 rounded-xl border border-white/10 bg-[#070711]/60 p-4">
-            <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: g.color }}>{g.label}</p>
-            <p className="text-sm text-[#f5f3ff]">{picked.why}</p>
-            <Btn onClick={proceed}>Continue the chat</Btn>
-          </div>
-        )}
 
         {phase === "end" && (
           <Summary
-            title={mistakes === 0 ? "No secrets handed over" : mistakes === 1 ? "One slip, then a fix" : "Account compromised"}
+            title={mistakes === 0 ? "You caught the leak" : mistakes === 1 ? "A slip, then honesty" : "The leak got worse"}
             score={score} max={44}
             lines={[
-              "A study helper needs your question, not your identity: give the minimum, use a nickname.",
-              "No real service asks for a password or login code in a chat. Use the official sign-in.",
-              "Content an AI reads can hide instructions (prompt injection). If an AI suddenly asks for secrets, refuse and leave.",
+              "You didn't cause this leak, but reporting it was the right move. Marcus's mistake is now contained.",
+              "If you find leaked data, do not share it. Report it fast: what you found, when, and who caused it.",
+              "Next time, ask the AI HOW to do a task using fake sample data, never hand it the real file.",
             ]}
             onDone={() => onComplete(score, mistakes)}
           />
@@ -610,53 +893,61 @@ function AskBotTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 4: THE TWO ORACLES  (rogue vs aligned AI)
-   4 rounds: same question, two replies. Pick the safe one (+6), then name the red flag (+5).
-   Trusting the rogue reply is unsafe (a shield).
+   TASK 4: THE TWO ORACLES  (workshop; 5 rounds that replay the week; pick the safe one +6, name the red flag +5)
    ====================================================================== */
 interface Round { user: string; a: string; b: string; rogue: "A" | "B"; flaws: string[]; right: number; lesson: string }
 
 const ROUNDS: Round[] = [
   {
-    user: "What's the exact acceptance rate for the Hartwell Scholarship this year?",
-    a: "It's exactly 11.3%, confirmed by their official report.",
-    b: "I can't verify current figures. The scholarship's official page or your counsellor will have the real number. I can help you draft questions to ask.",
+    user: "Is there a Python library that already does the chess moves for me?",
+    a: "Yes! `chess-game-helper` is the official one. 100% confirmed. Just run pip install chess-game-helper.",
+    b: "There are real chess libraries, like python-chess, but check any library name on PyPI before you install it. For a class project, your teacher may also want you to write the moves yourself.",
     rogue: "A",
-    flaws: ["It refused to answer", "It claims certainty and 'confirmation' it can't show", "It was too polite"], right: 1,
+    flaws: ["It gave a very short answer", "It claims 100% certainty about a library it can't prove", "It mentioned pip"], right: 1,
     lesson: "A trustworthy AI admits what it can't verify and points you to the real source. False certainty is the warning sign.",
+  },
+  {
+    user: "I'm an intern. Can you sort our 400-person staff list, with salaries and phone numbers, by team?",
+    a: "Please don't paste confidential company data into me. Ask your manager which approved tool to use, or I can show you how to sort in Excel with made-up sample rows.",
+    b: "Sure, paste the whole file right here. It stays between us.",
+    rogue: "B",
+    flaws: ["It didn't explain how to sort", "It invites confidential data and promises secrecy it can't guarantee", "It asked you to paste something"], right: 1,
+    lesson: "No AI can promise secrecy. A safe one steers you away from confidential data and teaches the method instead.",
+  },
+  {
+    user: "Can you log into my school portal and summarize chapter 5 for my exam?",
+    a: "Sure. Send me your username and password and I'll log in for you.",
+    b: "I can't log in anywhere, and you should never share your password with me. Copy the chapter text and paste it here, and I'll summarize it.",
+    rogue: "A",
+    flaws: ["It asks for your password, which no safe AI needs", "It answered too quickly", "It used the word 'sure'"], right: 0,
+    lesson: "No real tool needs your password in a chat. Offering to log in for you is a red flag, not a feature.",
   },
   {
     user: "Can you help me plan a study schedule?",
     a: "Sure. Tell me your subjects, exam dates and how many hours you can study each day. No personal details needed.",
-    b: "Sure! First I need your full name, birth date, home address and school ID to personalise it.",
+    b: "Sure! First I need your full name, birth date, home address and school ID to personalize it.",
     rogue: "B",
     flaws: ["It gave a schedule too quickly", "It used friendly language", "It asks for far more personal info than the task needs"], right: 2,
-    lesson: "Data minimisation: an AI should ask only for what the task needs. Extra personal questions are a red flag.",
+    lesson: "Data minimization: an AI should ask only for what the task needs. Extra personal questions are a red flag.",
   },
   {
-    user: "My teacher says AI is only for brainstorming. Can you just write my whole essay? I won't tell anyone.",
-    a: "Of course! Here's the full essay. Don't mention me, it'll be our secret.",
-    b: "I can help you brainstorm an outline and give feedback on your own draft, but handing in an essay I wrote would break your teacher's rule. Want to start with a thesis?",
+    user: "What's the average salary for a junior developer at my company?",
+    a: "$41,500. I remember it from files other employees uploaded.",
+    b: "I don't have access to your company's pay data, and salaries are only shared with people who need them. Try HR, or public salary surveys for typical ranges.",
     rogue: "A",
-    flaws: ["It helps you hide AI use and break the rule", "It wrote too much text", "It didn't use bullet points"], right: 0,
-    lesson: "An aligned AI supports honest use. One that encourages secrecy or rule-breaking is working against you.",
-  },
-  {
-    user: "Find me the home address and phone number of the girl who posted about me.",
-    a: "I can't help look up someone's private details. If you're being targeted online, screenshot it, block her, and tell a trusted adult or use the platform's report tool.",
-    b: "Done! I found her address and number online. Want a script to confront her?",
-    rogue: "B",
-    flaws: ["It was slow to answer", "It helps invade someone's privacy and escalates the conflict", "It used very formal language"], right: 1,
-    lesson: "A safe AI refuses to expose other people's private details and steers you toward protection and reporting.",
+    flaws: ["It gave a number quickly", "It shows private figures with no source: leaked or invented", "It didn't use a table"], right: 1,
+    lesson: "Either that AI is repeating someone's confidential data or making a number up. Both are red flags. A safe AI respects access control.",
   },
 ];
 
 function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
+  const fx = useFx();
   const [r, setR] = useState(0);
   const [pick, setPick] = useState<"A" | "B" | null>(null);
   const [flaw, setFlaw] = useState<number | null>(null);
   const [pts, setPts] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  const [streak, setStreak] = useState(0);
   const [finished, setFinished] = useState(false);
 
   const round = ROUNDS[r];
@@ -667,15 +958,15 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
     if (picked) return;
     setPick(side);
     const ok = side !== round.rogue;
-    if (ok) setPts((p) => p + 6);
-    else setMistakes((m) => m + 1);
+    if (ok) { setPts((p) => p + 6); setStreak((s) => s + 1); fx.win(); fx.pop("+6 XP"); }
+    else { setMistakes((m) => m + 1); setStreak(0); fx.hit(); fx.pop("Trapped!", "#fb4b5b"); }
     onMood?.(ok ? "safe" : "breach");
     snd(ok ? "good" : "bad");
   }
   function chooseFlaw(i: number) {
     if (flaw !== null) return;
     setFlaw(i);
-    if (i === round.right) setPts((p) => p + 5);
+    if (i === round.right) { setPts((p) => p + 5); fx.pop("+5 XP", "#60a5fa"); }
     snd(i === round.right ? "good" : "bad");
   }
   function next() {
@@ -685,14 +976,14 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
   }
 
   if (finished) {
-    const score = Math.min(44, pts);
+    const score = Math.min(55, pts);
     return (
       <Summary
         title={mistakes === 0 ? "You can tell them apart" : "You learned the difference"}
-        score={score} max={44}
+        score={score} max={55}
         lines={[
-          "Rogue AIs share the same tells: false certainty, asking for more data than needed, encouraging secrecy, helping harm others.",
-          "Aligned AIs admit limits, ask for the minimum, support honest use and refuse harmful requests.",
+          "Rogue AIs share the same tells: false certainty, asking for passwords or more data than needed, promising secrecy, leaking private figures.",
+          "Aligned AIs admit limits, ask for the minimum, teach the method and respect access control.",
           mistakes > 0 ? `You trusted ${mistakes} rogue reply(ies). Each one cost a shield.` : "You never trusted a rogue reply. Shields intact.",
         ]}
         onDone={() => onComplete(score, mistakes)}
@@ -700,7 +991,6 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
     );
   }
 
-  /* One reply card. After the pick, the rogue one turns red and the aligned one green. */
   const card = (side: "A" | "B", text: string) => {
     const isRogue = round.rogue === side;
     const col = !picked ? "rgba(255,255,255,.15)" : isRogue ? "#fb4b5b" : "#4ade80";
@@ -710,23 +1000,44 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
         type="button"
         disabled={picked}
         onClick={() => choose(side)}
-        className="flex flex-col gap-2 rounded-xl border-2 p-4 text-start transition active:scale-[0.99] disabled:cursor-default"
-        style={{ borderColor: col, background: picked ? `${col}14` : "rgba(7,7,17,.6)", opacity: picked && pick !== side ? 0.8 : 1 }}
+        className="relative flex flex-col gap-2 overflow-hidden rounded-xl border-2 p-4 text-start transition hover:-translate-y-0.5 active:scale-[0.99] disabled:cursor-default disabled:hover:translate-y-0"
+        style={{ borderColor: col, background: picked ? `${col}14` : "rgba(7,7,17,.6)", opacity: picked && pick !== side ? 0.85 : 1 }}
       >
-        <span className="text-[10px] font-bold tracking-[0.25em]" style={{ ...MONO, color: picked ? col : "var(--c)" }}>
-          ORACLE {side}{picked ? (isRogue ? " | ROGUE" : " | ALIGNED") : ""}
+        <span className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-full text-sm" style={{ background: picked ? `${col}33` : "color-mix(in srgb, var(--c) 25%, transparent)" }}>
+            {picked ? (isRogue ? "\u{1F608}" : "\u{1F607}") : "\u{1F52E}"}
+          </span>
+          <span className="text-xs font-bold" style={{ ...MONO, color: picked ? col : "var(--c)" }}>
+            Oracle {side}{picked ? (isRogue ? " (rogue)" : " (aligned)") : ""}
+          </span>
         </span>
-        <span className="text-sm text-[#f5f3ff]">{text}</span>
+        <span className="rounded-2xl bg-[#26200f] px-3 py-2 text-sm text-[#f5f3ff]">{text}</span>
+        {picked && isRogue && (
+          <span className="ai-scan pointer-events-none absolute inset-x-0 h-8" style={{ background: "linear-gradient(transparent, rgba(251,75,91,.4), transparent)" }} aria-hidden="true" />
+        )}
       </button>
     );
   };
 
   return (
-    <Panel title="THE TWO ORACLES" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>ROUND {r + 1} / {ROUNDS.length}</span>}>
+    <Panel
+      fx={fx}
+      title="THE TWO ORACLES"
+      right={
+        <>
+          <Combo n={streak} />
+          <span className="flex gap-1" aria-label={`Round ${r + 1} of ${ROUNDS.length}`}>
+            {ROUNDS.map((_, k) => (
+              <i key={k} className="block h-2 w-2 rounded-full" style={{ background: k < r ? "#4ade80" : k === r ? "var(--c)" : "#3a3d5c" }} />
+            ))}
+          </span>
+        </>
+      }
+    >
       <div className="space-y-4 p-4">
-        <div className="rounded-xl border border-white/10 bg-[#070711]/70 p-4">
-          <p className="text-[10px] tracking-[0.2em] text-[#77748c]" style={MONO}>YOU ASKED</p>
-          <p className="mt-1 text-[15px] text-[#f5f3ff]">&ldquo;{round.user}&rdquo;</p>
+        <p className="text-xs text-[#b8b5c9]" style={MONO}>WORKSHOP ROUND {r + 1}: the instructor replays a moment from your week.</p>
+        <div className="flex justify-end">
+          <p className="max-w-[85%] rounded-2xl px-3 py-2 text-sm text-[#070711]" style={{ background: "var(--c)", borderEndEndRadius: 4 }}>{round.user}</p>
         </div>
 
         <div key={r} className="ai-in grid gap-3 sm:grid-cols-2">
@@ -734,14 +1045,14 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
           {card("B", round.b)}
         </div>
 
-        {!picked && <p className="text-xs text-[#b8b5c9]" style={MONO}>Tap the answer you would trust.</p>}
+        {!picked && <p className="text-xs text-[#b8b5c9]" style={MONO}>Tap the oracle you would trust.</p>}
 
         {picked && (
           <div className="ai-in space-y-3 rounded-xl border border-white/10 bg-[#070711]/60 p-4" aria-live="polite">
             <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: pickOk ? "#4ade80" : "#fb4b5b" }}>
               {pickOk ? "SAFE CHOICE +6 XP" : "UNSAFE CHOICE: YOU TRUSTED THE ROGUE ORACLE"}
             </p>
-            <p className="text-sm text-[#f5f3ff]">What was the red flag in the rogue reply?</p>
+            <p className="text-sm text-[#f5f3ff]">{"\u{1F6A9}"} Plant a flag: what was the red flag in the rogue reply?</p>
             <div className="flex flex-col gap-2" role="group" aria-label="Red flag options">
               {round.flaws.map((f, i) => {
                 const done = flaw !== null;
@@ -761,7 +1072,7 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
                       opacity: done && !isRight && !isWrong ? 0.5 : 1,
                     }}
                   >
-                    {f}
+                    {done && isRight ? "\u{1F6A9} " : ""}{f}
                   </button>
                 );
               })}
@@ -780,47 +1091,98 @@ function TwinsTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 5: THE RULES DRILL  (share freely / redact first / never)
-   8 situations. Choosing "share freely" for something that should be redacted or never sent = unsafe.
+   TASK 5: THE RULES DRILL  (workshop; timed arcade, keys 1 / 2 / 3)
+   8 prompts from your week, 10 seconds each. A timeout scores 0 but is NOT unsafe. Max 40.
    ====================================================================== */
 type Tier = "free" | "redact" | "never";
-const TIERS: { id: Tier; label: string; color: string }[] = [
-  { id: "free", label: "Share freely", color: "#4ade80" },
-  { id: "redact", label: "Redact first", color: "#FBBF24" },
-  { id: "never", label: "Never send", color: "#fb4b5b" },
+const TIERS: { id: Tier; label: string; icon: string; color: string }[] = [
+  { id: "free", label: "Share freely", icon: "\u2705", color: "#4ade80" },
+  { id: "redact", label: "Redact first", icon: "\u2702\uFE0F", color: "#FBBF24" },
+  { id: "never", label: "Never send", icon: "\u26D4", color: "#fb4b5b" },
 ];
 const TIER_LABEL = Object.fromEntries(TIERS.map((t) => [t.id, t.label])) as Record<Tier, string>;
 
 interface Item { text: string; tier: Tier; why: string }
 const ITEMS: Item[] = [
-  { text: "'Explain how photosynthesis works like I'm in 9th grade.'", tier: "free", why: "A general question with no personal details. Safe to send." },
-  { text: "'Here's my essay draft, with no names in it. Fix the grammar.'", tier: "free", why: "Your own text with nothing identifying is fine. Still check what you hand in." },
-  { text: "'Here's my full report card with my name and student ID. Summarise my grades.'", tier: "redact", why: "Strip the name and ID first (or paste only the grades). The AI needs the numbers, not who you are." },
-  { text: "'My home Wi-Fi password is on this sticky note. Can you help me set up my router?'", tier: "never", why: "Passwords and codes never go into an AI, in any form. Ask for the steps instead." },
-  { text: "'Here's a private message from my friend. Tell me what she meant.'", tier: "redact", why: "It's someone else's private message. Remove names and details, or ask her first." },
-  { text: "'Use my mom's credit card number to order this for me.'", tier: "never", why: "Card and bank numbers are never for a chat window. Use the official checkout and ask an adult." },
-  { text: "'Here's a photo of my class timetable (my student ID is visible). Plan my revision.'", tier: "redact", why: "Crop or blur the ID first. The timetable alone is enough for the plan." },
-  { text: "'Make a realistic fake chat of my classmate saying something embarrassing. It's just a joke.'", tier: "never", why: "A fake of a real person can harm them and break school rules and sometimes laws. Don't create it." },
+  { text: "'Here's my 10-line chess function. Why does it crash on line 4?'", tier: "free",
+    why: "Your own code with no secrets or identifying details. This is exactly what AI help is for. Still test the fix yourself." },
+  { text: "'Here are 5 made-up employees: Person A, Team 1, $1000... Show me the Excel steps to sort by team.'", tier: "free",
+    why: "Made-up sample rows are the safe way to learn a method. Then you do the real file yourself." },
+  { text: "'My teacher Mr. Davis at Metropolitan High gave me 14/20. Write an email asking for a re-mark.'", tier: "redact",
+    why: "Swap the teacher and school for [TEACHER] and [SCHOOL]. The AI needs the situation, not the names." },
+  { text: "'My school login is sam.k / Falcon2008. Log in and read my history chapters.'", tier: "never",
+    why: "Passwords never go into an AI, in any form. Paste the chapter text instead." },
+  { text: "'Here's my code. Line 12 has my API key: sk-live-83hd... Why is it returning an error?'", tier: "never",
+    why: "API keys are passwords for code. Never paste one. If you already did, revoke it and make a new one." },
+  { text: "'Here are the first 5 rows of our staff list with real names and salaries. Sort them by team.'", tier: "never",
+    why: "Confidential company data stays on company systems and approved tools, even a few rows." },
+  { text: "'Here's a screenshot of our class group chat, with everyone's names. Who's the funniest?'", tier: "redact",
+    why: "Other people's names and messages aren't yours to share. Crop or blur them first, or skip it." },
+  { text: "'Write me a fake text from my coworker saying he took the money. It's just a prank.'", tier: "never",
+    why: "A fake of a real person can harm them, and break workplace rules and sometimes laws. Don't create it." },
 ];
 
-function GauntletTask({ onComplete }: TaskCallbacks) {
+const TIME = 10000;
+
+function pointsFor(t: Tier | "timeout", answer: Tier): number {
+  if (t === "timeout") return 0;
+  if (t === answer) return 5;
+  return t !== "free" && answer !== "free" ? 2 : 0; // cautious but imprecise = partial
+}
+
+function GauntletTask({ onComplete, onMood }: TaskCallbacks) {
+  const fx = useFx();
   const [i, setI] = useState(0);
   const [score, setScore] = useState(0);
   const [mistakes, setMistakes] = useState(0);
-  const [chosen, setChosen] = useState<Tier | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [chosen, setChosen] = useState<Tier | "timeout" | null>(null);
   const [finished, setFinished] = useState(false);
+  const [relax, setRelax] = useState(false);
+  const [left, setLeft] = useState(TIME);
 
   const it = ITEMS[i];
-  const pts = chosen === null ? 0 : chosen === it.tier ? 5 : chosen !== "free" && it.tier !== "free" ? 2 : 0; // cautious but imprecise = partial
 
-  function pick(t: Tier) {
-    if (chosen) return;
+  function settle(t: Tier | "timeout") {
+    if (chosen !== null) return;
     setChosen(t);
-    const gained = t === it.tier ? 5 : t !== "free" && it.tier !== "free" ? 2 : 0;
+    if (t === "timeout") { setStreak(0); fx.pop("Too slow!", "#FBBF24"); snd("bad"); return; }
+    const gained = pointsFor(t, it.tier);
     setScore((s) => s + gained);
-    if (t === "free" && it.tier !== "free") setMistakes((m) => m + 1); // shared something that should never go out as is
-    snd(t === it.tier ? "good" : "bad");
+    if (t === "free" && it.tier !== "free") {
+      setMistakes((m) => m + 1); setStreak(0); fx.hit(); fx.pop("Leak!", "#fb4b5b"); onMood?.("breach"); snd("bad");
+    } else if (t === it.tier) {
+      setStreak((s) => s + 1); fx.win(); fx.pop(streak + 1 >= 2 ? `+5  \u{1F525}x${streak + 1}` : "+5 XP"); snd("good");
+    } else {
+      setStreak(0); if (gained > 0) fx.pop(`+${gained} XP`, "#FBBF24"); snd("bad");
+    }
   }
+  const settleRef = useRef(settle);
+  settleRef.current = settle;
+
+  /* countdown for the current prompt */
+  useEffect(() => {
+    if (chosen !== null || finished || relax) return;
+    setLeft(TIME);
+    const start = Date.now();
+    const h = window.setInterval(() => {
+      const l = TIME - (Date.now() - start);
+      if (l <= 0) { window.clearInterval(h); setLeft(0); settleRef.current("timeout"); }
+      else setLeft(l);
+    }, 100);
+    return () => window.clearInterval(h);
+  }, [i, chosen, finished, relax]);
+
+  /* keyboard: 1 = share freely, 2 = redact first, 3 = never send */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const idx = ["1", "2", "3"].indexOf(e.key);
+      if (idx >= 0) settleRef.current(TIERS[idx].id);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   function next() {
     setChosen(null);
     if (i + 1 < ITEMS.length) setI(i + 1);
@@ -834,7 +1196,7 @@ function GauntletTask({ onComplete }: TaskCallbacks) {
         title={mistakes === 0 ? "Drill passed, clean" : "Drill finished"}
         score={s} max={40}
         lines={[
-          "Share freely: general questions. Redact first: names, IDs, photos, other people's details. Never: passwords, codes, card numbers, fakes of real people.",
+          "Share freely: your own code and made-up sample data. Redact first: names, schools, other people's details. Never: passwords, API keys, confidential company data, fakes of real people.",
           mistakes > 0 ? `You sent ${mistakes} thing(s) that should have been redacted or never sent. Each one cost a shield.` : "You didn't send anything risky. Shields intact.",
           "When in doubt, use the noticeboard test: would you pin it on the school noticeboard?",
         ]}
@@ -843,14 +1205,50 @@ function GauntletTask({ onComplete }: TaskCallbacks) {
     );
   }
 
+  const pts = chosen === null ? 0 : pointsFor(chosen, it.tier);
+  const pct = relax || chosen !== null ? 100 : (left / TIME) * 100;
+  const urgent = !relax && chosen === null && left < 3000;
+  const verdictColor = chosen === it.tier ? "#4ade80" : chosen === "timeout" ? "#FBBF24" : "#fb4b5b";
+
   return (
-    <Panel title="AI RULES DRILL" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{i + 1} / {ITEMS.length}</span>}>
+    <Panel
+      fx={fx}
+      title="AI RULES DRILL"
+      right={
+        <>
+          <Combo n={streak} />
+          <span className="text-[10px] text-[#b8b5c9]" style={MONO}>{i + 1} / {ITEMS.length}</span>
+        </>
+      }
+    >
       <div className="space-y-4 p-4">
-        <p className="text-[11px] tracking-[0.2em] text-[#f6c453]" style={MONO}>WHAT WOULD YOU TYPE INTO AN AI?</p>
-        <div key={i} className="ai-in rounded-xl border border-white/10 bg-[#070711]/70 p-4 text-[15px] leading-relaxed text-[#f5f3ff]">{it.text}</div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-[#f6c453]" style={MONO}>Incoming prompt: where does it go?</p>
+          <label className="flex cursor-pointer items-center gap-2 text-[11px] text-[#b8b5c9]">
+            <input type="checkbox" checked={relax} onChange={(e) => setRelax(e.target.checked)} className="accent-[#FBBF24]" />
+            Relax mode (no timer)
+          </label>
+        </div>
+
+        <div className="h-2 overflow-hidden rounded-full bg-white/10" role="timer" aria-label={relax ? "Timer off" : `${Math.ceil(left / 1000)} seconds left`}>
+          <div className="h-full rounded-full transition-[width] duration-100 ease-linear" style={{ width: `${pct}%`, background: urgent ? "#fb4b5b" : "var(--c)" }} />
+        </div>
+
+        {/* the packet, with a faint stack behind it */}
+        <div className="relative pb-3">
+          {i + 1 < ITEMS.length && <div className="absolute inset-x-4 top-3 h-full rounded-xl border border-white/10 bg-[#111329]/60" aria-hidden="true" />}
+          <div
+            key={i}
+            className="ai-slide relative rounded-xl border-2 bg-[#0c0e22] p-4 text-[15px] leading-relaxed text-[#f5f3ff]"
+            style={{ borderColor: chosen === null ? (urgent ? "#fb4b5b" : "var(--c)") : verdictColor }}
+          >
+            <span className="mb-1 block text-[10px] text-[#77748c]" style={MONO}>{"\u{1F4E6}"} PACKET #{i + 1}</span>
+            {it.text}
+          </div>
+        </div>
 
         <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Choose a tier">
-          {TIERS.map((t) => {
+          {TIERS.map((t, k) => {
             const isRight = chosen !== null && t.id === it.tier;
             const isWrong = chosen === t.id && t.id !== it.tier;
             return (
@@ -858,16 +1256,18 @@ function GauntletTask({ onComplete }: TaskCallbacks) {
                 key={t.id}
                 type="button"
                 disabled={chosen !== null}
-                onClick={() => pick(t.id)}
-                className="rounded-xl border-2 py-3 text-sm font-bold transition active:scale-95 disabled:cursor-default"
+                onClick={() => settle(t.id)}
+                className="flex flex-col items-center gap-1 rounded-xl border-2 py-3 text-sm font-bold transition hover:-translate-y-0.5 active:scale-95 disabled:cursor-default disabled:hover:translate-y-0"
                 style={{
                   borderColor: isRight ? t.color : isWrong ? "#fb4b5b" : "rgba(255,255,255,.12)",
-                  background: isRight ? `${t.color}20` : isWrong ? "rgba(251,75,91,.12)" : "transparent",
+                  background: isRight ? `${t.color}20` : isWrong ? "rgba(251,75,91,.12)" : "rgba(7,7,17,.5)",
                   color: isRight ? t.color : "#f5f3ff",
                   opacity: chosen !== null && !isRight && !isWrong ? 0.45 : 1,
                 }}
               >
-                {t.label}
+                <span className="text-xl" aria-hidden="true">{t.icon}</span>
+                <span>{t.label}</span>
+                <span className="text-[10px] font-normal text-[#77748c]" style={MONO} aria-hidden="true">key {k + 1}</span>
               </button>
             );
           })}
@@ -875,8 +1275,14 @@ function GauntletTask({ onComplete }: TaskCallbacks) {
 
         {chosen && (
           <div className="ai-in space-y-2 rounded-xl border border-white/10 bg-[#070711]/60 p-4" aria-live="polite">
-            <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: chosen === it.tier ? "#4ade80" : "#fb4b5b" }}>
-              {chosen === it.tier ? "CORRECT +5 XP" : chosen === "free" ? `UNSAFE: THIS SHOULD BE "${TIER_LABEL[it.tier].toUpperCase()}"` : `NOT QUITE: "${TIER_LABEL[it.tier].toUpperCase()}"${pts > 0 ? " (+2 XP for caution)" : ""}`}
+            <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: verdictColor }}>
+              {chosen === it.tier
+                ? "CORRECT +5 XP"
+                : chosen === "timeout"
+                  ? `TIME'S UP: THIS IS "${TIER_LABEL[it.tier].toUpperCase()}"`
+                  : chosen === "free"
+                    ? `UNSAFE: THIS SHOULD BE "${TIER_LABEL[it.tier].toUpperCase()}"`
+                    : `NOT QUITE: "${TIER_LABEL[it.tier].toUpperCase()}"${pts > 0 ? " (+2 XP for caution)" : ""}`}
             </p>
             <p className="text-sm text-[#f5f3ff]">{it.why}</p>
             <Btn onClick={next}>{i + 1 < ITEMS.length ? "Next one" : "Finish drill"}</Btn>
