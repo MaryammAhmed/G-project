@@ -12,6 +12,10 @@ it's safe to run again later, it won't duplicate tables that already exist.
 import asyncio
 from database import engine, Base
 from models import User  # noqa: F401 -- import so Base knows about the User table
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 async def create_tables():
     async with engine.begin() as conn:

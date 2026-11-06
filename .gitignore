@@ -55,3 +55,7 @@ node_modules/
 .next/
 
 Create file and folders tree.bat
+
+
+.neon
+node_modules/

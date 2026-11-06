@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # Points at your Docker container "cg-db", which maps host port 5435 -> container 5432
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@127.0.0.1:5435/cyberguard"
+    "postgresql://neondb_owner:npg_e7CoXbQitn2s@ep-small-smoke-b94o9ouy-pooler.c-7.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
 )
 # The engine that drives the connection
 engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
