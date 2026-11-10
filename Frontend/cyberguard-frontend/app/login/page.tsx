@@ -52,6 +52,10 @@ const CSS = `
 .lg-root .lg-blink { animation: lgBlink 1s steps(1) infinite; }
 .lg-root .lg-in { animation: lgIn .5s ease-out both; }
 .lg-root .lg-card { transition: border-color .9s ease, box-shadow .9s ease; }
+.lg-root .cg-input { padding: 1rem 1.15rem; font-size: 1.0625rem; }
+.lg-root .cg-btn { padding: 1.05rem 1.5rem; font-size: 1.05rem; }
+.lg-root .cg-label { font-size: 0.8rem; margin-bottom: 0.45rem; }
+.lg-root .auth-fill { width: min(100%, 76rem); height: calc(100dvh - 1.5rem); overflow: auto; }
 @media (prefers-reduced-motion: reduce) { .lg-root *, .lg-root *::before, .lg-root *::after { animation: none !important; transition: none !important; } }
 `;
 
@@ -152,7 +156,7 @@ export default function Login() {
 
         {/* ---- The card: --c is the cycling mission colour, so the glass border and button follow it ---- */}
         <div
-          className="cg-glass lg-card lg-scan lg-in relative z-10 grid w-full max-w-4xl overflow-hidden md:grid-cols-[1fr_1.1fr]"
+          className="auth-fill cg-glass lg-card lg-scan lg-in relative z-10 grid w-full md:grid-cols-[1fr_1.05fr]"
           style={{ "--c": mod.color } as CSSProperties}
         >
           {/* ======== LEFT: the four doors (hidden on small screens) ======== */}
@@ -169,7 +173,7 @@ export default function Login() {
                 <path d="M43 48l5 5 9-11" fill="none" stroke={mod.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <p className="cg-kicker mt-4">{"// CYBERGUARD"}</p>
-              <h1 className="cg-title mt-1">Four doors.<br />One agent.</h1>
+              <h1 className="cg-title mt-1 text-4xl">Four doors.<br />One agent.</h1>
               <p className="mt-2 text-xs text-text-secondary font-hud">Sign in to resume your training.</p>
             </div>
 
@@ -181,7 +185,7 @@ export default function Login() {
                     type="button"
                     onClick={() => setActive(i)}
                     aria-pressed={i === active}
-                    className="flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-start transition active:scale-[0.99]"
+                    className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition active:scale-[0.99]"
                     style={{
                       borderColor: i === active ? m.color : "rgba(255,255,255,.1)",
                       background: i === active ? `${m.color}14` : "transparent",
@@ -201,7 +205,7 @@ export default function Login() {
           </aside>
 
           {/* ======== RIGHT: the sign-in form ======== */}
-          <div className="space-y-6 p-8">
+          <div className="flex flex-col justify-center space-y-6 p-8 sm:p-10">
             {/* terminal header dots */}
             <div className="flex items-center gap-1.5" aria-hidden="true">
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
@@ -212,7 +216,7 @@ export default function Login() {
 
             <div>
               <p className="cg-kicker mb-1">{"// SECURE ACCESS TERMINAL"}</p>
-              <h2 className="cg-title text-2xl font-bold" style={{ color: mod.color }}>Welcome Back, Agent</h2>
+              <h2 className="cg-title text-4xl font-bold" style={{ color: mod.color }}>Welcome Back, Agent</h2>
               {/* the active mission's promise, with a blinking cursor */}
               <p className="mt-1 min-h-[1.25rem] text-xs text-text-secondary font-hud">
                 {mod.line}<span className="lg-blink" style={{ color: mod.color }}>_</span>

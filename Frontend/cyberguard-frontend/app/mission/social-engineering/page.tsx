@@ -1,15 +1,14 @@
-// app/mission/social-engineering/page.tsx
-import MissionPlayer from "@/components/mission/MissionPlayer";
+import LevelPath from "@/components/mission/LevelPath";
 import { socialEngineeringMission } from "@/lib/mission/Manipulated";
-import { missionFontClass } from "@/lib/mission/fonts";
 
-export const metadata = { title: "The Whisper | CyberGuard" };
+export const metadata = { title: "Manipulated | CyberGuard" };
 
-export default function SocialEngineeringPage() {
+export default function SocialPathPage() {
   return (
-    <MissionPlayer
+    <LevelPath
       mission={socialEngineeringMission}
-      fontClass={missionFontClass}
+      hrefBase="/mission/social-engineering"
+      blurb="Five short levels about pressure, fake friends, and calls that want a code."
     />
   );
 }

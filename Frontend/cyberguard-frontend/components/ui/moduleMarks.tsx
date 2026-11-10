@@ -47,6 +47,11 @@ export const AUTH_CSS = `
 .ax-root .ax-in { animation: axIn .5s ease-out both; }
 .ax-root .ax-shake { animation: axShake .45s ease-in-out; }
 .ax-root .ax-card { transition: border-color .8s ease, box-shadow .8s ease; }
+.ax-root .cg-input { padding: 1rem 1.15rem; font-size: 1.0625rem; }
+.ax-root .cg-btn { padding: 1.05rem 1.5rem; font-size: 1.05rem; }
+.ax-root .cg-label { font-size: 0.8rem; margin-bottom: 0.45rem; }
+.ax-root .auth-fill { width: min(100%, 76rem); height: calc(100dvh - 1.5rem); overflow: auto; }
+.ax-root .auth-fill-narrow { width: min(100%, 42rem); height: calc(100dvh - 1.5rem); overflow: auto; }
 @media (prefers-reduced-motion: reduce) { .ax-root *, .ax-root *::before, .ax-root *::after { animation: none !important; transition: none !important; } }
 `;
 

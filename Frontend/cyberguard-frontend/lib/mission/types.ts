@@ -17,7 +17,17 @@ export type SETaskId = "tactics" | "chat" | "recon" | "gauntlet" | "call";
 
 // EDIT A: add next to SETaskId
 // The five hands-on tasks of Mission 4 ("The Oracle"). A "ai-task" beat picks one with `task`.
-export type AITaskId = "redact" | "verify" | "askbot" | "twins" | "gauntlet";
+export type AITaskId =
+  | "redact"
+  | "verify"
+  | "askbot"
+  | "twins"
+  | "gauntlet"
+  | "mosaic"
+  | "budget"
+  | "inbox"
+  | "voice"
+  | "clubbot";
 
 
 export interface Choice {
@@ -25,6 +35,8 @@ export interface Choice {
   text: string;
   correct: boolean;
   fallback: string;
+  // True only when this option hands over a password, code, or someone else's private file.
+  severe?: boolean;
 }
 
 export interface InvestigateItem {
@@ -164,6 +176,15 @@ export type Beat =
     }
   | { type: "complete";     id: string; say: string; hint?: string; mood?: Mood };
 
+export interface LevelSpec {
+  level: number;
+  title: string;
+  badge: string;
+  icon: string;
+  incident: string;
+  beats: Beat[];
+}
+
 export interface Mission {
   id: string;
   module: number;
@@ -173,6 +194,7 @@ export interface Mission {
   badge: string;
   tier?: string;
   beats: Beat[];
+  levels: LevelSpec[];
   accent?: string;
   flashGood?: string;
   flashBad?: string;

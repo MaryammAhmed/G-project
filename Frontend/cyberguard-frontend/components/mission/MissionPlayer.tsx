@@ -52,7 +52,7 @@ import XpRewardModal from "@/components/game/XpRewardModal";
 
 import CSIInvestigation from "@/components/game/CSIInvestigation";
 import TackleBox from "@/components/game/TackleBox";
-import LearnPanel from "@/components/game/LearnPanel";
+import { useRouter } from "next/navigation";
 
 // Visual & Companion Components
 import IntroScene from "./IntroScene";
@@ -75,7 +75,7 @@ import {
 } from "./whisperScenes";
 import { WHISPER_CHECKPOINTS } from "@/lib/mission/Manipulated";
 
-import AITask, { AI_TASK_MAX_XP } from "@/components/game/AITasks";
+import { AI_TASK_MAX_XP } from "@/components/game/AITasks";
 import OracleIntro from "@/components/mission/intros/OverSharedIntro";
 import {
   OracleBackdrop,
@@ -85,6 +85,7 @@ import {
 } from "./safeAI/OracleScene";
 import { ORACLE_CHECKPOINTS } from "@/lib/mission/OverShared";
 
+import OracleTask from "@/components/game/OracleTasks";
 import PWTask, { PW_TASK_MAX_XP } from "@/components/game/PWTasks";
 import VaultIntro from "@/components/mission/intros/LockedOutIntro";
 import {
@@ -215,6 +216,12 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
    3. CSS ANIMATIONS
    ====================================================================== */
 const CSS = `
+/* On a wide window, scale the level the way a 125% zoom does.
+   min-height is divided back so the page is one screen tall, not 125% of one. */
+@media (min-width: 1100px) {
+  .mp-root { zoom: 1.22; min-height: calc(100vh / 1.22); }
+  .mp-root .mp-fit { max-width: min(90rem, calc(100vw / 1.22 - 3rem)); }
+}
 @keyframes spinSlow { to { transform: rotate(360deg); } }
 @keyframes spinRev  { to { transform: rotate(-360deg); } }
 @keyframes glow     { 0%,100% { filter: drop-shadow(0 0 6px var(--c)); } 50% { filter: drop-shadow(0 0 24px var(--c)); } }
@@ -335,15 +342,19 @@ async function getFeedback(
   const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = window.localStorage.getItem("token");
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`${API}/api/scenario-feedback`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       signal: controller.signal,
       body: JSON.stringify({
         module: mission.module,
         incident: context,
         choice_text: choice.text,
         correct: choice.correct,
+        teaching_point: right?.fallback ?? "",
       }),
     });
     if (!res.ok) throw new Error(`status ${res.status}`);
@@ -435,7 +446,7 @@ function DoxxPost({
             He didn't need advanced hacking tools. Every single detail above was
             pulled from your public profile, your posts, or your reused
             passwords.{" "}
-            <strong className="text-[#fb4b5b]">You handed him the keys.</strong>
+            <strong className="text-[#f6c453]">Those public details were enough.</strong>
           </p>
         </div>
       </div>
@@ -447,17 +458,17 @@ function DoxxPost({
 function VoiceNoteChip() {
   return (
     <div
-      className="pop-in flex items-center gap-3 rounded-full border border-[#fb4b5b]/50 bg-[#1b0d11]/80 px-4 py-2"
+      className="pop-in flex items-center gap-3 rounded-full border border-white/15 bg-[#1b2433] px-4 py-2"
       style={MONO}
     >
-      <span className="text-[#fb4b5b]" aria-hidden="true">
+      <span className="text-[#f6c453]" aria-hidden="true">
         &#9654;
       </span>
       <span className="flex h-6 items-center gap-0.5" aria-hidden="true">
         {Array.from({ length: 18 }).map((_, i) => (
           <span
             key={i}
-            className="wave-bar inline-block w-0.5 rounded bg-[#fb4b5b]"
+            className="wave-bar inline-block w-0.5 rounded bg-[#f6c453]"
             style={{
               height: `${8 + ((i * 7) % 16)}px`,
               animationDelay: `${i * 0.05}s`,
@@ -466,7 +477,7 @@ function VoiceNoteChip() {
         ))}
       </span>
       <span className="text-[10px] tracking-[0.2em] text-[#b8b5c9]">
-        VOICE NOTE: JAY 0:07
+        VOICE NOTE · UNVERIFIED · JAY 0:07
       </span>
     </div>
   );
@@ -550,7 +561,8 @@ interface ViewProps {
   mood: Mood;
   onAward: (points: number) => void;
   onMood: (mood: Mood) => void;
-  onResult: (correct: boolean) => void;
+  onResult: (correct: boolean, severe?: boolean) => void;
+  hubHref: string;
   onTaskDone: (task: "passphrase" | "otp") => void;
   onPhish: (found: number, total: number) => void;
   onNext: () => void;
@@ -569,28 +581,41 @@ function BeatView({
   onTaskDone,
   onNext,
   onRestart,
+  hubHref,
 }: ViewProps) {
+  const router = useRouter();
   const { email } = useAuth();
   const [lineDone, setLineDone] = useState(false);
 
   async function sendCode(): Promise<boolean> {
+    const token = window.localStorage.getItem("token");
+    if (!token) return false;
     const res = await fetch(`${API}/api/practice-otp/send`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     });
     return res.ok;
   }
 
   async function verifyCode(code: string): Promise<boolean> {
-    if (!email) return code === "123456";
+    const token = window.localStorage.getItem("token");
+    if (!token) return code === "123456";
     const res = await fetch(`${API}/api/practice-otp/verify`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ code }),
     });
     const data = res.ok ? await res.json() : null;
     return !!data?.correct;
+  }
+
+  function finishTask(xpEarned: number, taskMistakes: number) {
+    onAward(xpEarned);
+    for (let i = 0; i < taskMistakes; i++) onResult(false);
+    onMood(taskMistakes === 0 ? "safe" : "alert");
+    // Losing the last shield is a failed level. Do not advance into the badge screen.
+    if (shields - taskMistakes <= 0) return;
+    onNext();
   }
 
   return (
@@ -624,7 +649,7 @@ function BeatView({
       </div>
 
       <div className={`${lineDone ? "rise-in space-y-6" : "hidden"}`}>
-        {beat.type === "complete" && (
+        {beat.type === "complete" && shields > 0 && (
           <div className="flex justify-center pb-4">
             <XpRewardModal
               isOpen={true}
@@ -634,8 +659,8 @@ function BeatView({
               badge={mission.badge}
               shields={shields}
               maxShields={MAX_SHIELDS}
-              onContinue={onRestart}
-              continueLabel="Play Again"
+              onContinue={() => router.push(hubHref)}
+              continueLabel="Back to levels"
               homeHref="/map"
             />
           </div>
@@ -661,8 +686,8 @@ function BeatView({
             points={XP.correctChoice}
             fetchFeedback={(choice) => getFeedback(mission, beat, choice)}
             onChoice={(choice, awarded) => {
-              onMood(choice.correct ? "safe" : "breach");
-              onResult(choice.correct);
+              onMood(choice.correct ? "safe" : choice.severe ? "breach" : "alert");
+              onResult(choice.correct, !!choice.severe && !choice.correct);
               if (awarded > 0) onAward(awarded);
             }}
             onContinue={onNext}
@@ -670,42 +695,26 @@ function BeatView({
         )}
 
         {beat.type === "learn" && (
-          <>
-            <LearnPanel
-              title={beat.title}
-              points={beat.points}
-              onNext={onNext}
-            />
-          </>
+          <PrimaryButton onClick={onNext}>Continue</PrimaryButton>
         )}
 
         {beat.type === "phish-scale" && <TackleBox onNext={onNext} />}
 
-        {beat.type !== "complete" && (
-          <div className="flex min-h-[400px] w-full flex-col">
+        {["se-task", "ai-task", "pw-task", "ph-task", "passphrase", "otp", "csi-investigate"].includes(beat.type) && (
+          <div className="flex w-full flex-col">
             {beat.type === "se-task" && (
               <SETask
                 task={beat.task ?? "gauntlet"}
                 onMood={onMood}
-                onComplete={(xpEarned, mistakes) => {
-                  onAward(xpEarned);
-                  for (let i = 0; i < mistakes; i++) onResult(false);
-                  onMood(mistakes === 0 ? "safe" : "breach");
-                  onNext();
-                }}
+                onComplete={finishTask}
               />
             )}
 
             {beat.type === "ai-task" && (
-              <AITask
-                task={beat.task ?? "gauntlet"}
+              <OracleTask
+                task={beat.task ?? "clubbot"}
                 onMood={onMood}
-                onComplete={(xpEarned, mistakes) => {
-                  onAward(xpEarned);
-                  for (let i = 0; i < mistakes; i++) onResult(false);
-                  onMood(mistakes === 0 ? "safe" : "breach");
-                  onNext();
-                }}
+                onComplete={finishTask}
               />
             )}
 
@@ -713,12 +722,7 @@ function BeatView({
               <PWTask
                 task={beat.task ?? "guess"}
                 onMood={onMood}
-                onComplete={(xpEarned, mistakes) => {
-                  onAward(xpEarned);
-                  for (let i = 0; i < mistakes; i++) onResult(false);
-                  onMood(mistakes === 0 ? "safe" : "breach");
-                  onNext();
-                }}
+                onComplete={finishTask}
               />
             )}
 
@@ -727,12 +731,7 @@ function BeatView({
               <PHTask
                 task={beat.task ?? "domain"}
                 onMood={onMood}
-                onComplete={(xpEarned, mistakes) => {
-                  onAward(xpEarned);
-                  for (let i = 0; i < mistakes; i++) onResult(false);
-                  onMood(mistakes === 0 ? "safe" : "breach");
-                  onNext();
-                }}
+                onComplete={finishTask}
               />
             )}
 
@@ -782,7 +781,8 @@ function BeatView({
                   const unsafe = results.filter(
                     (r) => r.isThreat && r.playerGuessed === "safe",
                   ).length;
-                  for (let i = 0; i < Math.min(unsafe, 2); i++) onResult(false);
+                  const hits = Math.min(unsafe, 2);
+                  for (let i = 0; i < hits; i++) onResult(false);
 
                   if (unsafe > 0) {
                     onMood("breach");
@@ -790,15 +790,14 @@ function BeatView({
                     onMood("safe");
                   }
 
-                  // Immediately move to the next beat
-                  onNext();
+                  if (shields - hits > 0) onNext();
                 }}
               />
             )}
           </div>
         )}
 
-        {beat.type === "complete" && mission.debrief && (
+        {beat.type === "complete" && shields > 0 && mission.debrief && (
           <div className="space-y-3 rounded-2xl border border-[var(--c)]/40 bg-[#181a38]/80 p-5">
             <h3
               className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--c)]"
@@ -831,9 +830,15 @@ function BeatView({
 export default function MissionPlayer({
   mission,
   fontClass = "",
+  level = 1,
+  hubHref = "/map",
+  opening = false,
 }: {
   mission: Mission;
   fontClass?: string;
+  level?: number;
+  hubHref?: string;
+  opening?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [xp, setXp] = useState(0);
@@ -849,7 +854,7 @@ export default function MissionPlayer({
   const [flash, setFlash] = useState<{ text: string; color: string } | null>(
     null,
   );
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(opening);
 
   const mutedRef = useRef(muted);
   const sfxRef = useRef(sfxOn);
@@ -910,8 +915,8 @@ export default function MissionPlayer({
     } // preview mode / not logged in: nothing saved, nothing locked
     if (startedFor.current === token) return; // already counted (also stops React dev double-run)
     startedFor.current = token;
-    startAttempt(token, mission.module, mission.id).then(setAccess);
-  }, [token, mission.module, mission.id]);
+    startAttempt(token, mission.module, mission.id, level).then(setAccess);
+  }, [token, mission.module, mission.id, level]);
 
   useEffect(() => {
     mutedRef.current = muted;
@@ -950,40 +955,34 @@ export default function MissionPlayer({
     return startHeartbeat(); // the returned function stops the heartbeat when the beat changes
   }, [isVault, showIntro, sfxOn, unlocked, beat.type, beat.id]);
 
-  function handleResult(correct: boolean) {
-    const good = mission.flashGood ?? "GOOD CALL";
-    const bad = mission.flashBad ?? "SHIELD CRACKED";
+  function handleResult(correct: boolean, severe = false) {
+    // A safe choice never uses the fail treatment. Ordinary mistakes get an amber
+    // banner. The full-screen flash is only for handing over a secret or a code.
+    const good = mission.flashGood ?? "SAFE MOVE";
     if (correct) {
       setVirus("dead");
       play("zap");
       setTimeout(() => play("good"), 350);
-      showFlash(good, "#4ade80");
-    } else {
-      setVirus("laugh");
-      play("bad");
-      setTimeout(() => play("laugh"), 250);
-
-      setMistakes((m) => m + 1);
-
-      // 👇 ADDED: Deduct 20 XP immediately when they make a mistake
-      setXp((x) => Math.max(0, x - 20));
-
-      showFlash(bad, "#fb4b5b");
-
-      // Trigger the Screen Glitch and Red Overlay
-      const root = document.querySelector(".mp-root");
-      if (root) {
-        root.classList.add("glitch-active");
-        const overlay = document.createElement("div");
-        overlay.className = "red-overlay";
-        document.body.appendChild(overlay);
-
-        setTimeout(() => {
-          root.classList.remove("glitch-active");
-          overlay.remove();
-        }, 500);
-      }
+      showFlash(good, "#34D399");
+      return;
     }
+    setVirus("laugh");
+    play("bad");
+    setMistakes((m) => m + 1);
+    setXp((x) => Math.max(0, x - 20));
+    showFlash("SHIELD LOST", "#fb4b5b");
+    const root = document.querySelector(".mp-root");
+    if (root) {
+      root.classList.add("glitch-active");
+      const overlay = document.createElement("div");
+      overlay.className = "red-overlay";
+      document.body.appendChild(overlay);
+      setTimeout(() => {
+        root.classList.remove("glitch-active");
+        overlay.remove();
+      }, 500);
+    }
+    void severe;
   }
 
   useEffect(() => {
@@ -1010,9 +1009,9 @@ export default function MissionPlayer({
       play("unlock");
       showFlash("HANDS-ON TASK UNLOCKED", "#4cc9ff");
     }
-    if (beat.type === "complete") {
+    if (beat.type === "complete" && shields > 0) {
       play("win");
-      saveCompletion(token, mission.module, mission.id, xp); // store completion + score in PostgreSQL
+      saveCompletion(token, mission.module, mission.id, xp, level);
     }
     if (hardCheckpoints?.includes(beat.id)) checkpoint.current = { index, xp };
     return () => stopSpeaking();
@@ -1034,7 +1033,7 @@ export default function MissionPlayer({
     setShowIntro(true);
     checkpoint.current = { index: 0, xp: 0 };
     // a replay counts as a new attempt
-    startAttempt(token, mission.module, mission.id);
+    startAttempt(token, mission.module, mission.id, level);
   }
 
   function retry() {
@@ -1179,7 +1178,7 @@ export default function MissionPlayer({
                 onClick={restart}
                 className="rounded-xl border border-white/20 px-6 py-3 text-sm text-[#f5f3ff] hover:border-white/50"
               >
-                Restart mission
+                Restart level
               </button>
             </div>
           </div>
@@ -1187,7 +1186,7 @@ export default function MissionPlayer({
       )}
 
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#070711]/90 px-5 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+        <div className="mp-fit mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
           <div>
             <p
               className="text-[10px] uppercase tracking-[0.35em] text-[var(--c)]"
@@ -1231,7 +1230,7 @@ export default function MissionPlayer({
             </button>
           </div>
         </div>
-        <div className="mx-auto mt-3 h-1.5 max-w-5xl overflow-hidden rounded-full bg-white/10">
+        <div className="mp-fit mx-auto mt-3 h-1.5 w-full max-w-[90rem] overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{ width: `${progress}%`, background: "var(--c)" }}
@@ -1239,7 +1238,7 @@ export default function MissionPlayer({
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto grid max-w-6xl gap-8 px-5 py-8 pb-32 lg:grid-cols-[300px_1fr] lg:items-start">
+      <main className="mp-fit relative z-10 mx-auto grid w-full max-w-[90rem] gap-8 px-6 py-6 pb-8 lg:grid-cols-[minmax(280px,380px)_1fr] lg:items-start">
         <div className="space-y-4 lg:sticky lg:top-28">
           {/* ───────────── EDIT 11c · render: stage ───────────── */}
           {isVault ? (
@@ -1294,6 +1293,7 @@ export default function MissionPlayer({
               }))
             }
             onPhish={(found, total) => setPhish({ found, total })}
+            hubHref={hubHref}
             onNext={next}
             onRestart={restart}
           />

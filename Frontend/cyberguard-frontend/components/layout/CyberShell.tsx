@@ -22,7 +22,7 @@ export default function CyberShell({
       <main
         className={
           variant === "center"
-            ? "relative z-10 flex min-h-screen items-center justify-center p-6"
+            ? "relative z-10 flex h-dvh items-center justify-center overflow-hidden p-3 sm:p-5"
             : "relative z-10 mx-auto max-w-6xl px-5 py-8"
         }
       >

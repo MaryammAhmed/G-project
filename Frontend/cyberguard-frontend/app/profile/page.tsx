@@ -21,11 +21,17 @@ type ModuleProgress = {
   unlocked: boolean;
 };
 
+type EarnedBadge = { id: string; title: string; icon: string; module: number; level: number };
+
 type ProgressResponse = {
   modules: ModuleProgress[];
+  levels?: { module: number; level: number; completed: boolean; badge_title: string; badge_icon: string }[];
+  badges?: EarnedBadge[];
   unlocked: number[];
   total_score: number;
 };
+
+const BADGE_COLORS = ["#34D399", "#22D3EE", "#A855F7", "#FBBF24"];
 
 const MODULE_META: Record<number, { icon: string; title: string; color: string }> = {
   1: { icon: "🔐", title: "Locked Out", color: "#34D399" },
@@ -220,19 +226,32 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* --- BADGES SECTION --- */}
-              {completedCount > 0 && (
-                <div className="space-y-3 pt-4 border-t border-white/10">
-                  <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff]" style={MONO}>EARNED BADGES</h2>
-                  <div className="flex flex-wrap gap-3">
-                    {progress.modules[0]?.completed && <Badge icon="🏆" label="First Steps" color="#34D399" />}
-                    {progress.modules[1]?.completed && <Badge icon="🎯" label="Sharp Eye" color="#22D3EE" />}
-                    {progress.modules[2]?.completed && <Badge icon="🕵️" label="Trust No One" color="#A855F7" />}
-                    {progress.modules[3]?.completed && <Badge icon="🤖" label="AI Aware" color="#FBBF24" />}
-                    {completedCount === 4 && <Badge icon="⭐" label="CyberGuard Elite" color="#f5f3ff" />}
-                  </div>
+              <div className="space-y-3 pt-4 border-t border-white/10">
+                <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff]" style={MONO}>LEVEL BADGES</h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {(progress.levels ?? []).map((level) => {
+                    const color = BADGE_COLORS[level.module - 1] ?? "#f5f3ff";
+                    return (
+                      <div
+                        key={`${level.module}-${level.level}`}
+                        className="rounded-2xl border p-3 text-center"
+                        style={{
+                          borderColor: level.completed ? color : "rgba(255,255,255,.08)",
+                          background: level.completed ? `${color}18` : "rgba(0,0,0,.25)",
+                          opacity: level.completed ? 1 : 0.45,
+                          boxShadow: level.completed ? `0 0 18px ${color}33` : undefined,
+                        }}
+                      >
+                        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border text-xl" style={{ borderColor: color }}>
+                          {level.completed ? level.badge_icon : "🔒"}
+                        </div>
+                        <p className="mt-2 text-[10px] tracking-widest" style={{ ...MONO, color }}>{level.badge_title.toUpperCase()}</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+                {completedCount === 4 && <Badge icon="⭐" label="CyberGuard Elite" color="#f5f3ff" />}
+              </div>
 
               {/* --- DANGER ZONE / ACTIONS --- */}
               <div className="flex flex-col sm:flex-row gap-3 pt-8 mt-8 border-t border-white/10">

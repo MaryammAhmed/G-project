@@ -418,7 +418,7 @@ function CoreScene({ mood }: { mood: Mood }) {
       <text x="92" y="238" textAnchor="middle" fontSize="8" fontWeight="700" fill="#fb4b5b" style={MONO}>ROGUE</text>
       <text x="228" y="238" textAnchor="middle" fontSize="8" fontWeight="700" fill="#FBBF24" style={MONO}>ALIGNED</text>
       <text x="160" y="22" textAnchor="middle" fontSize="9" fontWeight="700" fill="#b8b5c9" style={MONO}>
-        {bad ? "THE ROGUE ORACLE WINS" : ok ? "ALIGNED AI WINS" : "WHICH ONE DO YOU TRUST?"}
+        {bad ? "THE ROGUE ORACLE WINS" : ok ? "ALIGNED AI WINS" : "CAN YOU BREAK IT, THEN FIX IT?"}
       </text>
     </svg>
   );

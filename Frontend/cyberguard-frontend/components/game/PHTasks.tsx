@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import TaskBrief from "@/components/game/TaskBrief";
+import LinkCheck from "@/components/game/LinkCheck";
+import { TASK_BRIEFS } from "@/lib/mission/briefs";
 import type { ReactNode } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
@@ -1028,7 +1031,7 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
   }
 
   return (
-    <Panel title="HACKER BATTLE" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>ROUND {round + 1} / 4</span>}>
+    <Panel title="THE NEXT TEN MINUTES" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>STEP {round + 1} / 4</span>}>
       <div className="p-4 space-y-6">
         
         {/* THE HACKER'S ATTACK CARD */}
@@ -1073,7 +1076,7 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
                 feedback.isGood ? "bg-[#4ade80]" : "bg-[#fb4b5b] text-white"
               }`}
             >
-              {round + 1 < ROUNDS.length ? "Next Round →" : "Finish Battle"}
+              {round + 1 < ROUNDS.length ? "Next step" : "Finish"}
             </button>
           </div>
         )}
@@ -1086,11 +1089,16 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
    ROUTER: MissionPlayer renders <PHTask task="..." /> (UNCHANGED)
    ====================================================================== */
 export default function PHTask({ task, onComplete, onMood }: { task: PHTaskId } & TaskCallbacks) {
+  const [ready, setReady] = useState(false);
+  const brief = TASK_BRIEFS[task];
+  if (!ready && brief) {
+    return <TaskBrief brief={brief} onStart={() => setReady(true)} />;
+  }
   const p = { onComplete, onMood };
   return (
     <div className="ph-root w-full">
       <style>{PH_CSS}</style>
-      {task === "domain" && <DomainTask {...p} />}
+      {task === "domain" && <LinkCheck {...p} />}
       {task === "attach" && <AttachTask {...p} />}
       {task === "textstorm" && <TextStormTask {...p} />}
       {task === "audience" && <AudienceTask {...p} />}

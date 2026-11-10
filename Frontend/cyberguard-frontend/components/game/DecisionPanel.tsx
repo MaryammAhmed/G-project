@@ -91,25 +91,32 @@ export default function DecisionPanel({
       <div className="space-y-2" role="group" aria-label="Choose your response">
         {choices.slice(0, MAX_OPTIONS).map((c, i) => {
           const isPicked = picked?.id === c.id;
-          const reveal = picked && c.correct; // after answering, highlight the right one
           const stateClass = !picked
-            ? "border-white/15 bg-[#111329]/80 hover:border-[var(--c)]"
-            : reveal
-            ? "border-[#4ade80] bg-[#4ade80]/10"
-            : isPicked
-            ? "border-[#fb4b5b] bg-[#fb4b5b]/10"
-            : "border-white/5 opacity-40";
+            ? "border-white/15 bg-[#16182c] text-[#f5f3ff] hover:border-white/40"
+            : "border-white/15 bg-[#16182c] text-[#f5f3ff]";
+          const faded = !!picked && !isPicked && !c.correct;
           return (
             <button
               key={c.id}
               onClick={() => pick(c)}
               disabled={!!picked}
-              className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-start text-[#f5f3ff] transition active:scale-[0.99] ${stateClass}`}
+              className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-start transition active:scale-[0.99] ${stateClass}`}
+              style={{ opacity: faded ? 0.45 : 1 }}
             >
-              <span className="mt-0.5 text-xs text-[var(--c)]" style={MONO}>
+              <span className="mt-0.5 text-xs text-[#c4c1d4]" style={MONO}>
                 {String.fromCharCode(65 + i)}
               </span>
-              <span>{c.text}</span>
+              <span className="flex-1">{c.text}</span>
+              {picked && isPicked && (
+                <span className="shrink-0 text-[10px] font-bold tracking-widest" style={{ ...MONO, color: c.correct ? "#34D399" : "#fb4b5b" }}>
+                  {c.correct ? "SAFE MOVE" : "SHIELD LOST"}
+                </span>
+              )}
+              {picked && c.correct && !isPicked && (
+                <span className="shrink-0 text-[10px] font-bold tracking-widest" style={{ ...MONO, color: "var(--c)" }}>
+                  SAFER MOVE
+                </span>
+              )}
             </button>
           );
         })}
@@ -127,9 +134,9 @@ export default function DecisionPanel({
         <div aria-live="polite" className="pop-in space-y-3 rounded-2xl border border-white/10 bg-[#111329]/80 p-4">
           <p
             className="text-xs font-bold uppercase tracking-[0.2em]"
-            style={{ ...MONO, color: picked.correct ? "#4ade80" : "#fb4b5b" }}
+            style={{ ...MONO, color: picked.correct ? "#34D399" : "#fb4b5b" }}
           >
-            {picked.correct ? `Correct  +${points} XP` : "Not quite"}
+            {picked.correct ? `Safe move  +${points} XP` : "Shield lost"}
           </p>
           <p className="text-[#f5f3ff]">{feedback.text}</p>
           <p className="text-[10px] uppercase tracking-widest text-[#77748c]" style={MONO}>

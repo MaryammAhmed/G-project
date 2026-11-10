@@ -128,7 +128,7 @@ function VerifyOtpInner() {
           }
         />
 
-        <div className="cg-glass ax-card ax-scan ax-in relative z-10 w-full max-w-md space-y-6 p-8 text-center" style={{ "--c": color } as CSSProperties}>
+        <div className="auth-fill-narrow cg-glass ax-card ax-scan ax-in relative z-10 flex w-full flex-col justify-center space-y-7 p-10 text-center" style={{ "--c": color } as CSSProperties}>
           <div className="flex items-center gap-1.5" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full bg-brick" />
             <span className="h-2.5 w-2.5 rounded-full bg-warning" />
@@ -137,7 +137,7 @@ function VerifyOtpInner() {
           </div>
 
           {/* the dial: six tumblers light up as digits are typed */}
-          <div key={error} className={`mx-auto h-36 w-36 ${error ? "ax-shake" : ""}`}>
+          <div key={error} className={`mx-auto h-52 w-52 ${error ? "ax-shake" : ""}`}>
             <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label={`${code.length} of ${CODE_LEN} digits entered`}>
               <circle cx="60" cy="60" r="56" fill="none" stroke={color} strokeOpacity=".2" strokeDasharray="2 6" />
               {Array.from({ length: CODE_LEN }).map((_, i) => (
@@ -153,7 +153,7 @@ function VerifyOtpInner() {
 
           <div>
             <p className="cg-kicker mb-1">{"// VERIFY YOUR IDENTITY"}</p>
-            <h1 className="cg-title text-2xl font-bold" style={{ color }}>Enter the code sent to your email</h1>
+            <h1 className="cg-title text-4xl font-bold" style={{ color }}>Enter the code sent to your email</h1>
             <p className="mt-1 text-xs text-text-secondary font-hud">
               {left > 0 ? <>Code expires in <span style={{ color }}>{mm}:{ss}</span></> : <span className="text-brick">Code expired. Request a new one.</span>}
             </p>
@@ -165,7 +165,7 @@ function VerifyOtpInner() {
               const filled = i < code.length;
               const active = i === code.length && !ok;
               return (
-                <div key={i} className="grid h-14 w-11 place-items-center rounded-xl border-2 text-2xl font-bold transition" style={{ ...MONO, borderColor: active ? color : filled ? `${color}99` : "rgba(255,255,255,.15)", background: filled ? `${color}12` : "rgba(7,7,17,.6)", boxShadow: active ? `0 0 14px ${color}55` : "none" }}>
+                <div key={i} className="grid h-20 w-14 place-items-center rounded-xl border-2 text-4xl font-bold transition" style={{ ...MONO, borderColor: active ? color : filled ? `${color}99` : "rgba(255,255,255,.15)", background: filled ? `${color}12` : "rgba(7,7,17,.6)", boxShadow: active ? `0 0 14px ${color}55` : "none" }}>
                   {filled ? code[i] : active ? <span className="ax-blink" style={{ color }}>_</span> : ""}
                 </div>
               );

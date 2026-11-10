@@ -16,7 +16,7 @@ import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProgress } from "@/lib/progress";
+import { fetchProgress, moduleStatus } from "@/lib/progress";
 import type { ProgressSnapshot } from "@/lib/progress";
 import type { Mood } from "@/lib/mission/types";
 
@@ -42,7 +42,7 @@ interface Realm {
 
 const BASE_MISSIONS: Realm[] = [
   { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450 },
-  { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "available", color: "#22D3EE", x: 500, y: 335 },
+  { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 500, y: 335 },
   { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455 },
   { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335 },
 ];
@@ -299,14 +299,22 @@ export default function MissionMapPage() {
 
   const { token } = useAuth();
   const [snap, setSnap] = useState<ProgressSnapshot | null>(null);
+  const [progressReady, setProgressReady] = useState(false);
   useEffect(() => {
-    fetchProgress(token).then(setSnap);
+    let cancel = false;
+    fetchProgress(token).then((next) => {
+      if (cancel) return;
+      setSnap(next);
+      setProgressReady(true);
+    });
+    return () => {
+      cancel = true;
+    };
   }, [token]);
 
   const MISSIONS: Realm[] = BASE_MISSIONS.map((m) => {
-    const p = snap?.modules.find((x) => x.module === MODULE_OF[m.id]);
-    if (!p) return m;
-    return { ...m, status: p.completed ? "completed" : p.unlocked ? "available" : "locked" };
+    if (!progressReady && !snap) return m;
+    return { ...m, status: moduleStatus(MODULE_OF[m.id], snap) };
   });
 
   const unlockedCount = MISSIONS.filter(isUnlocked).length;

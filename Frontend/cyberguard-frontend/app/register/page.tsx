@@ -76,11 +76,11 @@ export default function Register() {
         />
 
         {/* 👇 CHANGED: max-w-4xl stays, but we use w-full and max-h-[90vh] to prevent scrolling 👇 */}
-        <div className="cg-glass ax-card ax-scan ax-in relative z-10 grid w-full max-w-4xl overflow-hidden md:grid-cols-[1.1fr_1fr]" style={{ "--c": accent } as CSSProperties}>
+        <div className="auth-fill cg-glass ax-card ax-scan ax-in relative z-10 grid w-full md:grid-cols-[1.1fr_1fr]" style={{ "--c": accent } as CSSProperties}>
           
           {/* ======== LEFT: the form ======== */}
           {/* 👇 CHANGED: p-8 to p-6, space-y-6 to space-y-4 to save vertical space 👇 */}
-          <div className="space-y-4 p-6 lg:p-8">
+          <div className="flex h-full flex-col justify-center space-y-4 p-6 lg:p-8">
             <div className="flex items-center gap-1.5" aria-hidden="true">
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning" />
@@ -90,12 +90,12 @@ export default function Register() {
 
             <div>
               <p className="cg-kicker mb-1">{"// AGENT REGISTRATION"}</p>
-              <h2 className="cg-title text-2xl font-bold" style={{ color: accent }}>Create Account</h2>
+              <h2 className="cg-title text-4xl font-bold" style={{ color: accent }}>Create Account</h2>
               <p className="mt-1 text-xs text-text-secondary font-hud">Choose your training identity to begin<span className="ax-blink" style={{ color: accent }}>_</span></p>
             </div>
 
             {/* 👇 CHANGED: form space-y-5 to space-y-3 👇 */}
-            <form onSubmit={handleRegister} className="space-y-3" aria-busy={busy}>
+            <form onSubmit={handleRegister} className="space-y-4" aria-busy={busy}>
               <div>
                 <label htmlFor="rg-user" className="cg-label">Username</label>
                 <input id="rg-user" type="text" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} className="cg-input" placeholder="e.g. Layla_H" />

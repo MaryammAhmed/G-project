@@ -20,13 +20,15 @@
   PRIVACY: nothing typed here is sent or saved; the Crack Lab wipes its input when the player finishes.
 */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import TaskBrief from "@/components/game/TaskBrief";
+import ProfileGuess from "@/components/game/ProfileGuess";
+import { TASK_BRIEFS } from "@/lib/mission/briefs";
 import type { ReactNode } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import type { Mood, PWTaskId } from "@/lib/mission/types";
 // @ts-ignore
-import zxcvbn from 'zxcvbn';
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
@@ -99,168 +101,6 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
 }
 
 /* 🆕 V2: Matrix code rain on a canvas. Green normally; red and faster while `danger` is true. */
-function MatrixRain({ danger }: { danger: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const dangerRef = useRef(danger);
-  dangerRef.current = danger; // the interval below always reads the latest value
-
-  useEffect(() => {
-    const cv = ref.current;
-    const ctx = cv?.getContext("2d");
-    if (!cv || !ctx) return;
-    const w = (cv.width = cv.offsetWidth);
-    const h = (cv.height = cv.offsetHeight);
-    const size = 14;
-    const drops = Array.from({ length: Math.max(1, Math.floor(w / size)) }, () => Math.random() * (h / size));
-    const chars = "01ABCDEF$#%<>";
-    const draw = () => {
-      ctx.fillStyle = "rgba(5,10,8,.15)"; // fading trail
-      ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = dangerRef.current ? "#fb4b5b" : "#34D399";
-      ctx.font = `${size}px monospace`;
-      drops.forEach((y, i) => {
-        ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * size, y * size);
-        drops[i] = y * size > h && Math.random() > 0.975 ? 0 : y + (dangerRef.current ? 1.6 : 0.6);
-      });
-    };
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { draw(); return; } // accessibility: one still frame
-    const id = window.setInterval(draw, 60);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return <canvas ref={ref} aria-hidden="true" className="absolute inset-0 h-full w-full opacity-30" />;
-}
-
-/* ======================================================================
-   TASK 1: THE CRACK LAB (live hacker terminal)
-   The player types a made-up password. The terminal, the ticker and the bot bar react on every keystroke.
-   Win: zxcvbn (Dropbox) checks the entropy, and Hashcat GPU speeds calculate the time.
-   ====================================================================== */
-const GUESS_PERSONAL = ["maya", "hassan", "metropolitan", "2008"];
-
-function GuessTask({ onComplete, onMood }: TaskCallbacks) {
-  const [labPw, setLabPw] = useState("");
-  const [done, setDone] = useState(false);
-
-  // Use the official zxcvbn library instead of our custom math
-  const result = useMemo(() => zxcvbn(labPw, GUESS_PERSONAL), [labPw]);
-
-  const typed = labPw.length > 0;
-  
-  // zxcvbn gives us the exact number of guesses an attacker needs
-  const guesses = result.guesses;
-
-  // The standard GPU speed
-  const GUESSES_PER_SECOND = 10_000_000_000; 
-  const secondsToCrack = guesses / GUESSES_PER_SECOND;
-
-  // Calculate the color and status based on real math
-  let termColor = "#77748c";
-  let terminalText = "> waiting for input...\n> target: you@metropolitan.edu";
-  let botPct = 0;
-  
-  if (typed) {
-    if (secondsToCrack < 60) {
-      termColor = "#fb4b5b";
-      terminalText = `> TRYING COMMON PASSWORDS + YOUR PROFILE...\n> MATCH FOUND\n> HACKED IN ${Math.round(secondsToCrack)} SECONDS.`;
-      botPct = 100;
-    } else if (secondsToCrack < 31536000) { // < 1 year
-      termColor = "#fb923c";
-      terminalText = `> INITIATING BRUTE FORCE...\n> 10,000,000,000 guesses/sec...\n> ESTIMATED TIME: ${Math.round(secondsToCrack / 86400)} DAYS. TOO FAST.`;
-      botPct = 75;
-    } else {
-      // Convert to centuries for the winning state
-      const centuries = Math.round(secondsToCrack / (31536000 * 100));
-      termColor = "#4ade80";
-      terminalText = `> INITIATING BRUTE FORCE...\n> 10,000,000,000 guesses/sec...\n> ESTIMATED TIME: ${centuries.toLocaleString()} CENTURIES.\n> TARGET SECURE. GIVING UP.`;
-      botPct = 0;
-    }
-  }
-
-  const strong = secondsToCrack > (31536000 * 100); // > 100 years
-
-  function finish() {
-    setLabPw("");
-    setDone(true);
-    onMood?.("safe");
-    snd("good");
-  }
-
-  if (done) {
-    return (
-      <Summary
-        title="The bot gave up"
-        score={PW_TASK_MAX_XP.guess}
-        max={PW_TASK_MAX_XP.guess}
-        lines={["Length and unrelated words cost an attacker the most time.", "Names, years and 'Word + number' patterns fall to guess lists first."]}
-        onDone={() => onComplete(PW_TASK_MAX_XP.guess, 0)}
-      />
-    );
-  }
-
-  return (
-    <Panel title="THE CRACK LAB">
-      <div className="relative overflow-hidden">
-        <MatrixRain danger={typed && !strong} />
-        <div className="relative z-10 space-y-5 p-6">
-           <div className="text-center space-y-1">
-            <p className="text-sm font-bold text-[#f5f3ff]">Type a made-up password. Watch the bot try to crack it live.</p>
-            <p className="text-xs text-[#f6c453]">Tip: Length is the foundation. Adding numbers and symbols makes it exponentially harder to crack.</p>
-          </div>
-
-          {/* VERIFIED HACKER MATH CODE */}
-          <pre className="overflow-x-auto rounded-lg bg-black/70 p-3 text-[11px] leading-relaxed text-[#34D399]" style={MONO}>
-{`// Using zxcvbn (Dropbox) + Hashcat GPU speeds
-guesses = zxcvbn(password).guesses
-speed = 10_000_000_000 // 10 Billion/sec
-seconds_to_crack = guesses / speed`}
-          </pre>
-
-          <div className="flex h-36 flex-col justify-end rounded-xl border border-white/20 bg-black/80 p-4 text-sm shadow-inner" style={MONO}>
-            <p style={{ color: termColor }} className="whitespace-pre-wrap leading-relaxed">
-              {terminalText}
-              <span className="animate-pulse">_</span>
-            </p>
-          </div>
-
-          <input
-            value={labPw}
-            onChange={(e) => setLabPw(e.target.value)}
-            className="w-full rounded-lg border-2 bg-black/80 p-4 text-center text-xl tracking-widest text-white outline-none"
-            style={{ ...MONO, borderColor: strong ? "#4ade80" : typed ? "#fb4b5b" : "rgba(74,222,128,.5)" }}
-            placeholder="TYPE HERE..."
-            autoComplete="off"
-            spellCheck={false}
-            aria-label="Made-up password to test"
-          />
-
-          <div className="rounded-xl border bg-black/80 p-4 text-center" style={{ borderColor: strong ? "#4ade80" : typed ? "#fb4b5b" : "rgba(255,255,255,.15)" }} aria-live="polite">
-            <p className="text-[10px] tracking-[0.3em] text-[#77748c]" style={MONO}>TIME TO CRACK</p>
-            <p className="mt-1 text-3xl font-bold" style={{ ...MONO, color: strong ? "#4ade80" : typed ? "#fb4b5b" : "#b8b5c9" }}>
-              {typed ? (strong ? `${Math.round(secondsToCrack / (31536000 * 100))} Centuries` : secondsToCrack < 60 ? `${Math.round(secondsToCrack)} Seconds` : `${Math.round(secondsToCrack / 86400)} Days`) : "--"}
-            </p>
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[10px] tracking-[0.2em] text-[#b8b5c9]" style={MONO}>
-              <span>BOT PROGRESS</span><span>{botPct}%</span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${botPct}%`, background: botPct > 60 ? "#fb4b5b" : "#f6c453" }} />
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <Btn onClick={finish} disabled={!strong}>
-              {strong ? "You beat the hacker!" : "Make the terminal give up to win"}
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
 /* ======================================================================
    TASK 2: THE DOMINO MAP (credential-stuffing cascade)
    GameHub is already breached. Tap every app that shares the leaked password.
@@ -270,12 +110,12 @@ seconds_to_crack = guesses / speed`}
    ====================================================================== */
 interface Acct { id: string; short: string; atRisk: boolean; password: string }
 const ACCTS: Acct[] = [
-  { id: "hub", short: "GameHub", atRisk: true, password: "password123" },
-  { id: "snap", short: "SnapGram", atRisk: true, password: "password123" },
-  { id: "bank", short: "Bank", atRisk: true, password: "password123" },
-  { id: "mail", short: "Email", atRisk: true, password: "password123" },
-  { id: "steam", short: "Steam", atRisk: false, password: "x9#Lm2$q" },
-  { id: "stream", short: "StreamFlix", atRisk: false, password: "pizza-lover-99" },
+  { id: "hub", short: "GameHub", atRisk: true, password: "summer-trip" },
+  { id: "snap", short: "SnapGram", atRisk: true, password: "summer-trip" },
+  { id: "bank", short: "School portal", atRisk: true, password: "summer-trip" },
+  { id: "mail", short: "School email", atRisk: true, password: "summer-trip" },
+  { id: "steam", short: "Discord", atRisk: true, password: "summer-trip" },
+  { id: "stream", short: "Streaming", atRisk: false, password: "its-own-phrase" },
 ];
 
 const APP_ICON: Record<string, string> = { hub: "🎮", mail: "✉️", school: "🏫", snap: "📸", shop: "🎟️", stream: "🎬", bank: "🏦", steam: "🎧" };
@@ -337,8 +177,8 @@ function DominoTask({ onComplete, onMood }: TaskCallbacks) {
               isDragging ? "opacity-50 scale-95" : "hover:scale-105"
             }`}
           >
-            <p className="text-[10px] font-bold tracking-widest text-[#fb4b5b] mb-1" style={MONO}>STOLEN FROM GAMEHUB</p>
-            <p className="text-lg font-mono font-bold text-white tracking-widest">password123</p>
+            <p className="text-[10px] font-bold tracking-widest text-[#f6c453] mb-1" style={MONO}>LEAKED FROM GAMEHUB</p>
+            <p className="text-lg font-mono font-bold text-white tracking-widest">summer-trip</p>
             <p className="text-[10px] text-gray-400 mt-2" style={MONO}>DRAG THIS PASSWORD</p>
           </div>
         </div>
@@ -833,11 +673,16 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
    ENTRY POINT: MissionPlayer renders <PWTask task=... />
    ====================================================================== */
 export default function PWTask({ task, onComplete, onMood }: { task: PWTaskId } & TaskCallbacks) {
+  const [ready, setReady] = useState(false);
+  const brief = TASK_BRIEFS[task];
+  if (!ready && brief) {
+    return <TaskBrief brief={brief} onStart={() => setReady(true)} />;
+  }
   const p = { onComplete, onMood };
   return (
     <div className="pw-root w-full">
       <style>{PW_CSS}</style>
-      {task === "guess" && <GuessTask {...p} />}
+      {task === "guess" && <ProfileGuess {...p} />}
       {task === "domino" && <DominoTask {...p} />}
       {task === "policy" && <PolicyTask {...p} />}
       {task === "prompts" && <PromptsTask {...p} />}

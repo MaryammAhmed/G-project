@@ -22,6 +22,8 @@
 */
 
 import { useEffect, useRef, useState } from "react";
+import TaskBrief from "@/components/game/TaskBrief";
+import { TASK_BRIEFS } from "@/lib/mission/briefs";
 import type { ReactNode } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
@@ -1148,6 +1150,11 @@ function BossCall({ onComplete, onMood }: TaskCallbacks) {
    ROUTER: MissionPlayer renders <SETask task="..." />
    ====================================================================== */
 export default function SETask({ task, onComplete, onMood }: { task: SETaskId } & TaskCallbacks) {
+  const [ready, setReady] = useState(false);
+  const brief = TASK_BRIEFS[task];
+  if (!ready && brief) {
+    return <TaskBrief brief={brief} onStart={() => setReady(true)} />;
+  }
   const p = { onComplete, onMood };
   return (
     <div className="se-root w-full">
