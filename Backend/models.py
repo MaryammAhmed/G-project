@@ -29,7 +29,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     otp_code_hash = Column(String, nullable=True)
     otp_expires_at = Column(DateTime, nullable=True)
-    is_admin = Column(Boolean, nullable=False, default=False, server_default=text("false"))  # NEW
+    # Wrong login-code tries. Wiped when a new code is sent, and the code is thrown away at 5.
+    otp_attempts = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    is_admin = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 
@@ -44,16 +46,18 @@ class User(Base):
 # =============================================================
 class UserProgress(Base):
     __tablename__ = "user_progress"
-    __table_args__ = (UniqueConstraint("user_id", "module", name="uq_user_progress_user_module"),)
+    # One row per level, so "finished level 2" cannot collide with "finished level 3".
+    __table_args__ = (UniqueConstraint("user_id", "module", "level", name="uq_user_progress_user_module_level"),)
 
     id = Column(Integer, primary_key=True, index=True)
 
     # ON DELETE CASCADE: when a user is deleted, their progress rows go with them.
-    # This is what makes the later GDPR "delete my data" feature a one-liner.
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     module = Column(Integer, nullable=False)            # 1 Vault, 2 Mirage, 3 Whisper, 4 Oracle
+    level = Column(Integer, nullable=False, default=1, server_default=text("1"))  # 1-5 inside that module
     scenario = Column(String, nullable=False)           # mission id, e.g. "vault", "spot-the-phish"
+    badge = Column(String, nullable=True)               # badge id earned when this level is completed
 
     completed = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     best_score = Column(Integer, nullable=False, default=0, server_default=text("0"))   # highest XP ever

@@ -28,6 +28,7 @@ pyasn1==0.6.4
 pycparser==3.0
 pydantic==2.14.1
 pydantic_core==2.50.1
+piper-tts==1.8.0
 python-dotenv==1.2.4
 python-jose==3.5.0
 python-multipart==0.0.32

@@ -8,16 +8,42 @@ database sessions whenever a user tries to interact with CyberGuard.
 """
 
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Points at your Docker container "cg-db", which maps host port 5435 -> container 5432
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:npg_e7CoXbQitn2s@ep-small-smoke-b94o9ouy-pooler.c-7.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
-)
-# The engine that drives the connection
-engine = create_async_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+
+def to_async_url(url: str) -> str:
+    """Use the asyncpg driver. Neon URLs often arrive as plain postgresql:// with params asyncpg rejects."""
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    parts = urlsplit(url)
+    query = []
+    needs_ssl = False
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        if key in {"channel_binding", "sslmode"}:
+            needs_ssl = needs_ssl or value in {"require", "verify-full", "verify-ca"}
+            continue
+        query.append((key, value))
+    if needs_ssl and not any(key == "ssl" for key, _ in query):
+        query.append(("ssl", "require"))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+# The password stays in Backend/.env, which is gitignored. There is no fallback URL in source.
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required. Set it in Backend/.env.")
+DATABASE_URL = to_async_url(DATABASE_URL)
+
+# The engine that drives the connection. echo is off so queries are not printed during a demo.
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 # The session maker that opens and closes the vault door
 SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

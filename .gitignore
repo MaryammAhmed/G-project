@@ -37,6 +37,8 @@ next-env.d.ts
 
 # Python
 Backend/.venv/
+Backend/voices/*.onnx
+Backend/voices/*.onnx.json
 Backend/__pycache__/
 Backend/migrations/versions/__pycache__/
 *.pyc
