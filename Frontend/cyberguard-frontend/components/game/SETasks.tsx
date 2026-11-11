@@ -505,350 +505,310 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 3: PROFILE RECON  (spot it → see the attack → lock it down)
-   Step 1 SPOT:   think like an attacker and flag usable posts
-   Step 2 ATTACK: watch those details become a phishing message + password guesses
-   Step 3 DEFEND: secure the profile and watch the exposure meter drop live
+   TASK 3: PROFILE RECON  (Red Team / Blue Team)
+   ATTACK: answer 4 recovery questions using only public posts  (max 20 XP)
+   DEFEND: change the settings that matter, leave harmless ones alone,
+           then replay the attack                                (max 28 XP)
    ====================================================================== */
-type Goal = "Impersonate" | "Crack password" | "Track you" | "Phish you";
-interface Intel { icon: string; label: string; value: string }
-interface Post { id: string; time: string; text: string; risk: "risky" | "neutral" | "safe"; use: string; goals: Goal[]; intel?: Intel }
-
-const POSTS: Post[] = [
-  { id: "p1", time: "Mar 14", text: "Turning 17 today!! \u{1F382} Thanks for all the birthday wishes", risk: "risky", goals: ["Impersonate", "Crack password"],
-    intel: { icon: "\u{1F382}", label: "Birth date", value: "Mar 14, born 2008" },
-    use: "Your full birth date: used in identity checks, 'verify your identity' calls and as a password base." },
-  { id: "p2", time: "2d", text: "Biscuit stole my sandwich AGAIN \u{1F436} (golden retriever, 3 yrs)", risk: "risky", goals: ["Crack password"],
-    intel: { icon: "\u{1F436}", label: "Pet name", value: "Biscuit" },
-    use: "A pet's name is a classic security-question answer and a common password base." },
-  { id: "p3", time: "3d", text: "Bus 14 is late AGAIN. Stuck at Oak & 5th at 7:10 like every single day \u{1F629}", risk: "risky", goals: ["Track you"],
-    intel: { icon: "\u{1F4CD}", label: "Daily routine", value: "Oak & 5th, 7:10 am, Bus 14" },
-    use: "Reveals your daily routine and exactly where you stand at a known time." },
-  { id: "p4", time: "4d", text: "Go Falcons! Varsity soccer #7 \u{1F3C6}", risk: "neutral", goals: [],
-    intel: { icon: "\u{26BD}", label: "School team", value: "Falcons, #7" },
-    use: "School and team are public by nature. Harmless alone, but it adds credibility when stacked with other details." },
-  { id: "p5", time: "5d", text: "Library grind \u{1F4DA} (photo: student ID visible on the lanyard)", risk: "risky", goals: ["Impersonate"],
-    intel: { icon: "\u{1FAAA}", label: "Student ID", value: "Name + ID number" },
-    use: "A readable ID number and name can be copied or used to impersonate you." },
-  { id: "p6", time: "6d", text: "New phone! DM me: jordan.r2008@mailbox.test", risk: "risky", goals: ["Phish you", "Crack password"],
-    intel: { icon: "\u{2709}\u{FE0F}", label: "Email", value: "jordan.r2008@mailbox.test" },
-    use: "Gives away your email AND your birth year, ready for password-reset and phishing attempts." },
-  { id: "p7", time: "1w", text: "This song on repeat all week \u{1F3B5}", risk: "safe", goals: [],
-    use: "Nothing useful here." },
-  { id: "p8", time: "1w", text: "Mr. Davies' class is honestly my favourite \u{1F602}", risk: "risky", goals: ["Phish you", "Impersonate"],
-    intel: { icon: "\u{1F9D1}\u{200D}\u{1F3EB}", label: "Trusted adult", value: "Mr. Davies" },
-    use: "Names a real staff member, perfect material for someone who wants to pretend to be him." },
-];
-
-interface Setting { id: string; label: string; bad: string; good: string; critical: boolean; weight: number; why: string }
-const SETTINGS: Setting[] = [
-  { id: "private", label: "Account visibility", bad: "Public: anyone can see", good: "Friends only", critical: true, weight: 30,
-    why: "Strangers (and attackers) can no longer browse your posts, photos or friend list to research you." },
-  { id: "location", label: "Location tags on posts", bad: "On", good: "Off", critical: true, weight: 20,
-    why: "Location tags turn every post into a map pin. Without them, your routine is much harder to piece together." },
-  { id: "idpost", label: "Post with your student ID", bad: "Still up", good: "Deleted", critical: true, weight: 20,
-    why: "Deleting it removes a ready-made fake ID. Tip: crop or blur IDs, tickets and cards before posting anything." },
-  { id: "twostep", label: "2-step verification", bad: "Off", good: "On", critical: true, weight: 15,
-    why: "Even if someone guesses your password, they're stuck without the second code. It's the single best account upgrade." },
-  { id: "birthday", label: "Show birthday and age", bad: "Visible", good: "Hidden", critical: false, weight: 8,
-    why: "Your birth date is a key for identity checks and password guesses, so keep it to yourself." },
-  { id: "dm", label: "Who can message me", bad: "Anyone", good: "Friends only", critical: false, weight: 7,
-    why: "Phishing and scam messages mostly arrive as DMs from people you don't know." },
-];
-
-const GOAL_STYLE: Record<Goal, string> = { Impersonate: "#c084fc", "Crack password": "#f6c453", "Track you": "#fb4b5b", "Phish you": "#38bdf8" };
-
-function Stepper({ step }: { step: number }) {
-  const labels = ["SPOT", "ATTACK", "DEFEND"];
-  return (
-    <ol className="flex items-center gap-2" aria-label="Progress">
-      {labels.map((l, i) => (
-        <li key={l} className="flex flex-1 items-center gap-2" aria-current={i === step ? "step" : undefined}>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px]" style={{ ...MONO, borderColor: i <= step ? "var(--c)" : "rgba(255,255,255,.15)", color: i <= step ? "var(--c)" : "#77748c", background: i === step ? "color-mix(in srgb, var(--c) 15%, transparent)" : "transparent" }}>
-            {i < step ? "\u2713" : i + 1}
-          </span>
-          <span className="text-[10px] tracking-widest" style={{ ...MONO, color: i === step ? "#f5f3ff" : "#77748c" }}>{l}</span>
-          {i < 2 && <span className="h-px flex-1 bg-white/10" />}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function ExposureMeter({ pct }: { pct: number }) {
-  const [label, color] = pct >= 60 ? ["EASY TARGET", "#fb4b5b"] : pct >= 30 ? ["STILL RISKY", "#f6c453"] : pct > 0 ? ["ALMOST THERE", "#a3e635"] : ["LOCKED DOWN", "#4ade80"];
-  return (
-    <div>
-      <div className="mb-1 flex justify-between text-[10px]" style={MONO}>
-        <span className="text-[#b8b5c9]">EXPOSURE</span>
-        <span style={{ color }}>{label} {pct}%</span>
-      </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Profile exposure">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
-
-function ProfileRecon({ onComplete }: TaskCallbacks) {
-  const [phase, setPhase] = useState<"scan" | "reveal" | "attack" | "lock" | "done">("scan");
-  const [flagged, setFlagged] = useState<string[]>([]);
-  const [secure, setSecure] = useState<string[]>([]);
-  const [lastTouched, setLastTouched] = useState<string | null>(null);
-
-  const risky = POSTS.filter((p) => p.risk === "risky");
-  const caught = flagged.filter((id) => POSTS.find((p) => p.id === id)?.risk === "risky").length;
-  const falseAlarms = flagged.filter((id) => POSTS.find((p) => p.id === id)?.risk === "safe").length;
-  const scanScore = Math.max(0, caught * 4 - falseAlarms * 2); // up to 24
-  const lockScore = secure.length * 4;                          // up to 24
-  const exposedCritical = SETTINGS.filter((s) => s.critical && !secure.includes(s.id)).length;
-  const mistakes = Math.min(2, exposedCritical);
-  const total = Math.min(48, scanScore + lockScore);
-  const exposure = SETTINGS.filter((s) => !secure.includes(s.id)).reduce((n, s) => n + s.weight, 0);
-  const has = (id: string) => secure.includes(id);
-  const step = phase === "scan" || phase === "reveal" ? 0 : phase === "attack" ? 1 : 2;
-
-  const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
-
-  if (phase === "done") {
-    return (
-      <Summary
-        title={mistakes === 0 ? "Profile locked down" : "Some doors are still open"}
-        score={total} max={48}
-        lines={[
-          `You spotted ${caught} of ${risky.length} posts an attacker could use.`,
-          mistakes === 0 ? "Every critical setting is secure." : `${exposedCritical} critical setting(s) are still exposed, and each one costs a shield.`,
-          "Small details stack: birthday + pet + routine + a teacher's name sounds exactly like a friend.",
-          "Never build a password from your pet, birthday or team. A random passphrase plus 2-step verification beats any guess.",
-        ]}
-        onDone={() => onComplete(total, mistakes)}
-      />
-    );
-  }
-
-  return (
-    <Panel
-      title={phase === "lock" ? "STEP 3: LOCK IT DOWN" : phase === "attack" ? "STEP 2: THE ATTACK" : "STEP 1: THE ATTACKER'S VIEW"}
-      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>@jordan.plays | {has("private") ? "FRIENDS ONLY" : "PUBLIC"}</span>}
-    >
-      <style>{`
-        @keyframes pr-in { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
-        .pr-in { animation: pr-in .35s ease-out both }
-        @keyframes pr-scan { 0% { top: 0 } 100% { top: 100% } }
-        @media (prefers-reduced-motion: reduce) { .pr-in { animation: none } }
-      `}</style>
-
-      <div className="space-y-4 p-4">
-        <Stepper step={step} />
-
-        {/* ===================== STEP 1: SPOT ===================== */}
-        {(phase === "scan" || phase === "reveal") && (
-          <>
-            {phase === "scan" ? (
-              <div className="space-y-2">
-                <p className="text-sm text-[#b8b5c9]">This is Jordan's public profile. Tap every post an attacker could use. Ask yourself: could it help me&hellip;</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(Object.keys(GOAL_STYLE) as Goal[]).map((g) => (
-                    <span key={g} className="rounded-full border px-2 py-0.5 text-[10px]" style={{ ...MONO, color: GOAL_STYLE[g], borderColor: GOAL_STYLE[g] + "66" }}>
-                      {g === "Impersonate" ? "pretend to be Jordan" : g === "Crack password" ? "guess a password / answer" : g === "Track you" ? "find where Jordan is" : "trick Jordan with a fake message"}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-[#b8b5c9]">Here's what the attacker sees in each post:</p>
-            )}
-
-            <ul className="space-y-2">
-              {POSTS.map((p) => {
-                const on = flagged.includes(p.id);
-                const reveal = phase === "reveal";
-                const color = p.risk === "risky" ? "#fb4b5b" : p.risk === "neutral" ? "#f6c453" : "#4ade80";
-                const missed = reveal && p.risk === "risky" && !on;
-                return (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      disabled={reveal}
-                      aria-pressed={on}
-                      onClick={() => { setFlagged((f) => toggle(f, p.id)); snd("tick"); }}
-                      className="relative w-full overflow-hidden rounded-xl border p-3 text-start transition active:scale-[0.99] disabled:cursor-default"
-                      style={{
-                        borderColor: reveal ? color : on ? "var(--c)" : "rgba(255,255,255,.12)",
-                        borderStyle: missed ? "dashed" : "solid",
-                        background: on && !reveal ? "color-mix(in srgb, var(--c) 12%, transparent)" : "rgba(7,7,17,.6)",
-                      }}
-                    >
-                      {on && !reveal && <span className="pointer-events-none absolute inset-x-0 h-px bg-[var(--c)] opacity-60" style={{ animation: "pr-scan 1.6s linear infinite" }} />}
-                      <p className="flex justify-between text-[10px] text-[#77748c]" style={MONO}>
-                        <span>{p.time}</span>
-                        <span style={{ color: on ? "var(--c)" : undefined }}>
-                          {reveal ? (on && p.risk === "risky" ? "\u2713 CAUGHT" : missed ? "MISSED" : on && p.risk === "safe" ? "FALSE ALARM" : "") : on ? "\u{1F50D} FLAGGED" : "tap to flag"}
-                        </span>
-                      </p>
-                      <p className="text-sm text-[#f5f3ff]">{p.text}</p>
-                      {reveal && (
-                        <div className="pr-in mt-2 space-y-1.5">
-                          <p className="text-xs" style={{ color }}>
-                            {p.risk === "risky" ? "USEFUL TO AN ATTACKER: " : p.risk === "neutral" ? "LOW RISK: " : "SAFE: "}
-                            <span className="text-[#b8b5c9]">{p.use}</span>
-                          </p>
-                          {p.goals.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {p.goals.map((g) => <span key={g} className="rounded-full px-2 py-0.5 text-[10px]" style={{ ...MONO, color: GOAL_STYLE[g], background: GOAL_STYLE[g] + "1f" }}>{g.toUpperCase()}</span>)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {phase === "scan" ? (
-              <div className="space-y-2">
-                <p className="text-center text-[11px] text-[#77748c]" style={MONO}>{flagged.length} POST{flagged.length === 1 ? "" : "S"} FLAGGED</p>
-                <Btn onClick={() => { setPhase("reveal"); snd(caught >= 4 ? "good" : "bad"); }} disabled={flagged.length === 0}>Run the attacker analysis</Btn>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-[#f5f3ff]">You caught {caught} of {risky.length} risky posts{falseAlarms > 0 ? `, with ${falseAlarms} false alarm(s)` : ""}. +{scanScore} XP</p>
-
-                {/* the attacker's dossier */}
-                <div className="rounded-xl border border-white/10 bg-[#070711]/60 p-3">
-                  <p className="mb-2 text-[10px] tracking-widest text-[#fb4b5b]" style={MONO}>ATTACKER'S DOSSIER ON JORDAN</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {POSTS.filter((p) => p.intel).map((p, i) => {
-                      const found = flagged.includes(p.id);
-                      const isRisky = p.risk === "risky";
-                      return (
-                        <div key={p.id} className="pr-in rounded-lg border p-2" style={{ animationDelay: `${i * 90}ms`, borderColor: isRisky ? (found ? "#fb4b5b" : "#f6c453") : "rgba(255,255,255,.1)", borderStyle: isRisky && !found ? "dashed" : "solid", opacity: isRisky ? 1 : 0.6 }}>
-                          <p className="text-[10px] text-[#77748c]" style={MONO}>{p.intel!.icon} {p.intel!.label.toUpperCase()}</p>
-                          <p className="break-words text-xs text-[#f5f3ff]">{p.intel!.value}</p>
-                          {isRisky && !found && <p className="mt-0.5 text-[10px] text-[#f6c453]">you missed this, it's still public</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                <Btn onClick={() => { setPhase("attack"); snd("unlock"); }}>See how an attacker uses this</Btn>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ===================== STEP 2: ATTACK ===================== */}
-        {phase === "attack" && (
-          <div className="space-y-4">
-            <p className="text-sm text-[#b8b5c9]">No hacking skills needed. The attacker just copies details from the profile. Here's what they build in two minutes:</p>
-
-            <div className="pr-in rounded-xl border border-[#38bdf8]/40 bg-[#070711]/60 p-3">
-              <p className="mb-2 text-[10px] tracking-widest text-[#38bdf8]" style={MONO}>FAKE MESSAGE TO JORDAN</p>
-              <p className="text-sm leading-relaxed text-[#f5f3ff]">
-                Hi Jordan, it's <mark className="rounded bg-[#c084fc]/25 px-1 text-[#f5f3ff]">Mr. Davies</mark> from school. Before Friday's trip we have to re-verify every student on <mark className="rounded bg-[#fb4b5b]/25 px-1 text-[#f5f3ff]">Bus 14</mark>. Please reply with your <mark className="rounded bg-[#f6c453]/25 px-1 text-[#f5f3ff]">student ID number</mark> and <mark className="rounded bg-[#f6c453]/25 px-1 text-[#f5f3ff]">birth date (Mar 14)</mark> by tonight.
-              </p>
-              <p className="mt-2 text-xs text-[#b8b5c9]">It feels real because every detail is true. That's the trick: <span className="text-[#f5f3ff]">real details make fake messages believable.</span></p>
-            </div>
-
-            <div className="pr-in rounded-xl border border-[#f6c453]/40 bg-[#070711]/60 p-3" style={{ animationDelay: "150ms" }}>
-              <p className="mb-2 text-[10px] tracking-widest text-[#f6c453]" style={MONO}>FIRST PASSWORDS AN ATTACKER TRIES</p>
-              <ul className="space-y-1.5">
-                {[["Biscuit2008", "pet + birth year"], ["biscuit0314", "pet + birthday"], ["Biscuit7!", "pet + jersey number"]].map(([pw, src]) => (
-                  <li key={pw} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5">
-                    <code className="text-sm text-[#f5f3ff]" style={MONO}>{pw}</code>
-                    <span className="text-[10px] text-[#77748c]" style={MONO}>{src}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-[#b8b5c9]">If your password is built from things people can see about you, it's already on the attacker's list.</p>
-            </div>
-
-            <Btn onClick={() => { setPhase("lock"); snd("unlock"); }}>Switch sides: lock the profile</Btn>
-          </div>
-        )}
-
-        {/* ===================== STEP 3: DEFEND ===================== */}
-        {phase === "lock" && (
-          <>
-            <p className="text-sm text-[#b8b5c9]">Flip each setting to its safe state and watch what an attacker can still see. Critical ones cost a shield each if left exposed.</p>
-
-            {/* live profile preview */}
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-[#070711]/60 p-3">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--c)] text-sm text-[var(--c)]" style={MONO}>J</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[#f5f3ff]">Jordan R.</p>
-                  <p className="text-[11px] text-[#77748c]" style={MONO}>@jordan.plays</p>
-                </div>
-                <span className="rounded-full border px-2 py-0.5 text-[10px]" style={{ ...MONO, color: has("private") ? "#4ade80" : "#fb4b5b", borderColor: has("private") ? "#4ade80" : "#fb4b5b" }}>
-                  {has("private") ? "\u{1F512} FRIENDS" : "\u{1F310} PUBLIC"}
-                </span>
-              </div>
-              <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {[
-                  { id: "birthday", on: has("birthday"), good: "\u{1F382} Birthday hidden", bad: "\u{1F382} Mar 14 \u00B7 turns 17" },
-                  { id: "location", on: has("location"), good: "\u{1F4CD} No location tags", bad: "\u{1F4CD} Tagged: Oak & 5th" },
-                  { id: "idpost", on: has("idpost"), good: "\u{1FAAA} ID photo deleted", bad: "\u{1FAAA} ID visible in photo" },
-                  { id: "dm", on: has("dm"), good: "\u{1F4AC} DMs: friends only", bad: "\u{1F4AC} DMs: anyone" },
-                  { id: "twostep", on: has("twostep"), good: "\u{1F510} Password + code", bad: "\u{1F510} Password only" },
-                ].map((r) => (
-                  <li key={r.id} className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-all duration-300" style={{ background: r.on ? "rgba(74,222,128,.1)" : "rgba(251,75,91,.12)", color: r.on ? "#4ade80" : "#fb4b5b" }}>
-                    <span className="truncate">{r.on ? r.good : r.bad}</span>
-                    <span aria-hidden="true">{r.on ? "\u2713" : "!"}</span>
-                  </li>
-                ))}
-              </ul>
-              <ExposureMeter pct={exposure} />
-            </div>
-
-            <ul className="space-y-2">
-              {SETTINGS.map((s) => {
-                const on = has(s.id);
-                return (
-                  <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#070711]/60 p-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[#f5f3ff]">{s.label} {s.critical && <span className="ms-1 text-[10px] text-[#fb4b5b]" style={MONO}>CRITICAL</span>}</p>
-                      <p className="text-xs" style={{ color: on ? "#4ade80" : "#fb4b5b" }}>{on ? s.good : s.bad}</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={on}
-                      aria-label={s.label}
-                      onClick={() => { setSecure((l) => toggle(l, s.id)); setLastTouched(s.id); snd("tick"); }}
-                      className="relative h-7 w-12 shrink-0 rounded-full border transition"
-                      style={{ borderColor: on ? "#4ade80" : "#fb4b5b", background: on ? "rgba(74,222,128,.2)" : "rgba(251,75,91,.15)" }}
-                    >
-                      <span className="absolute top-0.5 h-5 w-5 rounded-full transition-all" style={{ insetInlineStart: on ? "1.5rem" : "0.125rem", background: on ? "#4ade80" : "#fb4b5b" }} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {/* "why it matters" coach box */}
-            <div className="min-h-[3.25rem] rounded-xl border border-[var(--c)]/30 bg-[var(--c)]/5 p-3" aria-live="polite">
-              {lastTouched ? (
-                <p key={lastTouched + has(lastTouched)} className="pr-in text-xs text-[#b8b5c9]">
-                  <span className="text-[var(--c)]" style={MONO}>WHY IT MATTERS: </span>
-                  {has(lastTouched) ? SETTINGS.find((s) => s.id === lastTouched)!.why : "Switched back? The attacker can see this again."}
-                </p>
-              ) : (
-                <p className="text-xs text-[#77748c]">Flip a switch to see why it matters.</p>
-              )}
-            </div>
-
-            {exposedCritical > 0 && (
-              <p className="text-center text-[11px] text-[#fb4b5b]" style={MONO}>{exposedCritical} CRITICAL SETTING{exposedCritical === 1 ? "" : "S"} STILL EXPOSED</p>
-            )}
-            <Btn onClick={() => { setPhase("done"); snd(mistakes === 0 ? "good" : "bad"); }}>Save settings</Btn>
-          </>
-        )}
-      </div>
-    </Panel>
-  );
-}
+   interface Post { id: string; time: string; text: string; leak: string }
+   interface Question { id: string; ask: string; answer: string; from: string; hint: string }
+   interface Fix {
+     id: string; label: string; what: string; from: string; to: string;
+     kind: "close" | "open";   // close = should change, open = fine to leave alone
+     pts: number; blocks: string[]; std: string; why: string;
+   }
+   
+   const POSTS: Post[] = [
+     { id: "p1", time: "Mar 14", text: "Turning 17 today!! \u{1F382} Thanks for all the birthday wishes", leak: "her birth date" },
+     { id: "p2", time: "2d", text: "Biscuit stole my sandwich AGAIN \u{1F436} (golden retriever, 3 yrs)", leak: "her pet's name" },
+     { id: "p3", time: "3d", text: "Bus 14 is late AGAIN. Stuck at Oak & 5th at 7:10 like every single day \u{1F629}", leak: "her daily routine" },
+     { id: "p4", time: "4d", text: "Go Falcons! Varsity soccer #7 \u{1F3C6}", leak: "her school team" },
+     { id: "p5", time: "5d", text: "Library grind \u{1F4DA} (photo: student ID on my lanyard, number readable: 48213)", leak: "her student ID number" },
+     { id: "p6", time: "6d", text: "New phone! DM me: jordan.r2008@mailbox.test", leak: "her email address" },
+     { id: "p7", time: "1w", text: "This song on repeat all week \u{1F3B5}", leak: "nothing useful" },
+     { id: "p8", time: "1w", text: "Mr. Davies' class is honestly my favourite \u{1F602}", leak: "her favourite teacher" },
+   ];
+   
+   const QUESTIONS: Question[] = [
+     { id: "pet", ask: "Name of your first pet?", answer: "Biscuit", from: "p2", hint: "Look for a post with an animal." },
+     { id: "dob", ask: "Date of birth?", answer: "14 March 2008", from: "p1", hint: "Look for a celebration." },
+     { id: "id", ask: "Student ID number?", answer: "48213", from: "p5", hint: "Look for a photo with something worn around the neck." },
+     { id: "teacher", ask: "Favourite teacher?", answer: "Mr. Davies", from: "p8", hint: "Look for a post about a class." },
+   ];
+   
+   const NEEDED = 2; // the recovery form accepts an attacker who knows 2 or more answers
+   
+   const FIXES: Fix[] = [
+     { id: "visibility", label: "Who can see Jordan's posts", what: "Controls who can read her profile from now on",
+       from: "Public", to: "Friends only", kind: "close", pts: 3, blocks: [], std: "Least privilege",
+       why: "Fewer strangers can research her from now on. It doesn't erase what the attacker already saved, so it can't replace the fixes below." },
+     { id: "avatar", label: "Profile picture", what: "A cartoon avatar, no face, no text",
+       from: "Public", to: "Friends only", kind: "open", pts: 0, blocks: [], std: "Risk-based approach (NIST CSF)",
+       why: "A cartoon answers no security question and shows no ID. Locking it gains nothing and makes her harder for friends to find." },
+     { id: "answers", label: "Security answers", what: "The answers Jordan chose for the recovery form (pet, teacher)",
+       from: "Real facts", to: "Random phrases", kind: "close", pts: 6, blocks: ["pet", "teacher"], std: "OWASP Forgot Password Cheat Sheet",
+       why: "Sites don't check if an answer is true. A random phrase saved in a password manager can't be found in any post. This only works for answers she chose herself." },
+     { id: "birthday", label: "Birthday post", what: "Her birth date is a fact, so she can't invent a new one",
+       from: "Showing", to: "Deleted and hidden", kind: "close", pts: 4, blocks: ["dob"], std: "Data minimisation (NIST Privacy Framework)",
+       why: "For facts you can't change, the only defence is not publishing them. A birth date is one of the most common recovery answers." },
+     { id: "music", label: "Music and playlist posts", what: "\"This song on repeat all week\"",
+       from: "Public", to: "Friends only", kind: "open", pts: 0, blocks: [], std: "Risk-based approach (NIST CSF)",
+       why: "A song reveals no answer, no routine and no ID. Sharing harmless things is fine. Spend your effort on what matters." },
+     { id: "idphoto", label: "Photo with student ID", what: "The lanyard photo where the ID number is readable",
+       from: "Still posted", to: "Deleted", kind: "close", pts: 4, blocks: ["id"], std: "Data minimisation (NIST Privacy Framework)",
+       why: "A readable ID is a ready-made answer and a copy-able document. Blur or crop IDs, tickets and cards before posting." },
+     { id: "dms", label: "Who can message Jordan", what: "Fake 'trip list' style messages arrive as DMs",
+       from: "Anyone", to: "Friends only", kind: "close", pts: 3, blocks: [], std: "Least privilege",
+       why: "Phishing messages mostly come from strangers. Fewer strangers who can message you means fewer chances to be tricked." },
+     { id: "name", label: "Display name", what: "Shows \"Jordan\" (first name only)",
+       from: "First name shown", to: "Hidden", kind: "open", pts: 0, blocks: [], std: "Risk-based approach (NIST CSF)",
+       why: "A first name is everywhere and answers nothing. Hiding it makes her hard to find with no safety gain." },
+     { id: "twostep", label: "2-step verification", what: "A one-time code from Jordan's phone at login",
+       from: "Off", to: "On", kind: "close", pts: 8, blocks: [], std: "NIST SP 800-63B / OWASP: multi-factor",
+       why: "Even if an attacker knows every answer, they still need the code on Jordan's phone. The strongest single upgrade." },
+   ];
+   
+   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+   
+   function ProfileRecon({ onComplete }: TaskCallbacks) {
+     const [phase, setPhase] = useState<"attack" | "breach" | "defend" | "done">("attack");
+     const [step, setStep] = useState(0);
+     const [misses, setMisses] = useState(0);
+     const [gains, setGains] = useState<number[]>([]);
+     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+     const [changed, setChanged] = useState<string[]>([]);
+     const [last, setLast] = useState<string | null>(null);
+     const [replay, setReplay] = useState<number | null>(null); // null = not run; 0..4 rows shown; 5 = verdict
+   
+     const on = (id: string) => changed.includes(id);
+     const blocked = new Set(FIXES.filter((f) => on(f.id)).flatMap((f) => f.blocks));
+     const known = QUESTIONS.filter((q) => !blocked.has(q.id));
+     const twoStep = on("twostep");
+     const takeover = !twoStep && known.length >= NEEDED;
+     const verdictAt = QUESTIONS.length + 1;
+     const overlocked = FIXES.filter((f) => f.kind === "open" && on(f.id)).length;
+     const defence = FIXES.filter((f) => f.kind === "close" && on(f.id)).reduce((n, f) => n + f.pts, 0);
+     const total = Math.min(48, Math.max(0, gains.reduce((a, b) => a + b, 0) + defence - overlocked * 2));
+     // 2 shields if the attacker still wins, 1 if only 2-step saved her, 0 if the answers are protected too
+     const mistakes = takeover ? 2 : known.length >= NEEDED ? 1 : 0;
+   
+     useEffect(() => {
+       if (replay === null || replay >= verdictAt) return;
+       const t = window.setTimeout(() => setReplay((r) => (r === null ? r : r + 1)), 600);
+       return () => window.clearTimeout(t);
+     }, [replay, verdictAt]);
+     useEffect(() => {
+       if (replay === verdictAt) snd(takeover ? "bad" : "good");
+     }, [replay, verdictAt, takeover]);
+   
+     function tapPost(p: Post) {
+       if (phase !== "attack") return;
+       const q = QUESTIONS[step];
+       if (p.id === q.from) {
+         const gain = Math.max(2, 5 - misses);
+         setGains((g) => [...g, gain]);
+         setMsg({ ok: true, text: `Answer found: "${q.answer}". +${gain} XP` });
+         setMisses(0);
+         snd("good");
+         if (step + 1 === QUESTIONS.length) { setPhase("breach"); snd("unlock"); } else setStep(step + 1);
+       } else {
+         setMisses((m) => m + 1);
+         setMsg({ ok: false, text: p.leak === "nothing useful" ? "That post gives away nothing useful. Try another." : `That post leaks ${p.leak}, but this question asks for something else.` });
+         snd("bad");
+       }
+     }
+   
+     function change(f: Fix) {
+       setChanged((l) => toggle(l, f.id));
+       setLast(f.id);
+       setReplay(null);
+       snd("tick");
+     }
+   
+     if (phase === "done") {
+       return (
+         <Summary
+           title={takeover ? "Jordan is still exposed" : mistakes === 1 ? "Saved by 2-step, but the answers leaked" : "Profile locked down"}
+           score={total} max={48}
+           lines={[
+             "You took over an account using nothing but public posts. That is how real takeovers start.",
+             takeover
+               ? "Too many answers were still findable. Fix the answers, not just the settings."
+               : "Fewer findable answers plus 2-step verification stops the takeover. Layers beat any single fix.",
+             overlocked > 0
+               ? `You locked ${overlocked} harmless setting(s). Security is about protecting what matters, not hiding everything.`
+               : "You left the harmless settings open. Good risk judgement: protect what helps an attacker, keep the rest usable.",
+             "Hiding things later is a race. Don't post IDs, birthdays or real security answers in the first place.",
+           ]}
+           onDone={() => onComplete(total, mistakes)}
+         />
+       );
+     }
+   
+     const q = QUESTIONS[step];
+     const lastFix = last ? FIXES.find((f) => f.id === last) : null;
+     const title = phase === "defend" ? "BLUE TEAM: DEFEND JORDAN" : phase === "breach" ? "ACCESS GRANTED" : "RED TEAM: TAKE OVER THE ACCOUNT";
+   
+     return (
+       <Panel title={title} right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>@jordan.plays (training profile)</span>}>
+         <style>{`@keyframes pr-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } } .pr-in { animation: pr-in .35s ease-out both } @media (prefers-reduced-motion: reduce) { .pr-in { animation: none } }`}</style>
+         <div className="space-y-4 p-4">
+   
+           {/* ================= ATTACK ================= */}
+           {phase === "attack" && (
+             <>
+               <div className="rounded-xl border border-[#FBBF24]/40 bg-[#FBBF24]/10 p-3">
+                 <p className="text-xs font-bold tracking-[0.15em] text-[#FBBF24]" style={MONO}>{"\u{1F3AF}"} YOUR MISSION</p>
+                 <p className="mt-1 text-sm text-[#f5f3ff]">
+                   Jordan forgot her password. The recovery form asks 4 security questions. Find each answer in her public posts and <b>tap the post that contains it</b>.
+                 </p>
+               </div>
+   
+               <ol className="space-y-1.5" aria-label="Recovery questions">
+                 {QUESTIONS.map((x, i) => {
+                   const done = i < step;
+                   const active = i === step;
+                   return (
+                     <li key={x.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: active ? "var(--c)" : done ? "#4ade8066" : "rgba(255,255,255,.1)", background: active ? "color-mix(in srgb, var(--c) 10%, transparent)" : "rgba(7,7,17,.5)" }}>
+                       <span className="text-[#f5f3ff]"><span className="me-2 text-[10px] text-[#77748c]" style={MONO}>Q{i + 1}</span>{x.ask}</span>
+                       <span className="text-xs" style={{ ...MONO, color: done ? "#4ade80" : active ? "var(--c)" : "#77748c" }}>{done ? `\u2713 ${x.answer}` : active ? "find it \u2193" : "\u{1F512}"}</span>
+                     </li>
+                   );
+                 })}
+               </ol>
+   
+               <div aria-live="polite" className="min-h-[2.5rem]">
+                 {msg && <p key={msg.text + misses} className="pr-in text-xs" style={{ color: msg.ok ? "#4ade80" : "#fb923c" }}>{msg.text}</p>}
+                 {misses >= 2 && <p className="pr-in mt-1 text-xs text-[#FBBF24]">{"\u{1F4A1}"} Hint: {q.hint}</p>}
+               </div>
+   
+               <ul className="space-y-2">
+                 {POSTS.map((p) => {
+                   const usedFor = QUESTIONS.slice(0, step).find((x) => x.from === p.id);
+                   return (
+                     <li key={p.id}>
+                       <button type="button" onClick={() => tapPost(p)} className="w-full rounded-xl border bg-[#070711]/60 p-3 text-start transition active:scale-[0.99]" style={{ borderColor: usedFor ? "#4ade8066" : "rgba(255,255,255,.12)" }}>
+                         <p className="flex justify-between text-[10px] text-[#77748c]" style={MONO}>
+                           <span>{p.time}</span>
+                           {usedFor && <span className="text-[#4ade80]">{"\u2713"} used for: {usedFor.ask}</span>}
+                         </p>
+                         <p className="text-sm text-[#f5f3ff]">{p.text}</p>
+                       </button>
+                     </li>
+                   );
+                 })}
+               </ul>
+             </>
+           )}
+   
+           {/* ================= BREACH ================= */}
+           {phase === "breach" && (
+             <div className="pr-in space-y-3 rounded-xl border-2 border-[#fb4b5b]/60 bg-[#fb4b5b]/10 p-4">
+               <p className="text-lg font-bold text-[#fb4b5b]" style={MONO}>{"\u{1F513}"} ACCOUNT RECOVERED: 4 / 4 ANSWERS CORRECT</p>
+               <ul className="space-y-1 text-sm text-[#f5f3ff]">
+                 {QUESTIONS.map((x) => <li key={x.id}><span className="text-[#4ade80]">{"\u2713"}</span> {x.ask} <b>{x.answer}</b></li>)}
+               </ul>
+               <p className="text-sm text-[#b8b5c9]">No password cracked. No hacking tools. Everything came from public posts, in under two minutes. Real attackers use the same facts to write fake messages that sound true.</p>
+               <Btn onClick={() => { setPhase("defend"); snd("unlock"); }}>Switch sides: defend Jordan</Btn>
+             </div>
+           )}
+   
+           {/* ================= DEFEND ================= */}
+           {phase === "defend" && (
+             <>
+               <div className="space-y-1 rounded-xl border border-[#4ade80]/40 bg-[#4ade80]/10 p-3">
+                 <p className="text-xs font-bold tracking-[0.15em] text-[#4ade80]" style={MONO}>{"\u{1F6E1}\uFE0F"} YOUR MISSION</p>
+                 <p className="text-sm text-[#f5f3ff]">
+                   Each row shows what a setting is <b>now</b>. Tap its button to change it. The attacker needs <b>{NEEDED} correct answers</b> to pass the form, so stop that.
+                 </p>
+                 <p className="text-xs text-[#b8b5c9]">
+                   Rule of thumb: <b className="text-[#f5f3ff]">change what helps an attacker, leave harmless things open.</b> Locking everything costs XP, because an unusable account isn&apos;t a secure one.
+                 </p>
+               </div>
+   
+               <p className="text-center text-xs" style={{ ...MONO, color: known.length >= NEEDED ? "#fb4b5b" : "#4ade80" }} aria-live="polite">
+                 ATTACKER KNOWS {known.length} / {QUESTIONS.length} ANSWERS{twoStep ? " \u00B7 AND NEEDS A PHONE CODE" : ""}
+               </p>
+   
+               <ul className="space-y-2">
+                 {FIXES.map((f) => {
+                   const done = on(f.id);
+                   return (
+                     <li key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#070711]/60 p-3">
+                       <div className="min-w-0">
+                         <p className="text-sm font-semibold text-[#f5f3ff]">{f.label}</p>
+                         <p className="text-[11px] text-[#77748c]">{f.what}</p>
+                         <p className="mt-1 text-xs text-[#f5f3ff]" style={MONO}>
+                           NOW: <span className="rounded border border-white/25 px-1.5 py-0.5">{done ? f.to : f.from}</span>
+                         </p>
+                       </div>
+                       <button
+                         type="button"
+                         onClick={() => change(f)}
+                         className="shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold text-[#f5f3ff] transition hover:bg-white/5 active:scale-95"
+                         style={{ borderColor: "var(--c)", maxWidth: "9.5rem" }}
+                       >
+                         {done ? "\u21A9 Undo" : `Change to: ${f.to}`}
+                       </button>
+                     </li>
+                   );
+                 })}
+               </ul>
+   
+               <div className="min-h-[4rem] rounded-xl border border-[var(--c)]/30 bg-[var(--c)]/5 p-3" aria-live="polite">
+                 {lastFix ? (
+                   <div key={lastFix.id + on(lastFix.id)} className="pr-in space-y-1">
+                     {on(lastFix.id) ? (
+                       <>
+                         <p className="text-[11px] font-bold tracking-widest" style={{ ...MONO, color: lastFix.kind === "close" ? "#4ade80" : "#FBBF24" }}>
+                           {lastFix.kind === "close" ? `\u2713 GOOD CHANGE +${lastFix.pts} XP` : "NOT NEEDED \u22122 XP"}
+                           <span className="ms-2 font-normal text-[#77748c]">{lastFix.std}</span>
+                         </p>
+                         <p className="text-xs text-[#b8b5c9]">{lastFix.why}</p>
+                       </>
+                     ) : (
+                       <p className="text-xs text-[#b8b5c9]">Undone. This setting is back to <b className="text-[#f5f3ff]">{lastFix.from}</b>.</p>
+                     )}
+                   </div>
+                 ) : (
+                   <p className="text-xs text-[#77748c]">Change a setting to see why it matters (or doesn&apos;t).</p>
+                 )}
+               </div>
+   
+               {replay === null ? (
+                 <Btn onClick={() => { setReplay(0); snd("tick"); }}>{"\u25B6"} Replay the attack</Btn>
+               ) : (
+                 <div className="space-y-2 rounded-xl border border-white/10 bg-[#070711]/70 p-3" aria-live="polite">
+                   <p className="text-[10px] tracking-widest text-[#fb4b5b]" style={MONO}>REPLAYING THE ATTACK</p>
+                   {QUESTIONS.slice(0, Math.min(replay, QUESTIONS.length)).map((x) => {
+                     const hit = !blocked.has(x.id);
+                     return (
+                       <p key={x.id} className="pr-in text-sm" style={{ color: hit ? "#fb4b5b" : "#4ade80" }}>
+                         {hit ? "\u2713 Attacker answered" : "\u2717 Blocked:"} {x.ask} {hit ? <b>{x.answer}</b> : "no answer to find"}
+                       </p>
+                     );
+                   })}
+                   {replay >= verdictAt && (
+                     <div className="pr-in space-y-2 pt-2">
+                       <p className="text-sm font-bold" style={{ color: takeover ? "#fb4b5b" : "#4ade80" }}>
+                         {takeover
+                           ? `\u{1F513} ACCOUNT TAKEN OVER. The attacker still knows ${known.length} answers.`
+                           : known.length >= NEEDED
+                             ? "\u{1F6E1}\uFE0F STOPPED BY 2-STEP. The answers worked, but the login needs a code from Jordan's phone. Next time, protect the answers too."
+                             : "\u{1F6E1}\uFE0F ATTACK FAILED. Not enough answers to pass the form."}
+                       </p>
+                       {takeover && <p className="text-xs text-[#b8b5c9]">Tip: change more settings above and replay again.</p>}
+                       <Btn onClick={() => { setPhase("done"); snd(takeover ? "bad" : "good"); }}>{takeover ? "Finish anyway" : "Finish"}</Btn>
+                     </div>
+                   )}
+                 </div>
+               )}
+             </>
+           )}
+         </div>
+       </Panel>
+     );
+   }
 
 /* ======================================================================
    TASK 4: THE GAUNTLET  (genuine vs manipulation, rapid sort)

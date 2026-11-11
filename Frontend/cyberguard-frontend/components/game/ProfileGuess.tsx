@@ -50,7 +50,7 @@ export default function ProfileGuess({
       <div className="rounded-xl border border-white/10 bg-[#1a1d2e] p-4">
         <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>PUBLIC PROFILE · FICTIONAL</p>
         <p className="mt-2 text-lg font-bold">Maya Hassan</p>
-        <p className="text-sm text-[#d9d6e8]">North High · class of 2026 · dog mom to Biscuit</p>
+        <p className="text-sm text-[#d9d6e8]">North High · Class Of 2026 · My Dog Biscuit</p>
         <p className="mt-2 text-sm text-[#d9d6e8]">“Birthday month is June. The 14th is my favourite day.”</p>
       </div>
       <p className="text-sm text-[#d9d6e8]">For each password, would a stranger guess it from that profile?</p>

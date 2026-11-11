@@ -100,250 +100,382 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
   );
 }
 
-/* 🆕 V2: Matrix code rain on a canvas. Green normally; red and faster while `danger` is true. */
 /* ======================================================================
-   TASK 2: THE DOMINO MAP (credential-stuffing cascade)
-   GameHub is already breached. Tap every app that shares the leaked password.
-   🆕 V2: the chain is GameHub -> SnapGram -> School, and GameHub -> Email -> TixDrop.
-   Each correct tap draws a laser from the app that "infected" it, so the cascade is visible.
-   StreamFlix has a UNIQUE password: tapping it is a mistake and it bounces back with a green shield.
+   TASK 2: THE MASTER KEY (credential-stuffing cascade)
+   GameHub already leaked. The player holds the stolen key and tries it on
+   every app. Reused password = app falls and shows what the hacker can do.
+   Unique password = key bounces off. Finale compares "reused" vs "unique".
+   Works with tap (select key, then tap app), mouse drag, and keyboard.
    ====================================================================== */
-interface Acct { id: string; short: string; atRisk: boolean; password: string }
-const ACCTS: Acct[] = [
-  { id: "hub", short: "GameHub", atRisk: true, password: "summer-trip" },
-  { id: "snap", short: "SnapGram", atRisk: true, password: "summer-trip" },
-  { id: "bank", short: "School portal", atRisk: true, password: "summer-trip" },
-  { id: "mail", short: "School email", atRisk: true, password: "summer-trip" },
-  { id: "steam", short: "Discord", atRisk: true, password: "summer-trip" },
-  { id: "stream", short: "Streaming", atRisk: false, password: "its-own-phrase" },
-];
-
-const APP_ICON: Record<string, string> = { hub: "🎮", mail: "✉️", school: "🏫", snap: "📸", shop: "🎟️", stream: "🎬", bank: "🏦", steam: "🎧" };
-
-function DominoTask({ onComplete, onMood }: TaskCallbacks) {
-  const [testedApps, setTestedApps] = useState<Record<string, "hacked" | "safe" | null>>({});
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOver, setDragOver] = useState<string | null>(null);
-
-  // Win condition: Player has tested all 6 apps
-  const totalApps = ACCTS.length;
-  const testedCount = Object.keys(testedApps).length;
-  const allTested = testedCount === totalApps;
+   interface DominoApp {
+    id: string;
+    name: string;
+    icon: string;
+    password: string; // fake training passwords only
+    reused: boolean; // true = shares the leaked password
+    loss: string; // what the hacker can do if this app falls
+  }
   
-  const hackedCount = Object.values(testedApps).filter(v => v === "hacked").length;
-  // Score: 60 XP base. (No penalties, just reward for successfully testing the attack)
-  const score = PW_TASK_MAX_XP.domino;
-
-  function handleDrop(e: React.DragEvent, app: Acct) {
-    e.preventDefault();
-    setIsDragging(false);
-    setDragOver(null);
-
-    if (testedApps[app.id]) return; // already tested
-
-    if (app.atRisk) {
-      snd("bad");
-      onMood?.("breach");
-      setTestedApps(prev => ({ ...prev, [app.id]: "hacked" }));
-    } else {
-      snd("tick");
-      onMood?.("safe");
-      setTestedApps(prev => ({ ...prev, [app.id]: "safe" }));
+  const LEAKED_KEY = "summer-trip";
+  
+  const DOMINO_APPS: DominoApp[] = [
+    { id: "hub", name: "GameHub", icon: "🎮", password: LEAKED_KEY, reused: true, loss: "Where the leak started" },
+    { id: "snap", name: "SnapGram", icon: "📸", password: LEAKED_KEY, reused: true, loss: "Posts embarrassing stuff as you" },
+    { id: "mail", name: "School email", icon: "✉️", password: LEAKED_KEY, reused: true, loss: "Resets all your other passwords" },
+    { id: "school", name: "School portal", icon: "🏫", password: LEAKED_KEY, reused: true, loss: "Reads your grades and ID details" },
+    { id: "chat", name: "Group chat", icon: "💬", password: LEAKED_KEY, reused: true, loss: "Scams your friends from your name" },
+    { id: "stream", name: "Streaming", icon: "🎬", password: "its-own-phrase", reused: false, loss: "Nothing. Different password." },
+  ];
+  
+  type DominoStatus = "hacked" | "safe";
+  
+  function DominoTask({ onComplete, onMood }: TaskCallbacks) {
+    // GameHub is already breached when the task starts (the story's starting point).
+    const [tested, setTested] = useState<Record<string, DominoStatus>>({ hub: "hacked" });
+    const [keyHeld, setKeyHeld] = useState(false); // key "picked up" by tap/click
+    const [dragging, setDragging] = useState(false); // desktop drag in progress
+    const [dragOver, setDragOver] = useState<string | null>(null);
+    const [status, setStatus] = useState("GameHub leaked your password. See what else it opens.");
+    const finishedSound = useRef(false);
+  
+    const total = DOMINO_APPS.length;
+    const testedCount = Object.keys(tested).length;
+    const hackedCount = Object.values(tested).filter((v) => v === "hacked").length;
+    const allTested = testedCount === total;
+    const hasTriedAny = testedCount > 1; // more than the pre-hacked GameHub
+    const score = PW_TASK_MAX_XP.domino; // learning task: no penalties
+  
+    function tryKey(app: DominoApp) {
+      if (tested[app.id]) return; // already tried this app
+      setKeyHeld(false);
+      setDragging(false);
+      setDragOver(null);
+  
+      if (app.reused) {
+        snd("bad");
+        onMood?.("breach");
+        setTested((prev) => ({ ...prev, [app.id]: "hacked" }));
+        setStatus(`${app.name} opened. ${app.loss}.`);
+      } else {
+        snd("tick");
+        onMood?.("safe");
+        setTested((prev) => ({ ...prev, [app.id]: "safe" }));
+        setStatus(`${app.name} stayed locked. A unique password blocked the key.`);
+      }
     }
-  }
-
-  useEffect(() => {
-    if (allTested) {
-      snd("good");
-    }
-  }, [allTested]);
-
-  return (
-    <Panel title="CREDENTIAL TESTER" right={<span className="text-[10px] text-[#f6c453]" style={MONO}>{totalApps - testedCount} left</span>}>
-      <div className="space-y-6 p-6">
-        
-        <div className="text-center">
-          <h3 className="mb-2 text-xl font-bold text-white">Put yourself in the hacker's shoes.</h3>
-          <p className="text-sm text-[#b8b5c9]">Drag the stolen password over the apps to test which ones will fall.</p>
-        </div>
-
-        {/* THE STOLEN PASSWORD (Draggable) */}
-        <div className="flex justify-center">
-          <div
-            draggable
-            onDragStart={() => setIsDragging(true)}
-            onDragEnd={() => { setIsDragging(false); setDragOver(null); }}
-            className={`cursor-grab active:cursor-grabbing rounded-xl border-2 border-[#fb4b5b] bg-[#2a0d12] p-4 text-center shadow-[0_0_30px_rgba(251,75,91,0.3)] transition-all ${
-              isDragging ? "opacity-50 scale-95" : "hover:scale-105"
-            }`}
-          >
-            <p className="text-[10px] font-bold tracking-widest text-[#f6c453] mb-1" style={MONO}>LEAKED FROM GAMEHUB</p>
-            <p className="text-lg font-mono font-bold text-white tracking-widest">summer-trip</p>
-            <p className="text-[10px] text-gray-400 mt-2" style={MONO}>DRAG THIS PASSWORD</p>
-          </div>
-        </div>
-
-        {/* THE TARGET APPS */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-          {ACCTS.map((app) => {
-            const status = testedApps[app.id];
-            const isHacked = status === "hacked";
-            const isSafe = status === "safe";
-            const isHovered = dragOver === app.id;
-
-            return (
-              <div
-                key={app.id}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(app.id); }}
-                onDragLeave={() => setDragOver(null)}
-                onDrop={(e) => handleDrop(e, app)}
-                className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${
-                  isHovered ? "scale-105 border-white bg-white/10" :
-                  isHacked ? "border-[#fb4b5b] bg-[#2a0d12]" :
-                  isSafe ? "border-[#34D399] bg-[#0c2118]" :
-                  "border-white/20 bg-[#111329]"
-                }`}
-              >
-                <span className="text-3xl mb-2">
-                  {isHacked ? "💀" : isSafe ? "🛡️" : APP_ICON[app.id]}
-                </span>
-                <span className="text-sm font-bold text-white">{app.short}</span>
-                
-                {/* Status text */}
-                <div className="mt-2 h-4">
-                  {isHacked && <span className="text-[10px] font-bold text-[#fb4b5b] animate-pulse">ACCESS GRANTED</span>}
-                  {isSafe && <span className="text-[10px] font-bold text-[#34D399]">LOGIN FAILED</span>}
-                  {!status && isHovered && <span className="text-[10px] font-bold text-white animate-pulse">DROP TO TEST</span>}
-                </div>
-
-                {/* Show the app's actual password if tested */}
-                {status && (
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded bg-black/80 px-2 py-0.5 border border-white/10">
-                    <span className="text-[9px] font-mono text-gray-400">{app.password}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {allTested && (
-          <Summary
-            title="Credential Stuffing Simulated"
-            score={score}
-            max={PW_TASK_MAX_XP.domino}
-            lines={[
-              `You cracked ${hackedCount} accounts using just ONE leaked password.`,
-              "This is why every account needs a unique password. If GameHub leaks, the hacker shouldn't be able to open your Bank.",
-            ]}
-            onDone={() => onComplete(score, 0)}
-          />
-        )}
-      </div>
-    </Panel>
-  );
-}
-
-/* ======================================================================
-   TASK 3: THE POLICY DOCTOR (iPhone settings screen + simulated user)
-   8 rules. Bad rules should be OFF, good rules ON. Everything starts ON.
-   🆕 V2: a SIMULATED USER types under the rules you currently have and gets hacked or earns a green shield.
-   ====================================================================== */
-const RULES = [
-  { id: "len", text: "Require a minimum of 15 characters", keep: true, why: "Length is what costs an attacker the most time." },
-  { id: "comp", text: "Require an uppercase, number, and symbol", keep: false, why: "NIST: no composition rules. People just write P@ssw0rd!, which is on every guess list." },
-  { id: "expiry", text: "Force a password change every 60 days", keep: false, why: "NIST: no routine expiry. People just add +1 (Summer1 -> Summer2). Change it only after a leak." },
-  { id: "paste", text: "Block pasting into the password box", keep: false, why: "NIST: allow paste, so password managers can fill long unique passwords." },
-  { id: "hint", text: "Show a password hint on the login page", keep: false, why: "Hints are free clues for attackers." },
-  { id: "block", text: "Reject known leaked passwords", keep: true, why: "NIST: screen new passwords against a blocklist." },
-  { id: "spaces", text: "Allow spaces and passphrases of 64+ characters", keep: true, why: "Long passphrases are easy to remember and hard to crack." },
-  { id: "cap", text: "Limit passwords to 12 characters", keep: false, why: "A length cap blocks the long passphrases that actually protect people." },
-] as const;
-const POLICY_PTS = PW_TASK_MAX_XP.policy / RULES.length; // 6 XP per correct rule
-
-function PolicyTask({ onComplete, onMood }: TaskCallbacks) {
-  const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(RULES.map((r) => [r.id, true])));
-  const [done, setDone] = useState(false);
-  const wrong = RULES.filter((r) => on[r.id] !== r.keep);
-  const score = (RULES.length - wrong.length) * POLICY_PTS;
-
-  /* 🆕 V2: SIMULATED USER. Picks the most telling story for the rules you have right now. */
-  let sim: { typed: string; ok: boolean; note: string };
-  if (on.comp) sim = { typed: "P@ssw0rd!", ok: false, note: "Forced symbols pushed the user into a predictable pattern. HACKED in 0.3 seconds." };
-  else if (on.expiry) sim = { typed: "Summer2025!  (was Summer2024!)", ok: false, note: "Forced resets: the user just added +1. HACKED, the pattern is guessable." };
-  else if (on.paste) sim = { typed: "(pastes a manager password... blocked)", ok: false, note: "Paste is blocked, so the user gives up on the manager and picks something short." };
-  else if (on.cap) sim = { typed: "lantern orbit pi...", ok: false, note: "The 12-character cap cuts off the long passphrase. The user settles for something short." };
-  else if (!on.len || !on.block) sim = { typed: "summer2008", ok: false, note: "Nothing stops a short or common password, so it falls instantly. HACKED." };
-  else if (on.hint) sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Strong password, but the hint on the login page hands clues to attackers." };
-  else if (!on.spaces) sim = { typed: "lanternorbitpickle", ok: true, note: "Okay, but without spaces and long passphrases it's harder to type and remember." };
-  else sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Long, unrelated, easy to remember. Green shield: this policy protects the user." };
-
-  function save() {
-    setDone(true);
-    onMood?.(wrong.length === 0 ? "safe" : wrong.length >= 3 ? "breach" : "calm");
-    snd(wrong.length === 0 ? "good" : "bad");
-  }
-
-  if (done) {
+  
+    useEffect(() => {
+      if (allTested && !finishedSound.current) {
+        finishedSound.current = true;
+        snd("good");
+      }
+    }, [allTested]);
+  
+    const meterPct = Math.round((hackedCount / total) * 100);
+  
     return (
-      <Summary
-        title={wrong.length === 0 ? "Policy Perfect" : "Policy Set"}
-        score={score}
-        max={PW_TASK_MAX_XP.policy}
-        lines={
-          wrong.length === 0
-            ? ["Length and a blocklist protect people. Forced symbols and routine resets don't."]
-            : wrong.slice(0, 3).map((r) => `${r.keep ? "Should be ON" : "Should be OFF"}: ${r.text}. ${r.why}`)
+      <Panel
+        title="THE MASTER KEY"
+        right={
+          <span className="text-[10px] text-[#f6c453]" style={MONO}>
+            {total - testedCount} left to try
+          </span>
         }
-        onDone={() => onComplete(score, wrong.length >= 4 ? 1 : 0)}
-      />
+      >
+        <div className="space-y-5 p-5 sm:p-6">
+          {/* 1. The story, in one line */}
+          <div className="text-center">
+            <h3 className="mb-1 text-xl font-bold text-white">GameHub just got hacked. 😬</h3>
+            <p className="text-sm text-[#b8b5c9]">
+              The hacker stole your password. Hackers try it everywhere. See what it opens.
+            </p>
+          </div>
+  
+          {/* 2. The stolen key: tap it (or drag it on desktop) */}
+          <div className="flex justify-center">
+            <button
+              type="button"
+              draggable
+              aria-pressed={keyHeld}
+              aria-label={`Stolen password ${LEAKED_KEY}. Select it, then choose an app to try it on.`}
+              onClick={() => setKeyHeld((v) => !v)}
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", LEAKED_KEY);
+                setDragging(true);
+                setKeyHeld(true);
+              }}
+              onDragEnd={() => {
+                setDragging(false);
+                setDragOver(null);
+              }}
+              className={`rounded-xl border-2 p-4 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                keyHeld
+                  ? "scale-105 border-white bg-[#3a1018] shadow-[0_0_40px_rgba(251,75,91,0.6)]"
+                  : "border-[#fb4b5b] bg-[#2a0d12] shadow-[0_0_30px_rgba(251,75,91,0.3)] hover:scale-105"
+              } ${!hasTriedAny && !keyHeld ? "motion-safe:animate-pulse" : ""} ${dragging ? "opacity-60" : ""}`}
+            >
+              <p className="mb-1 text-[10px] font-bold tracking-widest text-[#f6c453]" style={MONO}>
+                🔑 STOLEN FROM GAMEHUB
+              </p>
+              <p className="font-mono text-lg font-bold tracking-widest text-white">{LEAKED_KEY}</p>
+              <p className="mt-2 text-[10px] text-gray-300" style={MONO}>
+                {keyHeld ? "NOW TAP AN APP ↓" : "TAP THE KEY, THEN TAP AN APP"}
+              </p>
+            </button>
+          </div>
+  
+          {/* 3. Live status line (also read aloud by screen readers) */}
+          <p
+            role="status"
+            aria-live="polite"
+            className="mx-auto max-w-md text-center text-sm font-semibold text-white"
+          >
+            {status}
+          </p>
+  
+          {/* 4. The damage meter: fills as accounts fall */}
+          <div className="mx-auto max-w-md">
+            <div className="mb-1 flex justify-between text-[10px] font-bold tracking-widest" style={MONO}>
+              <span className="text-[#fb4b5b]">HACKER CONTROLS</span>
+              <span className="text-white">
+                {hackedCount} / {total} accounts
+              </span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full border border-white/10 bg-black/50">
+              <div
+                className="h-full bg-gradient-to-r from-[#f6c453] to-[#fb4b5b] transition-all duration-500"
+                style={{ width: `${meterPct}%` }}
+              />
+            </div>
+          </div>
+  
+          {/* 5. The apps */}
+          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
+            {DOMINO_APPS.map((app) => {
+              const result = tested[app.id];
+              const isHacked = result === "hacked";
+              const isSafe = result === "safe";
+              const isOver = dragOver === app.id;
+              const canTry = !result;
+  
+              return (
+                <button
+                  key={app.id}
+                  type="button"
+                  disabled={!canTry}
+                  aria-label={
+                    result
+                      ? `${app.name}: ${isHacked ? "hacked" : "stayed locked"}`
+                      : `Try the stolen password on ${app.name}`
+                  }
+                  onClick={() => {
+                    if (keyHeld) tryKey(app);
+                    else setStatus("Tap the stolen key first (the red box), then tap an app.");
+                  }}
+                  onDragOver={(e) => {
+                    if (canTry) {
+                      e.preventDefault();
+                      setDragOver(app.id);
+                    }
+                  }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    tryKey(app);
+                  }}
+                  className={`relative flex min-h-[132px] flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                    isOver
+                      ? "scale-105 border-white bg-white/10"
+                      : isHacked
+                        ? "border-[#fb4b5b] bg-[#2a0d12]"
+                        : isSafe
+                          ? "border-[#34D399] bg-[#0c2118]"
+                          : keyHeld
+                            ? "border-white/60 bg-[#111329] hover:scale-105 hover:border-white"
+                            : "border-white/20 bg-[#111329]"
+                  } ${isHacked ? "motion-safe:animate-pulse" : ""}`}
+                >
+                  <span className="mb-1 text-3xl">{isHacked ? "🔓" : isSafe ? "🛡️" : app.icon}</span>
+                  <span className="text-sm font-bold text-white">{app.name}</span>
+  
+                  {/* Outcome text: the consequence the player should remember */}
+                  <span className="mt-1 min-h-[2.5rem] text-[11px] leading-tight">
+                    {isHacked && <span className="font-bold text-[#fb4b5b]">{app.loss}</span>}
+                    {isSafe && <span className="font-bold text-[#34D399]">{app.loss}</span>}
+                    {!result && <span className="text-gray-400">🔒 Locked</span>}
+                  </span>
+  
+                  {/* Password chip: matching red chips make the "same password" link visible */}
+                  {result && (
+                    <span
+                      className={`absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border px-2 py-0.5 font-mono text-[9px] ${
+                        isHacked
+                          ? "border-[#fb4b5b] bg-black text-[#fb4b5b]"
+                          : "border-[#34D399] bg-black text-[#34D399]"
+                      }`}
+                    >
+                      {app.password}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+  
+          {/* 6. The finale: side-by-side comparison that sticks */}
+          {allTested && (
+            <div className="mx-auto grid max-w-2xl grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
+              <div className="rounded-xl border-2 border-[#fb4b5b] bg-[#2a0d12] p-4 text-center">
+                <p className="text-[10px] font-bold tracking-widest text-[#fb4b5b]" style={MONO}>
+                  ONE PASSWORD EVERYWHERE
+                </p>
+                <p className="my-1 text-3xl font-black text-white">
+                  {hackedCount} of {total} lost
+                </p>
+                <p className="text-xs text-gray-300">One leak opened almost your whole life.</p>
+              </div>
+              <div className="rounded-xl border-2 border-[#34D399] bg-[#0c2118] p-4 text-center">
+                <p className="text-[10px] font-bold tracking-widest text-[#34D399]" style={MONO}>
+                  A UNIQUE PASSWORD EACH
+                </p>
+                <p className="my-1 text-3xl font-black text-white">1 of {total} lost</p>
+                <p className="text-xs text-gray-300">Only GameHub falls. Everything else stays locked.</p>
+              </div>
+            </div>
+          )}
+  
+          {allTested && (
+            <Summary
+              title="Credential Stuffing Simulated"
+              score={score}
+              max={PW_TASK_MAX_XP.domino}
+              lines={[
+                `One leaked password opened ${hackedCount} of your ${total} accounts.`,
+                "Hackers do this automatically: they try a leaked password on many apps at once.",
+                "Your email is the most dangerous to lose, because it can reset every other account.",
+                "Use a different password for each important account. A password manager remembers them for you.",
+              ]}
+              onDone={() => onComplete(score, 0)}
+            />
+          )}
+        </div>
+      </Panel>
     );
   }
 
-  return (
-    <Panel title="POLICY DOCTOR">
-      <div className="space-y-4 p-4">
-        <div className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border-[6px] border-[#141418] bg-black shadow-xl">
-          <div className="flex items-center justify-between px-5 pt-2 text-[11px] font-semibold text-white"><span>12:41</span><span>5G 🔋</span></div>
-          <div className="mt-2 px-3 pb-4">
-            <p className="px-3 pb-1.5 pt-3 text-[11px] uppercase tracking-wide text-[#8e8e93]">TixDrop sign-up requirements</p>
-            <ul className="divide-y divide-white/10 overflow-hidden rounded-xl bg-[#1c1c1e]">
-              {RULES.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <span className="text-[14px] leading-snug text-white">{r.text}</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={on[r.id]}
-                    aria-label={r.text}
-                    onClick={() => { setOn((o) => ({ ...o, [r.id]: !o[r.id] })); snd("tick"); }}
-                    className="relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200"
-                    style={{ background: on[r.id] ? "#30d158" : "#39393d" }}
-                  >
-                    <span className="absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-all duration-200" style={{ left: on[r.id] ? 22 : 2 }} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+/* ======================================================================
+   TASK 3: THE POLICY DOCTOR (iPhone settings screen + simulated user)
+   Source: NIST SP 800-63B-4 (2025), Sec. 3.1.1.2 (password verifiers)
+   and Sec. 3.2.2 (rate limiting).
+   8 rules: 4 help (keep: true), 4 backfire (keep: false). Everything starts OFF.
+   ====================================================================== */
+   const RULES = [
+    { id: "len", text: "Require at least 15 characters (password-only sign-in)", keep: true, why: "NIST SP 800-63B-4: 15 characters minimum when a password is the only factor (8 when it is one part of multi-factor)." },
+    { id: "comp", text: "Require an uppercase, number, and symbol", keep: false, why: "NIST: do not impose composition rules. Users respond in predictable ways, such as P@ssw0rd!." },
+    { id: "block", text: "Reject known leaked passwords", keep: true, why: "NIST: check new passwords against a blocklist of commonly used and compromised passwords." },
+    { id: "expiry", text: "Force a password change every 60 days", keep: false, why: "NIST: do not force routine changes. Require a change only when there is evidence the password is compromised." },
+    { id: "spaces", text: "Allow spaces and passphrases of 64+ characters", keep: true, why: "NIST: accept at least 64 characters, including spaces, so passphrases work." },
+    { id: "paste", text: "Block pasting into the password box", keep: false, why: "NIST supports password managers and autofill, which need paste to fill long, unique passwords." },
+    { id: "rate", text: "Slow or lock down after repeated wrong guesses", keep: true, why: "NIST Sec. 3.2.2: limit failed attempts so online guessing cannot run forever." },
+    { id: "secq", text: "Use security questions or password hints (first pet, birthplace)", keep: false, why: "NIST: do not use knowledge-based questions or visible hints. The answers are often on public profiles." },
+  ] as const;
+  const POLICY_PTS = PW_TASK_MAX_XP.policy / RULES.length;
+  
+  function PolicyTask({ onComplete, onMood }: TaskCallbacks) {
+    // Every switch starts OFF. The player turns ON only what NIST supports.
+    const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(RULES.map((r) => [r.id, false])));
+    const [done, setDone] = useState(false);
+  
+    // FIX: one helper. A missing value counts as OFF, so a closed switch is never "undefined".
+    const isOn = (id: string) => on[id] === true;
+  
+    const wrong = RULES.filter((r) => isOn(r.id) !== r.keep);
+    const score = Math.round((RULES.length - wrong.length) * POLICY_PTS);
+    const rulesOn = RULES.filter((r) => isOn(r.id)).length;
+  
+    /* SIMULATED USER. Picks the most telling story for the rules you have right now. */
+    let sim: { typed: string; ok: boolean; note: string };
+    if (isOn("comp")) sim = { typed: "P@ssw0rd!", ok: false, note: "Forced symbols pushed the user into a predictable pattern. Attackers try patterns like this first." };
+    else if (isOn("expiry")) sim = { typed: "Summer2025!  (was Summer2024!)", ok: false, note: "Forced resets: the user just changed one character. The pattern is easy to guess." };
+    else if (isOn("paste")) sim = { typed: "(pastes a manager password... blocked)", ok: false, note: "Paste is blocked, so the user gives up on the password manager and picks something short." };
+    else if (isOn("secq")) sim = { typed: "Q: First pet?  A: Biscuit", ok: false, note: "The answer is on the user's public profile. An attacker can answer it too." };
+    else if (!isOn("len") || !isOn("block")) sim = { typed: "summer2008", ok: false, note: "Nothing stops a short or commonly used password, so it is among the first guesses an attacker tries." };
+    else if (!isOn("spaces")) sim = { typed: "lanternorbitpickle", ok: true, note: "Okay, but without spaces and long passphrases it is harder to type and remember." };
+    else if (!isOn("rate")) sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Strong password, but nothing slows an attacker who keeps guessing online." };
+    else sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Long, unrelated, easy to remember, and guessing is limited. This policy protects the user." };
+  
+    function save() {
+      setDone(true);
+      onMood?.(wrong.length === 0 ? "safe" : wrong.length >= 3 ? "breach" : "calm");
+      snd(wrong.length === 0 ? "good" : "bad");
+    }
+  
+    if (done) {
+      return (
+        <Summary
+          title={wrong.length === 0 ? "Policy Perfect" : "Policy Set"}
+          score={score}
+          max={PW_TASK_MAX_XP.policy}
+          lines={
+            wrong.length === 0
+              ? ["Your policy follows NIST SP 800-63B-4: length, a blocklist, long passphrases and limited guessing. No forced symbols, no routine resets, no security questions."]
+              : wrong.slice(0, 3).map((r) => `${r.keep ? "Should be ON" : "Should be OFF"}: ${r.text}. ${r.why}`)
+          }
+          onDone={() => onComplete(score, wrong.length >= 4 ? 1 : 0)}
+        />
+      );
+    }
+  
+    return (
+      <Panel title="POLICY DOCTOR" right={<span className="text-[10px] text-[#f6c453]" style={MONO}>{rulesOn} of {RULES.length} rules ON</span>}>
+        <div className="space-y-4 p-4">
+          <div className="mx-auto max-w-md text-center">
+            <h3 className="text-lg font-bold text-white">Write the sign-up rules.</h3>
+            <p className="mt-1 text-sm text-[#b8b5c9]">
+              Switch ON the rules that protect people. Leave OFF the ones that backfire. Watch the simulated user below react.
+            </p>
           </div>
+  
+          <div className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border-[6px] border-[#141418] bg-black shadow-xl">
+            <div className="flex items-center justify-between px-5 pt-2 text-[11px] font-semibold text-white"><span>12:41</span><span>5G 🔋</span></div>
+            <div className="mt-2 px-3 pb-4">
+              <p className="px-3 pb-1.5 pt-3 text-[11px] uppercase tracking-wide text-[#8e8e93]">TixDrop sign-up requirements</p>
+              <ul className="divide-y divide-white/10 overflow-hidden rounded-xl bg-[#1c1c1e]">
+                {RULES.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-[14px] leading-snug text-white">{r.text}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isOn(r.id)}
+                      aria-label={r.text}
+                      onClick={() => { setOn((o) => ({ ...o, [r.id]: !(o[r.id] === true) })); snd("tick"); }}
+                      className="relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      style={{ background: isOn(r.id) ? "#30d158" : "#39393d" }}
+                    >
+                      <span className="absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-all duration-200" style={{ left: isOn(r.id) ? 22 : 2 }} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+  
+          <div className="mx-auto max-w-md rounded-xl border p-4" style={{ borderColor: sim.ok ? "#34D399" : "#fb4b5b", background: sim.ok ? "rgba(52,211,153,.06)" : "rgba(251,75,91,.06)" }} aria-live="polite">
+            <p className="text-[10px] tracking-[0.25em] text-[#77748c]" style={MONO}>SIMULATED USER</p>
+            <p className="mt-2 flex items-center gap-3">
+              <span className="text-3xl" aria-hidden="true">{sim.ok ? "😎" : "😨"}</span>
+              <span className="break-all text-sm text-[#f5f3ff]" style={MONO}>types: {sim.typed}</span>
+              <span className="text-2xl" aria-hidden="true">{sim.ok ? "🛡️" : "💀"}</span>
+            </p>
+            <p className="mt-2 text-sm" style={{ color: sim.ok ? "#4ade80" : "#fb4b5b" }}>{sim.note}</p>
+          </div>
+  
+          <div className="flex justify-center"><Btn onClick={save}>Save Settings</Btn></div>
         </div>
-
-        {/* 🆕 V2: simulated user */}
-        <div className="mx-auto max-w-md rounded-xl border p-4" style={{ borderColor: sim.ok ? "#34D399" : "#fb4b5b", background: sim.ok ? "rgba(52,211,153,.06)" : "rgba(251,75,91,.06)" }} aria-live="polite">
-          <p className="text-[10px] tracking-[0.25em] text-[#77748c]" style={MONO}>SIMULATED USER</p>
-          <p className="mt-2 flex items-center gap-3">
-            <span className="text-3xl" aria-hidden="true">{sim.ok ? "😎" : "😨"}</span>
-            <span className="break-all text-sm text-[#f5f3ff]" style={MONO}>types: {sim.typed}</span>
-            <span className="text-2xl" aria-hidden="true">{sim.ok ? "🛡️" : "💀"}</span>
-          </p>
-          <p className="mt-2 text-sm" style={{ color: sim.ok ? "#4ade80" : "#fb4b5b" }}>{sim.note}</p>
-        </div>
-
-        <div className="flex justify-center"><Btn onClick={save}>Save Settings</Btn></div>
-      </div>
-    </Panel>
-  );
-}
+      </Panel>
+    );
+  }
 
 /* ======================================================================
    TASK 4: THE PROMPT STORM (swipe lock screen)

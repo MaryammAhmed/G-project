@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import TaskBrief from "@/components/game/TaskBrief";
-import LinkCheck from "@/components/game/LinkCheck";
 import { TASK_BRIEFS } from "@/lib/mission/briefs";
 import type { ReactNode } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import type { Mood, PHTaskId } from "@/lib/mission/types";
+import { speak, stopSpeaking } from "@/lib/speech"; // NEW — needed by the merged-in CSI Investigation component
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
@@ -106,189 +106,303 @@ function Pick({ opts, cta, onDone }: { opts: Opt[]; cta: string; onDone: (o: Opt
 }
 
 /* ======================================================================
-   TASK 1: DOMAIN DETECTIVE
+   TASK 1: DOMAIN DETECTIVE — now powered by the CSI Investigation engine
+   ======================================================================
+   The CSIInvestigation component below is merged in verbatim (previously
+   its own file, components/game/CSIInvestigation.tsx) so this file is
+   fully self-contained. It renders a "forensic desktop" of clickable
+   files instead of the old tap-the-owner address bar — the DomainTask /
+   ADDRS data from before has been fully replaced, not kept alongside.
    ====================================================================== */
-type Verdict = "real" | "fake";
 
-const VERDICTS: { id: Verdict; label: string; color: string }[] = [
-  { id: "real", label: "Safe (Real)", color: "#4ade80" },
-  { id: "fake", label: "Scam (Fake)", color: "#fb4b5b" },
-];
-const V_LABEL: Record<Verdict, string> = { real: "REAL", fake: "FAKE" };
+// ---- types CSIInvestigation itself needs ----
+type CSIFileItem = {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  isThreat: boolean;
+  explanation?: string;
+};
 
-interface Addr { parts: [string, boolean][]; answer: Verdict; why: string }
-const ADDRS: Addr[] = [
-  { parts: [["https://", false], ["portal.", false], ["metropolitan.edu", true], ["/login", false]], answer: "real", why: "The owner is metropolitan.edu, the school's real domain. 'portal' is just a label the school chose in front." },
-  { parts: [["https://", false], ["metropolitan.edu.", false], ["account-verify.net", true], ["/login", false]], answer: "fake", why: "Read from the ending backward: the owner is account-verify.net. 'metropolitan.edu.' is only a label placed in front to look familiar." },
-  { parts: [["https://", false], ["metropoIitan.edu", true], ["/portal", false]], answer: "fake", why: "That's a capital 'I' pretending to be a lowercase 'l'. The owner is metropoIitan.edu, not metropolitan.edu. At small sizes the two look identical." },
-  { parts: [["http://", false], ["metropolitan-portal.", false], ["verify-login.top", true], ["/auth", false]], answer: "fake", why: "The owner is verify-login.top. 'metropolitan-portal' is a decoy label, and plain http isn't even encrypted." },
-  { parts: [["https://", false], ["metropolitan.edu", true], ["/library", false]], answer: "real", why: "The owner is metropolitan.edu, and the page after the slash is just a section of the school's own site." },
-  { parts: [["https://", false], ["bit.ly", true], ["/metropolitan-grades", false]], answer: "fake", why: "A shortened link hides the destination completely. If you can't see the real owner, treat it as a scam." },
-  { parts: [["https://", false], ["login.metropolitan.edu.", false], ["secure-portal.xyz", true], ["", false]], answer: "fake", why: "It uses https and still isn't the school: the owner is secure-portal.xyz. The padlock only means the connection is encrypted." },
-];
+type CSIFileResult = {
+  name: string;
+  isThreat: boolean;
+  playerGuessed: "safe" | "threat";
+  isCorrect: boolean;
+};
 
-function DomainTask({ onComplete, onMood }: TaskCallbacks) {
-  const [i, setI] = useState(0);
-  const [isTargeted, setIsTargeted] = useState(false);
-  const [errorPart, setErrorPart] = useState<number | null>(null);
-  const [wrongMsg, setWrongMsg] = useState("");
-  const [pick, setPick] = useState<Verdict | null>(null);
-  const [score, setScore] = useState(0);
-  const [mistakes, setMistakes] = useState(0);
-  const [finished, setFinished] = useState(false);
-  const a = ADDRS[i];
+// ---- the merged-in CSI Investigation engine (unchanged from its own file) ----
+function CSIInvestigation({
+  files,
+  onComplete,
+}: {
+  files: CSIFileItem[];
+  onComplete: (score: number, results: CSIFileResult[]) => void;
+}) {
+  const [activeFile, setActiveFile] = useState<CSIFileItem | null>(null);
+  const [verdicts, setVerdicts] = useState<Record<string, "safe" | "threat">>({});
 
-  function handlePartClick(index: number, isOwner: boolean) {
-    if (isTargeted) return;
-    if (isOwner) {
-      snd("good");
-      setIsTargeted(true);
-      setWrongMsg("");
+  const [feedbackState, setFeedbackState] = useState<{
+    file: CSIFileItem;
+    guessed: "safe" | "threat";
+    isCorrect: boolean;
+    aiText: string | null;
+  } | null>(null);
+
+  // Auto-stop speech the moment the feedback modal closes
+  useEffect(() => {
+    if (!feedbackState) return;
+    return () => stopSpeaking();
+  }, [feedbackState]);
+
+  const handleVerdict = (verdict: "safe" | "threat") => {
+    if (!activeFile) return;
+
+    const isCorrect = (verdict === "threat" && activeFile.isThreat) || (verdict === "safe" && !activeFile.isThreat);
+
+    setVerdicts((prev) => ({ ...prev, [activeFile.id]: verdict }));
+    setActiveFile(null);
+
+    let feedbackText = "";
+
+    if (isCorrect) {
+      if (verdict === "safe") {
+        feedbackText = `CORRECT. This is safe because: ${activeFile.explanation?.replace("This is safe. ", "")}`;
+      } else {
+        feedbackText = `CORRECT. You spotted the trap! ${activeFile.explanation?.replace("This is a threat. ", "")}`;
+      }
     } else {
-      snd("bad");
-      setErrorPart(index);
-      const partText = a.parts[index][0];
-      
-      // Quick, punchy feedback on why it's wrong
-      if (partText.includes("https") || partText.includes("http")) setWrongMsg("https just means it's encrypted. It doesn't prove WHO owns the site.");
-      else if (partText.startsWith("/")) setWrongMsg("That's just a page inside the site. The owner is before the first slash.");
-      else setWrongMsg("That's a free label. Anyone can type 'metropolitan' in front of a fake domain.");
-      
-      setTimeout(() => setErrorPart(null), 500);
+      if (verdict === "safe") {
+        feedbackText = `WRONG. You missed a threat! ${activeFile.explanation?.replace("This is a threat. ", "")}`;
+      } else {
+        feedbackText = `WRONG. This was actually safe. ${activeFile.explanation?.replace("This is safe. ", "")}`;
+      }
     }
-  }
 
-  function choose(v: Verdict) {
-    if (pick) return;
-    setPick(v);
-    const ok = v === a.answer;
-    const unsafe = a.answer === "fake" && v === "real";
-    if (ok) setScore((s) => s + 6);
-    if (unsafe) setMistakes((m) => m + 1);
-    onMood?.(unsafe ? "breach" : ok ? "safe" : "alert");
-    snd(ok ? "good" : "bad");
-  }
+    setFeedbackState({ file: activeFile, guessed: verdict, isCorrect, aiText: feedbackText });
 
-  function next() {
-    setPick(null);
-    setIsTargeted(false);
-    setErrorPart(null);
-    setWrongMsg("");
-    if (i + 1 < ADDRS.length) setI(i + 1);
-    else setFinished(true);
-  }
+    try {
+      speak(feedbackText);
+    } catch {}
+  };
 
-  if (finished) {
-    const shields = Math.min(2, mistakes);
-    return (
-      <Summary
-        title={mistakes === 0 ? "No fakes got through" : "Case reviewed"}
-        score={score} max={42}
-        lines={[
-          "The owner is always the name right before the final ending (.com, .edu).",
-          "If a link is shortened (like bit.ly), you can't see the owner. Treat it as a scam.",
-          shields > 0 ? `You trusted ${mistakes} fake address(es). Each one cost a shield.` : "You trusted no fake address. Shields intact.",
-        ]}
-        onDone={() => onComplete(score, shields)}
-      />
-    );
-  }
+  const reviewedCount = Object.keys(verdicts).length;
+  const allReviewed = reviewedCount === files.length;
 
   return (
-    <Panel title="DOMAIN DETECTIVE" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{i + 1} / {ADDRS.length}</span>}>
-      <div className="space-y-4 p-4">
-        
-        {/* INSTRUCTIONS */}
-        {!isTargeted ? (
-          <div className="rounded-xl border border-[#f6c453]/30 bg-[#f6c453]/10 p-3 text-center">
-            <p className="text-sm font-bold text-[#f6c453]">STEP 1: Tap the REAL OWNER.</p>
-            <p className="mt-1 text-xs text-[#f5f3ff]">Rule: Look at the ending (.edu, .com). The name <b>touching it on the left</b> is the owner.</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-[#22D3EE]/30 bg-[#22D3EE]/10 p-3 text-center">
-            <p className="text-sm font-bold text-[#22D3EE]">STEP 2: You locked onto the owner. Is it safe?</p>
-          </div>
-        )}
+    <div className="flex flex-col h-[550px] w-full rounded-2xl border border-white/10 bg-[#0f1420] overflow-hidden relative shadow-2xl font-mono">
 
-        {/* INTERACTIVE URL */}
-        <div className={`ph-in rounded-xl border-2 bg-[#070711] p-5 transition-colors ${errorPart !== null ? "border-[#fb4b5b] ph-shake" : isTargeted ? "border-[#4ade80]" : "border-white/20"}`} style={MONO}>
-          <p className="text-[10px] tracking-[0.2em] text-[#77748c] mb-3 text-center">ADDRESS BAR</p>
-          <div className="break-all text-lg flex flex-wrap justify-center gap-1">
-            {a.parts.map(([t, owner], k) => {
-              const isError = errorPart === k;
-              return (
-                <span
-                  key={k}
-                  onClick={() => handlePartClick(k, owner)}
-                  className={`cursor-pointer transition-all duration-200 px-1.5 py-0.5 rounded ${
-                    isError ? "text-[#fb4b5b] font-bold bg-[#fb4b5b]/20 ring-1 ring-[#fb4b5b]" :
-                    isTargeted && owner ? "text-[#4ade80] font-bold bg-[#4ade80]/20 ring-1 ring-[#4ade80] shadow-[0_0_10px_#4ade80]" : 
-                    isTargeted ? "text-[#77748c]" : 
-                    "text-[#f5f3ff] hover:bg-white/10 hover:text-white ring-1 ring-white/10"
-                  }`}
-                >
-                  {t}
-                </span>
-              );
-            })}
+      {/* OS Top Bar */}
+      <div className="flex items-center justify-between border-b border-white/10 bg-[#070711] px-4 py-2 text-xs text-[#77748c]">
+        <div className="flex gap-2">
+          <div className="h-3 w-3 rounded-full bg-red-500/80" />
+          <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
+          <div className="h-3 w-3 rounded-full bg-green-500/80" />
+        </div>
+        <span>CYBERGUARD_FORENSIC_TERMINAL_v2.0</span>
+        <span>{reviewedCount} / {files.length} REVIEWED</span>
+      </div>
+
+      {/* Desktop Grid */}
+      <div className="flex-1 p-6 relative grid grid-cols-2 lg:grid-cols-4 gap-6 content-start overflow-y-auto">
+        {files.map((file) => {
+          const verdict = verdicts[file.id];
+          return (
+            <button
+              key={file.id}
+              onClick={() => setActiveFile(file)}
+              className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all hover:scale-105 h-32 ${
+                verdict === "threat" ? "border-red-500 bg-red-500/10" :
+                verdict === "safe" ? "border-green-500 bg-green-500/10" :
+                "border-white/10 bg-white/5 hover:border-cyan-400"
+              }`}
+            >
+              <span className="text-4xl mb-3">
+                {file.type === "email" ? "✉️" : file.type === "social" ? "💬" : "📄"}
+              </span>
+              <span className="text-xs text-center text-[#f5f3ff] line-clamp-2">{file.name}</span>
+              {verdict && <span className={`text-[10px] mt-2 font-bold uppercase tracking-widest ${verdict === "threat" ? "text-red-400" : "text-green-400"}`}>{verdict}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Opened File Modal */}
+      {activeFile && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-lg rounded-xl border border-cyan-400/30 bg-[#111329] p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-cyan-400">{activeFile.name}</h3>
+              <button onClick={() => setActiveFile(null)} className="text-[#77748c] hover:text-white">✕</button>
+            </div>
+            <div className="rounded bg-[#070711] p-5 text-sm text-[#b8b5c9] whitespace-pre-wrap mb-6 border border-white/5 font-sans leading-relaxed">
+              {activeFile.content}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => handleVerdict("safe")}
+                className="rounded-lg border border-green-500 py-3 text-sm font-bold text-green-500 hover:bg-green-500/10 transition-colors"
+              >
+                ✓ Approve (Safe)
+              </button>
+              <button
+                onClick={() => handleVerdict("threat")}
+                className="rounded-lg border border-red-500 py-3 text-sm font-bold text-red-500 hover:bg-red-500/10 transition-colors"
+              >
+                🚩 Flag Threat
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* WRONG TAP FEEDBACK */}
-        {!isTargeted && wrongMsg && (
-          <p className="ph-in text-center text-sm text-[#fb4b5b] font-bold" aria-live="polite">
-            ❌ {wrongMsg}
-          </p>
-        )}
+      {/* Feedback Modal */}
+      {feedbackState && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className={`w-full max-w-md rounded-xl border p-6 shadow-2xl bg-[#111329] ${
+            feedbackState.isCorrect ? "border-green-500/50" : "border-red-500/50"
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">{feedbackState.isCorrect ? "✅" : "❌"}</span>
+              <h3 className="text-lg font-bold text-[#f5f3ff]">
+                {feedbackState.isCorrect ? "Correct Call!" : "Wait, look closer..."}
+              </h3>
+            </div>
 
-                {/* VERDICT BUTTONS */}
-        {isTargeted && (
-          <div className="ph-in grid gap-3 sm:grid-cols-2 mt-4 max-w-md mx-auto" role="group" aria-label="Your verdict">
-            {VERDICTS.map((v) => {
-              const right = pick !== null && v.id === a.answer;
-              const wrong = pick === v.id && v.id !== a.answer;
-              
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={pick !== null}
-                  onClick={() => choose(v.id)}
-                  className={`rounded-xl border-2 py-4 text-sm font-bold transition-all duration-300 disabled:cursor-default ${
-                    right ? "scale-105 shadow-[0_0_20px_rgba(74,222,128,0.3)]" : "scale-100"
-                  }`}
-                  style={{
-                    // 👇 CHANGED: Added `pick === null ? v.color :` to use the green/red colors by default
-                    borderColor: pick === null ? v.color : right ? "#4ade80" : wrong ? "#fb4b5b" : "rgba(255,255,255,.2)",
-                    background: pick === null ? `${v.color}20` : right ? "rgba(74,222,128,.15)" : wrong ? "rgba(251,75,91,.15)" : "rgba(255,255,255,.03)",
-                    color: pick === null ? v.color : right ? "#4ade80" : wrong ? "#fb4b5b" : "#f5f3ff",
-                    opacity: pick !== null && !right && !wrong ? 0.3 : 1,
-                  }}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
+            <div className={`relative overflow-hidden rounded-xl border-2 p-5 mb-6 transition-all duration-300 ${
+              feedbackState.isCorrect
+                ? "border-[#4ade80] bg-[#052e16]/40 shadow-[0_0_30px_rgba(74,222,128,0.15)]"
+                : "border-[#fb4b5b] bg-[#2a0d12]/40 shadow-[0_0_30px_rgba(251,75,91,0.15)]"
+            }`}>
+              <div className={`absolute top-0 left-0 h-1 w-full animate-pulse ${
+                feedbackState.isCorrect ? "bg-[#4ade80]" : "bg-[#fb4b5b]"
+              }`} />
+
+              <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                <p className={`text-[10px] font-bold tracking-[0.2em] uppercase flex items-center gap-2 ${feedbackState.isCorrect ? "text-[#4ade80]" : "text-[#fb4b5b]"}`} style={{ fontFamily: "var(--font-mono)" }}>
+                  <span className="animate-pulse text-[8px]">●</span> ANALYSIS
+                </p>
+                <span className="text-[9px] text-[#77748c]" style={{ fontFamily: "var(--font-mono)" }}>
+                  {feedbackState.isCorrect ? "STATUS: SECURE" : "STATUS: WARNING"}
+                </span>
+              </div>
+
+              <p className="text-sm text-[#f5f3ff] leading-relaxed whitespace-pre-wrap font-mono">
+                {feedbackState.aiText}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setFeedbackState(null)}
+              className="w-full rounded-xl bg-cyan-500 px-6 py-3 font-bold text-[#070711] hover:bg-cyan-400 transition"
+            >
+              Continue Review
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* FINAL FEEDBACK */}
-        {pick && (
-          <div className="ph-in space-y-2 rounded-xl border border-white/10 bg-[#070711]/60 p-4 mt-4" aria-live="polite">
-            <p className="text-xs font-bold tracking-[0.2em]" style={{ ...MONO, color: pick === a.answer ? "#4ade80" : "#fb4b5b" }}>
-              {pick === a.answer
-                ? "✅ CORRECT +6 XP"
-                : a.answer === "fake" && pick === "real"
-                ? "❌ UNSAFE: YOU TRUSTED A FAKE ADDRESS"
-                : `❌ NOT QUITE: IT'S "${V_LABEL[a.answer]}"`}
-            </p>
-            <p className="text-sm text-[#f5f3ff]">{a.why}</p>
-            <Btn onClick={next}>{i + 1 < ADDRS.length ? "Next address" : "Finish"}</Btn>
-          </div>
-        )}
-      </div>
-    </Panel>
+      {/* Finish Button */}
+      {allReviewed && !activeFile && !feedbackState && (
+        <div className="p-4 border-t border-white/10 bg-[#070711] text-center animate-in slide-in-from-bottom-4">
+          <button
+            onClick={() => {
+              stopSpeaking();
+              const results: CSIFileResult[] = [];
+              files.forEach((f) => {
+                const guessed = verdicts[f.id];
+                const isCorrect = (guessed === "threat" && f.isThreat) || (guessed === "safe" && !f.isThreat);
+                results.push({
+                  name: f.name,
+                  isThreat: f.isThreat,
+                  playerGuessed: guessed,
+                  isCorrect,
+                });
+              });
+
+              onComplete(0, results);
+            }}
+            className="rounded-xl bg-cyan-400 px-8 py-3 text-sm font-bold text-[#070711] hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+          >
+            Finish Scan & Continue
+          </button>
+        </div>
+      )}
+    </div>
   );
+}
+
+// ---- domain-detective content, reshaped as CSI "files" ----
+const DOMAIN_FILES: CSIFileItem[] = [
+  {
+    id: "f1",
+    name: "portal.northHigh.edu",
+    type: "social",
+    content: "https://portal.northHigh.edu/login\n\nThe school's real student portal link, shared in the morning announcement.",
+    isThreat: false,
+    explanation: "This is safe. The owner (the part right before .edu) is northHigh.edu — the school's real domain. 'portal' is just a label placed in front of it.",
+  },
+  {
+    id: "f2",
+    name: "account-verify.net",
+    type: "email",
+    content: "https://northHigh.edu.account-verify.net/login\n\nArrived in an email claiming your account needs 'urgent verification.'",
+    isThreat: true,
+    explanation: "This is a threat. Read a web address from the ending backward: the real owner here is account-verify.net, not northhigh.edu. The school's name was only placed in front to look familiar.",
+  },
+  {
+    id: "f3",
+    name: "N0rthHigh.edu",
+    type: "document",
+    content: "https://N0rthHigh.edu/portal\n\nA link pinned in a group chat, claiming to be the school portal.",
+    isThreat: true,
+    explanation: "This is a threat. Look closely — that's a zero (0) pretending to be the letter 'o'. It's really hard to tell them apart unless you're focusing on it.",
+  },
+  {
+    id: "f4",
+    name: "verify-login.top",
+    type: "email",
+    content: "http://northHigh-portal.verify-login.top/auth\n\nA text message link claiming your grades are 'at risk' unless you log in now.",
+    isThreat: true,
+    explanation: "This is a threat. The real owner is verify-login.top. 'northHigh-portal' is just a decoy label, and plain http (no 's') means the connection isn't even encrypted.",
+  },
+  {
+    id: "f5",
+    name: "northHigh.edu/library",
+    type: "document",
+    content: "https://northHigh.edu/library\n\nA link to reserve a study room, shared by the librarian.",
+    isThreat: false,
+    explanation: "This is safe. The owner is northHigh.edu, and everything after the slash is just a normal section of the school's own real site.",
+  },
+  {
+    id: "f6",
+    name: "bit.ly/northHigh-grades",
+    type: "social",
+    content: "https://bit.ly/northHigh-grades\n\nPosted in a class group chat with the caption 'check your grades here!'",
+    isThreat: true,
+    explanation: "This is a threat. A shortened link hides its real destination completely. If you can't see the real owner before clicking, treat it as a scam.",
+  },
+];
+
+// ---- adapter: bridges CSIInvestigation's (score, results) shape into
+// this file's shared (xp, mistakes) TaskCallbacks contract ----
+function DomainTask({ onComplete, onMood }: TaskCallbacks) {
+  function handleCSIComplete(_score: number, results: CSIFileResult[]) {
+    const correctCount = results.filter((r) => r.isCorrect).length;
+    const xp = Math.round((correctCount / results.length) * PH_TASK_MAX_XP.domain);
+
+    // A "mistake" = trusting an actual threat as safe, capped at 2 —
+    // same dangerous-miss pattern every other PH task tracks.
+    const unsafeMisses = results.filter((r) => r.isThreat && r.playerGuessed === "safe").length;
+    const mistakes = Math.min(2, unsafeMisses);
+
+    onMood?.(mistakes > 0 ? "breach" : "safe");
+    onComplete(xp, mistakes);
+  }
+
+  return <CSIInvestigation files={DOMAIN_FILES} onComplete={handleCSIComplete} />;
 }
 
 /* ======================================================================
@@ -304,12 +418,11 @@ const ACT_BTNS: { id: Act; label: string; color: string }[] = [
 const ACT_LABEL: Record<Act, string> = { open: "OPEN IT", verify: "VERIFY FIRST", never: "DON'T OPEN" };
 
 interface Item { icon: string; name: string; ctx: string; answer: Act; why: string }
-// 👇 CHANGED: Elmwood -> Metropolitan
 const ITEMS: Item[] = [
-  { icon: "\u{1F4C4}", name: "Lunch_Menu.pdf", ctx: "From cafeteria@metropolitan.edu, a school address you subscribed to. You expected it.", answer: "open", why: "Known sender, expected file, a normal file type and no odd requests. Fine to open." },
+  { icon: "\u{1F4C4}", name: "Lunch_Menu.pdf", ctx: "From cafeteria@NorthHigh.edu, a school address you subscribed to. You expected it.", answer: "open", why: "Known sender, expected file, a normal file type and no odd requests. Fine to open." },
   { icon: "\u2699\uFE0F", name: "Invoice_4471.pdf.exe", ctx: "Arrived as 'Your order receipt'. You didn't order anything.", answer: "never", why: "The real ending is .exe: a program pretending to be a PDF. Double extensions are a classic disguise." },
-  { icon: "\u{1F4DD}", name: "Grades_Report.docx", ctx: "The email says: 'Click Enable Content to view your grades.'", answer: "never", why: "A grade report never needs 'enable content'. That button is how a document runs hidden code." },
-  { icon: "\u25A6", name: "Poster QR: 'WIN $50, SCAN NOW'", ctx: "Taped over the real cheer-squad notice. No organiser named.", answer: "never", why: "A QR code is a link you can't read, and a sticker can cover a real poster." },
+  { icon: "\u{1F4DD}", name: "Grades_Report.pdf.exe", ctx: "The email says: 'Click Enable Content to view your grades.'", answer: "never", why: "A grade report is a document. The real ending is .exe, which is a program. Windows often hides the last ending, so .pdf was only a costume." },
+  { icon: "\u25A6", name: "Poster QR: 'WIN $50, SCAN NOW'", ctx: "Taped over the real cheer-squad notice. No organiser named.", answer: "never", why: "A QR code is a link you can't read. A sticker can cover a real poster and take you to a fake website that steals your info or downloads viruses onto your phone."},
   { icon: "\u{1F5DC}\uFE0F", name: "Group_Project.zip", ctx: "From a classmate you know, but you weren't expecting it. The message includes the zip's password.", answer: "verify", why: "A real person, an unexpected file and a password included (so scanners can't look inside) is suspicious. Ask them on another channel." },
   { icon: "\u{1F4D1}", name: "Fall_Schedule.pdf", ctx: "From the school office, via the portal's message centre. You asked for it yesterday.", answer: "open", why: "Expected, from the official channel, no pressure. Open it." },
 ];
@@ -340,7 +453,7 @@ function AttachTask({ onComplete, onMood }: TaskCallbacks) {
     onMood?.(r.unsafe ? "breach" : "safe");
     snd(r.unsafe ? "bad" : v === it.answer ? "good" : "tick");
   }
-  
+
   // UNCHANGED
   function next() {
     setPick(null);
@@ -494,7 +607,7 @@ const SMS: Sms[] = [
     fit: 0,
     flags: [
       { t: "Congratulations! You've been selected", why: "A prize for something you never entered." },
-      { t: "Claim your $500 reward now", why: "A reward plus 'now' is built to rush you." },
+      { t: "Claim your $500 reward now", why: "An offer that is too good to be true and rushes you." },
       { t: "walmart-rewards-center.com", why: "The owner is walmart-rewards-center.com, not walmart.com." },
     ],
     signals: [],
@@ -516,22 +629,22 @@ const SMS: Sms[] = [
     tip: "Open the Amazon app yourself and look at your account. If something is wrong, it will say so there.",
   },
   {
-    name: "METROPOLITAN-ALERT", number: "+1 (555) 555-0112", time: "1:20 PM",
-    text: "Metropolitan: your school account will be disabled today. Verify now: metropolitan-alert.top",
+    name: "NorthHigh-ALERT", number: "+1 (555) 555-0112", time: "1:20 PM",
+    text: "North High: your school account will be disabled today. Verify now: northHigh-alert.top",
     isPhish: true,
-    week: "You're a Metropolitan student, and IT announced a portal update on Monday.",
+    week: "You're a North High student, and IT announced a portal update on Monday.",
     fit: 2,
     flags: [
       { t: "will be disabled today", why: "A threat with a same-day deadline." },
       { t: "Verify now:", why: "It orders you to act immediately." },
-      { t: "metropolitan-alert.top", why: "The owner is metropolitan-alert.top, not metropolitan.edu. A sender name is just text." },
+      { t: "NorthHigh-alert.top", why: "The owner is NorthHigh-alert.top, not NorthHigh.edu. A sender name is just text." },
     ],
     signals: [],
     tip: "Type your school portal address yourself. If your account really had a problem, it will say so there. Tell IT about the text.",
   },
   {
     name: "Counseling Office (saved)", number: "+1 (555) 555-0178", time: "2:05 PM",
-    text: "Metropolitan Counseling: your appointment moved to 2:30 P.M. today. Nothing to do on your side.",
+    text: "North High Counseling: your appointment moved to 2:30 P.M. today. Nothing to do on your side.",
     isPhish: false,
     week: "You booked a counseling visit for today.",
     fit: 2,
@@ -760,196 +873,225 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 4: WHO FALLS FOR IT? (UNCHANGED logic, just text swap)
+   TASK 4: EMAIL INSPECTOR (V7 — hover reveals the real link, matching
+   real browser/email-client behavior and the Domain Detective task's
+   "read the real owner" lesson. The giveaway is now genuinely spottable
+   BEFORE clicking, not just findable by elimination.)
    ====================================================================== */
-/* ======================================================================
-   TASK 4: EMAIL INSPECTOR (V6, Interactive Click-to-Scan)
-   ====================================================================== */
 
-interface EmailField {
-  text: string;
-  isGiveaway: boolean;
-  reason: string;
-}
-
-interface FRound {
-  who: string;
-  facts: string[];
-  sender: EmailField;
-  subject: EmailField;
-  body: EmailField;
-  button: EmailField;
-}
-
-const FROUNDS: FRound[] = [
-  {
-    who: "Sarah, junior",
-    facts: ["Uses the school portal every day", "IT really announced a portal update on Monday", "Her school address is metropolitan.edu"],
-    sender: { text: "Metropolitan IT Desk <it@metropolitan.edu>", isGiveaway: false, reason: "The sender address looks perfectly real. Scammers can fake the display name, but this one is actually spoofing the real address." },
-    subject: { text: "Action needed: portal password expires today", isGiveaway: false, reason: "Urgency is a red flag, but the real proof is hiding further down." },
-    body: { text: "Hi Sarah,\n\nAs announced on Monday, we are updating the portal. Your password expires today. Please update it immediately to avoid losing access.", isGiveaway: false, reason: "These are true facts. The hacker borrowed real school news to make it feel safe." },
-    button: { text: "Update my password", isGiveaway: true, reason: "GIVEAWAY! The button actually links to a look-alike domain (verify-login.top), not metropolitan.edu." }
-  },
-  {
-    who: "Diego, senior",
-    facts: ["Applied for 2 scholarships last month", "Is waiting to hear back", "Real scholarship emails come from @metropolitan.edu"],
-    sender: { text: "Scholarship Office <office@scholarship-docs.help>", isGiveaway: true, reason: "GIVEAWAY! The sender's domain is a look-alike. Real scholarship emails come from @metropolitan.edu." },
-    subject: { text: "Your application is missing a document", isGiveaway: false, reason: "This matches his real life perfectly. He is waiting for news." },
-    body: { text: "Hello Diego,\n\nYour scholarship application is missing one document. Please upload it by Friday or you will be removed from consideration.", isGiveaway: false, reason: "Again, this uses true facts to scare him into acting fast." },
-    button: { text: "Upload document", isGiveaway: false, reason: "The link is dangerous, but the sender's address is the biggest, most obvious giveaway." }
-  },
-  {
-    who: "Ms. Okafor, office manager",
-    facts: ["Approves school purchases every week", "Purchases are approved inside the finance system", "Principal Hall never asks for approvals by email link"],
-    sender: { text: "Principal Hall <principal@metropolitan.edu>", isGiveaway: false, reason: "The address is 100% real. The hacker hacked the principal's actual account." },
-    subject: { text: "Approval needed today", isGiveaway: false, reason: "Urgency is a cue, but not the main giveaway." },
-    body: { text: "Hi Ms. Okafor,\n\nI need your approval for 12 new lab laptops. Please approve through this link today.", isGiveaway: false, reason: "The request for laptops is normal, but the way he asks for approval is wrong." },
-    button: { text: "Approve now", isGiveaway: true, reason: "GIVEAWAY! Real approvals happen inside the secure finance system, never through an emailed link." }
+   interface EmailField {
+    text: string;
+    isGiveaway: boolean;
+    reason: string;
+    /** NEW — only buttons/links have this. The REAL destination, shown in
+        a status-bar preview on hover, exactly like a real browser does.
+        This is what makes the giveaway spottable rather than guessable. */
+    url?: string;
   }
-];
-
-function AudienceTask({ onComplete, onMood }: TaskCallbacks) {
-  const [r, setR] = useState(0);
-  const [pts, setPts] = useState(0);
-  const [clicked, setClicked] = useState<string[]>([]);
-  const [found, setFound] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const round = FROUNDS[r];
-
-  function handleClick(field: "sender" | "subject" | "body" | "button") {
-    if (found || clicked.includes(field)) return;
-    
-    const isGiveaway = round[field].isGiveaway;
-    setClicked((prev) => [...prev, field]);
-
-    if (isGiveaway) {
-      // Award points: fewer clicks = more points
-      const gain = clicked.length <= 1 ? 14 : clicked.length === 2 ? 10 : 6;
-      setPts((p) => p + gain);
-      setFound(true);
-      onMood?.("safe");
-      snd("good");
-    } else {
-      onMood?.("alert");
-      snd("tick");
+  
+  interface FRound {
+    who: string;
+    facts: string[];
+    sender: EmailField;
+    subject: EmailField;
+    body: EmailField;
+    button: EmailField;
+  }
+  
+  const FROUNDS: FRound[] = [
+    {
+      who: "Sarah, junior",
+      facts: ["Uses the school portal every day", "IT really announced a portal update on Monday", "Her school address is NorthHigh.edu"],
+      sender: { text: "NorthHigh IT Desk <it@NorthHigh.edu>", isGiveaway: false, reason: "The sender address looks perfectly real. Scammers can fake the display name, but this one is actually spoofing the real address." },
+      subject: { text: "Action needed: portal password expires today", isGiveaway: false, reason: "Urgency is a red flag, but the real proof is hiding further down." },
+      body: { text: "Hi Sarah,\n\nAs announced on Monday, we are updating the portal. Your password expires today. Please update it immediately to avoid losing access.", isGiveaway: false, reason: "These are true facts. The hacker borrowed real school news to make it feel safe." },
+      button: {
+        text: "Update my password",
+        isGiveaway: true,
+        url: "https://northhigh-portal.verify-login.top/reset",
+        reason: "GIVEAWAY! Hovering shows the real destination: verify-login.top, not NorthHigh.edu. The button text can say anything — the URL in the status bar is the truth.",
+      },
+    },
+    {
+      who: "Diego, senior",
+      facts: ["Applied for 2 scholarships last month", "Is waiting to hear back", "Real scholarship emails come from @NorthHigh.edu"],
+      sender: { text: "Scholarship Office <office@scholarship-docs.help>", isGiveaway: true, reason: "GIVEAWAY! The sender's domain is a look-alike. Real scholarship emails come from @NorthHigh.edu." },
+      subject: { text: "Your application is missing a document", isGiveaway: false, reason: "This matches his real life perfectly. He is waiting for news." },
+      body: { text: "Hello Diego,\n\nYour scholarship application is missing one document. Please upload it by Friday or you will be removed from consideration.", isGiveaway: false, reason: "Again, this uses true facts to scare him into acting fast." },
+      button: {
+        text: "Upload document",
+        isGiveaway: false,
+        url: "https://scholarship-docs.help/upload",
+        reason: "The link matches the sender's own (fake) domain, so it isn't the inconsistency here — the sender's address is the real giveaway.",
+      },
+    },
+    {
+      who: "Ms. Okafor, office manager",
+      facts: ["Approves school purchases every week", "Purchases are approved inside the finance system", "Principal Hall never asks for approvals by email link"],
+      sender: { text: "Principal Hall <principal@NorthHigh.edu>", isGiveaway: false, reason: "The address is 100% real. The hacker hacked the principal's actual account." },
+      subject: { text: "Approval needed today", isGiveaway: false, reason: "Urgency is a cue, but not the main giveaway." },
+      body: { text: "Hi Ms. Okafor,\n\nI need your approval for 12 new lab laptops. Please approve through this link today.", isGiveaway: false, reason: "The request for laptops is normal, but the way he asks for approval is wrong." },
+      button: {
+        text: "Approve now",
+        isGiveaway: true,
+        url: "https://finance-approve-fast.net/auth",
+        reason: "GIVEAWAY! Hovering shows finance-approve-fast.net — not the school's real finance system. Real approvals never happen through an emailed link at all, no matter where it points.",
+      },
+    },
+  ];
+  
+  function AudienceTask({ onComplete, onMood }: TaskCallbacks) {
+    const [r, setR] = useState(0);
+    const [pts, setPts] = useState(0);
+    const [clicked, setClicked] = useState<string[]>([]);
+    const [found, setFound] = useState(false);
+    const [finished, setFinished] = useState(false);
+    // NEW — which field is currently hovered, so we can show its status-bar preview
+    const [hovered, setHovered] = useState<"sender" | "subject" | "body" | "button" | null>(null);
+    const round = FROUNDS[r];
+  
+    function handleClick(field: "sender" | "subject" | "body" | "button") {
+      if (found || clicked.includes(field)) return;
+  
+      const isGiveaway = round[field].isGiveaway;
+      setClicked((prev) => [...prev, field]);
+  
+      if (isGiveaway) {
+        const gain = clicked.length <= 1 ? 14 : clicked.length === 2 ? 10 : 6;
+        setPts((p) => p + gain);
+        setFound(true);
+        onMood?.("safe");
+        snd("good");
+      } else {
+        onMood?.("alert");
+        snd("tick");
+      }
     }
-  }
-
-  function next() {
-    if (r + 1 >= FROUNDS.length) { setFinished(true); return; }
-    setR(r + 1);
-    setClicked([]);
-    setFound(false);
-    onMood?.("calm");
-  }
-
-  if (finished) {
-    return (
-      <Summary
-        title="You dissected the traps"
-        score={Math.min(42, pts)} max={42}
-        lines={[
-          "Phishers write for someone. They copy TRUE details so the email feels normal.",
-          "The giveaway is always technical: the sender's real address, the link's real owner, or a broken process.",
-          "If you clicked the wrong thing, you learned that true facts are just bait.",
-        ]}
-        onDone={() => onComplete(Math.min(42, pts), 0)}
-      />
-    );
-  }
-
-  // Helper to render a clickable field
-  const ScanField = ({ field, children, className }: { field: "sender" | "subject" | "body" | "button", children: React.ReactNode, className?: string }) => {
-    const isClicked = clicked.includes(field);
-    const isBad = isClicked && round[field].isGiveaway;
-    const isGood = isClicked && !round[field].isGiveaway;
-
-    return (
-      <div 
-        onClick={() => handleClick(field)}
-        className={`cursor-crosshair transition-all duration-200 rounded ${className} ${
-          isBad ? "bg-red-500/20 ring-2 ring-red-500 text-red-700 font-bold" :
-          isGood ? "bg-yellow-500/10 ring-1 ring-yellow-500/50 text-gray-500 opacity-60" :
-          "hover:bg-blue-100 hover:ring-2 hover:ring-blue-400 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-        }`}
-      >
-        {children}
-      </div>
-    );
-  };
-
-  const clickedNote = clicked.length > 0 ? round[clicked[clicked.length - 1] as keyof FRound] as EmailField : null;
-
-  return (
-    <Panel title="EMAIL INSPECTOR" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{r + 1} / {FROUNDS.length}</span>}>
-      <div className="space-y-4 p-4">
-        
-        {/* HEADER INSTRUCTION */}
-        <div className="flex items-center justify-between rounded-xl border border-[#22D3EE]/40 bg-[#22D3EE]/10 p-3">
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>MISSION</p>
-            <p className="text-sm text-[#f5f3ff]">Click the exact detail in the email that proves it is a fake.</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>TARGET</p>
-            <p className="text-sm font-bold text-white">{round.who}</p>
-          </div>
+  
+    function next() {
+      if (r + 1 >= FROUNDS.length) { setFinished(true); return; }
+      setR(r + 1);
+      setClicked([]);
+      setFound(false);
+      setHovered(null);
+      onMood?.("calm");
+    }
+  
+    if (finished) {
+      return (
+        <Summary
+          title="You dissected the traps"
+          score={Math.min(42, pts)} max={42}
+          lines={[
+            "Phishers write for someone. They copy TRUE details so the email feels normal.",
+            "The giveaway is always technical: the sender's real address, or the link's real destination — hover before you click, every time.",
+            "If you clicked the wrong thing, you learned that true facts are just bait.",
+          ]}
+          onDone={() => onComplete(Math.min(42, pts), 0)}
+        />
+      );
+    }
+  
+    // UPDATED — now accepts onMouseEnter/Leave so links can show a hover preview
+    const ScanField = ({
+      field, children, className, showUrl,
+    }: { field: "sender" | "subject" | "body" | "button"; children: React.ReactNode; className?: string; showUrl?: boolean }) => {
+      const isClicked = clicked.includes(field);
+      const isBad = isClicked && round[field].isGiveaway;
+      const isGood = isClicked && !round[field].isGiveaway;
+  
+      return (
+        <div
+          onClick={() => handleClick(field)}
+          onMouseEnter={() => showUrl && setHovered(field)}
+          onMouseLeave={() => showUrl && setHovered((h) => (h === field ? null : h))}
+          className={`cursor-crosshair transition-all duration-200 rounded ${className} ${
+            isBad ? "bg-red-500/20 ring-2 ring-red-500 text-red-700 font-bold" :
+            isGood ? "bg-yellow-500/10 ring-1 ring-yellow-500/50 text-gray-500 opacity-60" :
+            "hover:bg-blue-100 hover:ring-2 hover:ring-blue-400 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+          }`}
+        >
+          {children}
         </div>
-
-        {/* THE INTERACTIVE EMAIL */}
-        <div className="overflow-hidden rounded-xl border-2 border-white/10 bg-white text-[#1f2328] shadow-2xl">
-          
-          {/* Email Header */}
-          <div className="border-b border-gray-200 bg-gray-50 p-4 space-y-2">
-            <ScanField field="sender" className="px-2 py-1 -mx-2 inline-block">
-              <span className="text-xs text-gray-500">From: </span> 
-              <span className="text-sm">{round.sender.text}</span>
-            </ScanField>
-            <br/>
-            <ScanField field="subject" className="px-2 py-1 -mx-2 inline-block">
-              <span className="text-xs text-gray-500">Subject: </span> 
-              <span className="text-sm font-bold">{round.subject.text}</span>
-            </ScanField>
-          </div>
-
-          {/* Email Body */}
-          <div className="p-4">
-            <ScanField field="body" className="p-2 -m-2 whitespace-pre-wrap text-sm leading-relaxed">
-              {round.body.text}
-            </ScanField>
-
-            {/* Email Button */}
-            <div className="mt-6 mb-2">
-              <ScanField field="button" className="inline-block px-2 py-2 -m-2">
-                <span className="inline-block rounded bg-blue-600 px-6 py-2 text-sm font-bold text-white shadow-md">
-                  {round.button.text}
-                </span>
-              </ScanField>
+      );
+    };
+  
+    const clickedNote = clicked.length > 0 ? round[clicked[clicked.length - 1] as keyof FRound] as EmailField : null;
+  
+    return (
+      <Panel title="EMAIL INSPECTOR" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{r + 1} / {FROUNDS.length}</span>}>
+        <div className="space-y-4 p-4">
+  
+          <div className="flex items-center justify-between rounded-xl border border-[#22D3EE]/40 bg-[#22D3EE]/10 p-3">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>MISSION</p>
+              <p className="text-sm text-[#f5f3ff]">Hover any link to preview its real destination, then click the detail that proves it's fake.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>TARGET</p>
+              <p className="text-sm font-bold text-white">{round.who}</p>
             </div>
           </div>
-        </div>
-
-        {/* SCAN RESULTS / FEEDBACK */}
-        {clickedNote && (
-          <div className={`ph-in rounded-xl border-2 p-4 ${found ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#f6c453] bg-[#f6c453]/10"}`}>
-            <p className={`text-xs font-bold tracking-[0.2em] ${found ? "text-[#4ade80]" : "text-[#f6c453]"}`} style={MONO}>
-              {found ? "\u2705 TARGET NEUTRALIZED" : "\u26A0\uFE0F NOT THE GIVEAWAY"}
-            </p>
-            <p className="mt-2 text-sm text-[#f5f3ff] leading-relaxed">{clickedNote.reason}</p>
-            
-            {found && (
-              <button onClick={next} className="mt-4 rounded-lg bg-[#4ade80] px-6 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-95">
-                {r + 1 < FROUNDS.length ? "Next Email" : "Finish Inspection"}
-              </button>
+  
+          {/* THE INTERACTIVE EMAIL — now wrapped so we can pin a status bar
+              to its bottom, exactly like a real browser/email client. */}
+          <div className="relative overflow-hidden rounded-xl border-2 border-white/10 bg-white text-[#1f2328] shadow-2xl">
+            <div className="border-b border-gray-200 bg-gray-50 p-4 space-y-2">
+              <ScanField field="sender" className="px-2 py-1 -mx-2 inline-block">
+                <span className="text-xs text-gray-500">From: </span>
+                <span className="text-sm">{round.sender.text}</span>
+              </ScanField>
+              <br/>
+              <ScanField field="subject" className="px-2 py-1 -mx-2 inline-block">
+                <span className="text-xs text-gray-500">Subject: </span>
+                <span className="text-sm font-bold">{round.subject.text}</span>
+              </ScanField>
+            </div>
+  
+            <div className="p-4 pb-10">
+              <ScanField field="body" className="p-2 -m-2 whitespace-pre-wrap text-sm leading-relaxed">
+                {round.body.text}
+              </ScanField>
+  
+              <div className="mt-6 mb-2">
+                <ScanField field="button" className="inline-block px-2 py-2 -m-2" showUrl>
+                  <span className="inline-block rounded bg-blue-600 px-6 py-2 text-sm font-bold text-white shadow-md">
+                    {round.button.text}
+                  </span>
+                </ScanField>
+              </div>
+            </div>
+  
+            {/* NEW — the status bar. Real browsers show the true link target
+                here the instant you hover, before any click. This is the
+                fix: the giveaway is now visible through honest inspection,
+                not just found by process of elimination. */}
+            {hovered === "button" && round.button.url && (
+              <div className="absolute bottom-0 left-0 right-0 border-t border-gray-300 bg-gray-800 px-3 py-1.5">
+                <p className="truncate text-[11px] text-gray-300" style={MONO}>{round.button.url}</p>
+              </div>
             )}
           </div>
-        )}
-
-      </div>
-    </Panel>
-  );
-}
-
+  
+          {clickedNote && (
+            <div className={`ph-in rounded-xl border-2 p-4 ${found ? "border-[#4ade80] bg-[#4ade80]/10" : "border-[#f6c453] bg-[#f6c453]/10"}`}>
+              <p className={`text-xs font-bold tracking-[0.2em] ${found ? "text-[#4ade80]" : "text-[#f6c453]"}`} style={MONO}>
+                {found ? "\u2705 TARGET NEUTRALIZED" : "\u26A0\uFE0F NOT THE GIVEAWAY"}
+              </p>
+              <p className="mt-2 text-sm text-[#f5f3ff] leading-relaxed">{clickedNote.reason}</p>
+  
+              {found && (
+                <button onClick={next} className="mt-4 rounded-lg bg-[#4ade80] px-6 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-95">
+                  {r + 1 < FROUNDS.length ? "Next Email" : "Finish Inspection"}
+                </button>
+              )}
+            </div>
+          )}
+  
+        </div>
+      </Panel>
+    );
+  }
 /* ======================================================================
    TASK 5: EMERGENCY RECOVERY (Hacker vs. Defender Card Battle)
    ====================================================================== */
@@ -1033,7 +1175,7 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
   return (
     <Panel title="THE NEXT TEN MINUTES" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>STEP {round + 1} / 4</span>}>
       <div className="p-4 space-y-6">
-        
+
         {/* THE HACKER'S ATTACK CARD */}
         <div className={`relative overflow-hidden rounded-xl border-2 border-[#fb4b5b] bg-[#2a0d12] p-5 text-center shadow-[0_0_20px_rgba(251,75,91,0.2)] ${shake ? "ph-shake" : ""}`}>
           <div className="absolute top-0 left-0 h-1 w-full bg-[#fb4b5b] animate-pulse" />
@@ -1086,7 +1228,10 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   ROUTER: MissionPlayer renders <PHTask task="..." /> (UNCHANGED)
+   ROUTER: MissionPlayer renders <PHTask task="..." />
+   Task 1 ("domain") now points at the CSI-powered DomainTask defined
+   above, instead of the old LinkCheck component — that import/file is
+   no longer used by this router.
    ====================================================================== */
 export default function PHTask({ task, onComplete, onMood }: { task: PHTaskId } & TaskCallbacks) {
   const [ready, setReady] = useState(false);
@@ -1098,7 +1243,7 @@ export default function PHTask({ task, onComplete, onMood }: { task: PHTaskId } 
   return (
     <div className="ph-root w-full">
       <style>{PH_CSS}</style>
-      {task === "domain" && <LinkCheck {...p} />}
+      {task === "domain" && <DomainTask {...p} />}
       {task === "attach" && <AttachTask {...p} />}
       {task === "textstorm" && <TextStormTask {...p} />}
       {task === "audience" && <AudienceTask {...p} />}

@@ -72,7 +72,7 @@ import {
   WhisperStage,
   whisperSceneFor,
   WHISPER_CSS,
-} from "./whisperScenes";
+} from "./manipulatedScenes";
 import { WHISPER_CHECKPOINTS } from "@/lib/mission/Manipulated";
 
 import { AI_TASK_MAX_XP } from "@/components/game/AITasks";
