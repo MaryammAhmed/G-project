@@ -43,11 +43,16 @@
    GLOBAL SIZE: everything in rem (Tailwind text-*, p-*, gap-*, max-w-*
    and the cg- classes below) scales with this value.
    100% = 16px (default). 112.5% = 18px. 125% = 20px.
-   Change this single number to make the whole site bigger or smaller.
+   It steps down on smaller screens so phones are not crowded.
    ------------------------------------------------------------------ */
 html {
-  font-size: 112.5%;
+  font-size: 112.5%;                 /* desktop: 18px */
+  -webkit-text-size-adjust: 100%;    /* stop phones from auto-inflating text */
+  text-size-adjust: 100%;
 }
+@media (max-width: 1024px) { html { font-size: 106.25%; } } /* tablets: 17px */
+@media (max-width: 640px)  { html { font-size: 100%; } }    /* phones: 16px */
+@media (max-width: 380px)  { html { font-size: 93.75%; } }  /* small phones: 15px */
 
 :root {
   --background: #ffffff;
@@ -68,6 +73,32 @@ body {
 }
 
 /* ------------------------------------------------------------------
+   MOBILE FIXES
+   ------------------------------------------------------------------ */
+
+/* Never scroll sideways. "clip" (not "hidden") so position: sticky keeps working. */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* h-screen / min-h-screen use 100vh, which is taller than the visible area on
+   phones because of the address bar. dvh is the real visible height.
+   (The first line is the fallback for older browsers.) */
+.h-screen     { height: 100vh;     height: 100dvh; }
+.min-h-screen { min-height: 100vh; min-height: 100dvh; }
+
+/* iOS Safari zooms into any input smaller than 16px */
+input, select, textarea {
+  font-size: max(16px, 1rem);
+}
+
+/* Comfortable tap targets for the main button and input styles */
+.cg-btn, .cg-input {
+  min-height: 2.75rem;
+}
+
+/* ------------------------------------------------------------------
    TINY TEXT FIX: classes like text-[10px] use fixed pixels, so they
    ignore the html font-size above. These overrides convert the common
    ones to rem so they grow with the rest of the site.
@@ -83,6 +114,7 @@ body {
   .cg-page {
     position: relative;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
     color: var(--color-text-primary, #f5f3ff);
     font-family: var(--font-heading), system-ui, sans-serif;
