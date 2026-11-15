@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-[#0d0618] text-white font-sans">
+    <div className="relative flex min-h-dvh w-full flex-col overflow-x-clip bg-[#0d0618] font-sans text-white">
       {/* Ambient purple/pink radial glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[10%] w-[60%] h-[60%] rounded-full bg-[#9333ea] opacity-30 blur-[120px]" />
@@ -12,37 +12,36 @@ export default function Home() {
       </div>
 
       {/* Nav */}
-      <nav className="relative z-20 flex w-full max-w-[90rem] shrink-0 items-center justify-between px-10 py-6 mx-auto">
-        <span className="text-3xl font-extrabold tracking-wide">
+      <nav className="relative z-20 mx-auto flex w-full max-w-[90rem] shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-3 px-3 py-4 sm:px-6 sm:py-5 lg:px-10 lg:py-6">
+        <span className="shrink-0 whitespace-nowrap text-[clamp(1rem,5vw,1.875rem)] font-extrabold tracking-wide">
           <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(236,72,153,0.5)]">
             CYBER
           </span>
           <span className="text-white/90">GUARD</span>
         </span>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Link
             href="/login"
-            className="rounded-full border border-fuchsia-400/40 px-7 py-2.5 text-base font-semibold text-fuchsia-200 hover:bg-fuchsia-500/10 transition-all"
+            className="min-h-10 whitespace-nowrap rounded-full border border-fuchsia-400/40 px-2.5 py-2 text-xs font-semibold text-fuchsia-200 transition-all hover:bg-fuchsia-500/10 sm:min-h-11 sm:px-5 sm:py-2.5 sm:text-base lg:px-7"
           >
             Sign In
           </Link>
           <Link
             href="/register"
-            className="rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 px-7 py-2.5 text-base font-bold text-white shadow-lg shadow-fuchsia-500/30 hover:scale-105 active:scale-95 transition-all"
+            className="min-h-10 whitespace-nowrap rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 px-2.5 py-2 text-xs font-bold text-white shadow-lg shadow-fuchsia-500/30 transition-all hover:scale-105 active:scale-95 sm:min-h-11 sm:px-5 sm:py-2.5 sm:text-base lg:px-7"
           >
             Play Now
           </Link>
         </div>
       </nav>
 
-      {/* Main content: centered, fills the space left under the nav, no scroll */}
-      <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-base md:text-lg uppercase tracking-[0.3em] font-bold text-fuchsia-300/80 mb-4">
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-4 py-8 text-center sm:px-6 sm:py-10">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300/80 sm:mb-4 sm:text-base sm:tracking-[0.3em] md:text-lg">
           Enter the World of
         </p>
 
-        <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-none mb-5">
+        <h1 className="mb-4 max-w-full whitespace-nowrap text-[clamp(1.875rem,9vw,6rem)] font-black leading-[1.05] tracking-[-0.04em] sm:mb-5">
           <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
             CYBERGUARD
           </span>
@@ -53,8 +52,8 @@ export default function Home() {
             but never pushes the page into scrolling. */}
         <svg
           viewBox="0 0 220 220"
-          className="mb-2"
-          style={{ width: "min(34vh, 24rem)", height: "min(34vh, 24rem)" }}
+          className="mb-2 max-w-full"
+          style={{ width: "min(30dvh, 70vw, 24rem)", height: "min(30dvh, 70vw, 24rem)" }}
         >
           <defs>
             <radialGradient id="boneGrad" cx="35%" cy="30%" r="80%">
@@ -149,26 +148,25 @@ export default function Home() {
           </g>
         </svg>
 
-        <p className="text-lg md:text-xl text-fuchsia-300/70 font-medium">
-          "Hey there — ready to level up your security skills?"
+        <p className="max-w-[34rem] px-2 text-base font-medium leading-relaxed text-fuchsia-300/70 sm:text-lg md:text-xl">
+          &quot;Hey there, ready to level up your security skills?&quot;
         </p>
       </main>
 
-      {/* Animated purple wave footer */}
-      <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none pointer-events-none">
+      <div className="pointer-events-none relative mt-auto h-20 w-full overflow-hidden leading-none sm:h-28 md:h-40">
         <style>{`
           @keyframes wave-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
           .wave-track { animation: wave-scroll 14s linear infinite; width: 200%; display: flex; }
         `}</style>
         <div className="wave-track">
-          <svg viewBox="0 0 1440 150" className="w-1/2 h-28 md:h-40" preserveAspectRatio="none">
+          <svg viewBox="0 0 1440 150" className="h-20 w-1/2 sm:h-28 md:h-40" preserveAspectRatio="none">
             <path d="M0,80 C240,140 480,20 720,70 C960,120 1200,30 1440,80 L1440,150 L0,150 Z" fill="#9333ea" fillOpacity="0.35" />
           </svg>
-          <svg viewBox="0 0 1440 150" className="w-1/2 h-28 md:h-40" preserveAspectRatio="none">
+          <svg viewBox="0 0 1440 150" className="h-20 w-1/2 sm:h-28 md:h-40" preserveAspectRatio="none">
             <path d="M0,80 C240,140 480,20 720,70 C960,120 1200,30 1440,80 L1440,150 L0,150 Z" fill="#9333ea" fillOpacity="0.35" />
           </svg>
         </div>
-        <svg viewBox="0 0 1440 150" className="absolute bottom-0 w-full h-24 md:h-36" preserveAspectRatio="none">
+        <svg viewBox="0 0 1440 150" className="absolute bottom-0 h-16 w-full sm:h-24 md:h-36" preserveAspectRatio="none">
           <path d="M0,100 C360,40 1080,160 1440,90 L1440,150 L0,150 Z" fill="#ec4899" fillOpacity="0.25" />
         </svg>
       </div>
