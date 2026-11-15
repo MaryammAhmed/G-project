@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
@@ -22,6 +23,7 @@ const RULES: { test: (p: string) => boolean; text: string }[] = [
 const STRENGTH = ["#fb4b5b", "#fb4b5b", "#fb923c", "#FBBF24", "#22D3EE", "#34D399"];
 
 export default function Register() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +32,14 @@ export default function Register() {
   const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPw, setShowPw] = useState(false);
+
+  // Holds the redirect timer so it can be cancelled if the user leaves the page first
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, []);
 
   const passed = RULES.filter((r) => r.test(password)).length;
   const accent = STRENGTH[passed];
@@ -51,6 +61,8 @@ export default function Register() {
 
       if (res.ok) {
         setStatus({ kind: "ok", text: data.message });
+        // Show the success message briefly, then go to the login page
+        redirectTimer.current = setTimeout(() => router.push("/login"), 1500);
       } else {
         setStatus({ kind: "err", text: typeof data.detail === "string" ? data.detail : "Check your details and try again." });
       }
@@ -76,11 +88,9 @@ export default function Register() {
           }
         />
 
-        {/* 👇 CHANGED: max-w-4xl stays, but we use w-full and max-h-[90vh] to prevent scrolling 👇 */}
         <div className="auth-fill cg-glass ax-card ax-scan ax-in relative z-10 grid w-full md:grid-cols-[1.1fr_1fr]" style={{ "--c": accent } as CSSProperties}>
-          
+
           {/* ======== LEFT: the form ======== */}
-          {/* 👇 CHANGED: p-8 to p-6, space-y-6 to space-y-4 to save vertical space 👇 */}
           <div className="flex h-full flex-col justify-center space-y-4 p-6 lg:p-8">
             <div className="flex items-center gap-1.5" aria-hidden="true">
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
@@ -95,7 +105,6 @@ export default function Register() {
               <p className="mt-1 text-xs text-text-secondary font-hud">Choose your training identity to begin<span className="ax-blink" style={{ color: accent }}>_</span></p>
             </div>
 
-            {/* 👇 CHANGED: form space-y-5 to space-y-3 👇 */}
             <form onSubmit={handleRegister} className="space-y-4" aria-busy={busy}>
               <div>
                 <label htmlFor="rg-user" className="cg-label">Username</label>
@@ -113,8 +122,7 @@ export default function Register() {
                     {showPw ? "HIDE" : "SHOW"}
                   </button>
                 </div>
-                
-                {/* 👇 CHANGED: Tighter checklist spacing 👇 */}
+
                 <ul className="mt-1.5 grid gap-x-3 gap-y-0.5 sm:grid-cols-2" aria-live="polite">
                   {RULES.map((r) => {
                     const ok = r.test(password);
@@ -146,7 +154,6 @@ export default function Register() {
           </div>
 
           {/* ======== RIGHT: the live agent ID card + badges ======== */}
-          {/* 👇 CHANGED: p-8 to p-6, gap-5 to gap-4 👇 */}
           <aside className="hidden flex-col gap-4 border-s border-white/10 bg-black/20 p-6 lg:p-8 md:flex" aria-label="Your agent card">
             <div className="relative overflow-hidden rounded-2xl border p-4" style={{ borderColor: `${accent}99`, background: "rgba(7,7,17,.75)", boxShadow: `0 0 24px ${accent}33` }}>
               <p className="text-[10px] font-bold tracking-[0.3em]" style={{ ...MONO, color: accent }}>CYBERGUARD AGENT ID</p>
@@ -161,7 +168,7 @@ export default function Register() {
                 </div>
               </div>
               <p className="mt-2 text-[9px] tracking-[0.2em] text-text-secondary" style={MONO}>CLEARANCE: TIER 1 | HIGH SCHOOL 16-18</p>
-              
+
               <div className="mt-1.5 flex gap-1" aria-hidden="true">
                 {RULES.map((_, i) => <span key={i} className="h-1.5 flex-1 rounded-full transition-all duration-500" style={{ background: i < passed ? accent : "rgba(255,255,255,.12)" }} />)}
               </div>
