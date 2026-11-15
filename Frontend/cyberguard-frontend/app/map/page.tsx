@@ -32,7 +32,7 @@ interface Realm {
   id: string;
   order: number;
   title: string;
-  brief: string; // 👈 ADDED
+  brief: string;
   href: string;
   status: Status;
   color: string;
@@ -40,12 +40,14 @@ interface Realm {
   y: number;
 }
 
+// Islands are spaced exactly 280 apart and alternate low / high / low / high / low,
+// with equal margins on the left and right.
 const BASE_MISSIONS: Realm[] = [
-  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 190, y: 450 },
-  { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 500, y: 335 },
-  { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455 },
-  { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335 },
-  { id: "takeover", order: 5, title: "The Takeover", brief: "Face the rogue AI. Prove what you learned.", href: "/mission/takeover", status: "locked", color: "#fb4b5b", x: 1320, y: 470 },
+  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 140, y: 450 },
+  { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 420, y: 335 },
+  { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 700, y: 450 },
+  { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 980, y: 335 },
+  { id: "takeover", order: 5, title: "The Takeover", brief: "Face the rogue AI. Prove what you learned.", href: "/mission/takeover", status: "locked", color: "#fb4b5b", x: 1260, y: 450 },
 ];
 
 const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 };
@@ -411,8 +413,10 @@ export default function MissionMapPage() {
 
                   {MISSIONS.slice(0, -1).map((a, i) => {
                     const b = MISSIONS[i + 1];
-                    const sx = a.x + 104, sy = a.y + 44, ex = b.x - 104, ey = b.y + 44;
-                    const d = `M${sx} ${sy} C ${sx + 90} ${sy + 50}, ${ex - 90} ${ey + 50}, ${ex} ${ey}`;
+                    // Curve handles scale with the gap, so every route has the same gentle shape
+                    const sx = a.x + 100, sy = a.y + 44, ex = b.x - 100, ey = b.y + 44;
+                    const k = (ex - sx) * 0.4;
+                    const d = `M${sx} ${sy} C ${sx + k} ${sy + 50}, ${ex - k} ${ey + 50}, ${ex} ${ey}`;
                     const live = isUnlocked(a) && isUnlocked(b);
                     const lit = hovered === a.id || hovered === b.id;
                     const col = lit ? (selected?.color ?? "#4cc9ff") : live ? "#4cc9ff" : "#6b7280";
@@ -460,12 +464,26 @@ export default function MissionMapPage() {
                     </span>
                   </button>
                 ))}
+
+                {/* Skeleton companion: placed in map coordinates, directly above Mission 5
+                    (island at x 1350). Change the 200 below to move him up or down. */}
+                <div
+                  className="absolute z-30"
+                  style={{
+                    left: `${(1350 / W) * 100}%`,
+                    top: `${(200 / H) * 100}%`,
+                    width: `${(150 / W) * 100}%`,
+                    height: `${(150 / H) * 100}%`,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                >
+                  <CompanionSkeleton mood={mood} />
+                </div>
               </div>
             </div>
 
             <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
-              <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">&#9679; SONAR ONLINE</span>
-              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">REALMS {unlockedCount}/{MISSIONS.length}</span>
+              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">MODULE {unlockedCount}/{MISSIONS.length}</span>
             </div>
 
             {selected && (
@@ -482,13 +500,11 @@ export default function MissionMapPage() {
                       {isUnlocked(selected) ? "> CLICK TO DEPLOY" : "> ACCESS DENIED"}
                     </span>
                   </div>
-                  
-                  {/* 👇 THIS IS WHERE THE BRIEF IS ADDED 👇 */}
+
                   <div className="p-4 flex flex-col items-center justify-center gap-1">
                     <p className="text-xl font-bold text-[#f5f3ff]">{selected.title}</p>
                     <p className="text-xs text-[#b8b5c9]" style={MONO}>{selected.brief}</p>
                   </div>
-
                 </div>
               </div>
             )}
@@ -503,8 +519,6 @@ export default function MissionMapPage() {
                 </div>
               </div>
             )}
-
-            <CompanionSkeleton mood={mood} />
           </div>
         </div>
       </div>
