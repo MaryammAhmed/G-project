@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#0d0618] text-white font-sans">
+    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-[#0d0618] text-white font-sans">
       {/* Ambient purple/pink radial glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[10%] w-[60%] h-[60%] rounded-full bg-[#9333ea] opacity-30 blur-[120px]" />
@@ -12,44 +12,50 @@ export default function Home() {
       </div>
 
       {/* Nav */}
-      <nav className="relative z-20 flex items-center justify-between px-8 py-5 max-w-7xl mx-auto">
-        <span className="text-2xl font-extrabold tracking-wide">
+      <nav className="relative z-20 flex w-full max-w-[90rem] shrink-0 items-center justify-between px-10 py-6 mx-auto">
+        <span className="text-3xl font-extrabold tracking-wide">
           <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(236,72,153,0.5)]">
             CYBER
           </span>
           <span className="text-white/90">GUARD</span>
         </span>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="rounded-full border border-fuchsia-400/40 px-5 py-2 text-sm font-semibold text-fuchsia-200 hover:bg-fuchsia-500/10 transition-all"
+            className="rounded-full border border-fuchsia-400/40 px-7 py-2.5 text-base font-semibold text-fuchsia-200 hover:bg-fuchsia-500/10 transition-all"
           >
             Sign In
           </Link>
           <Link
             href="/register"
-            className="rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-fuchsia-500/30 hover:scale-105 active:scale-95 transition-all"
+            className="rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 px-7 py-2.5 text-base font-bold text-white shadow-lg shadow-fuchsia-500/30 hover:scale-105 active:scale-95 transition-all"
           >
             Play Now
           </Link>
         </div>
       </nav>
 
-      {/* Main content — centered, no scroll */}
-      <main className="relative z-10 flex flex-col items-center justify-center h-[calc(100vh-88px)] px-6 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-fuchsia-300/80 mb-3">
+      {/* Main content: centered, fills the space left under the nav, no scroll */}
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+        <p className="text-base md:text-lg uppercase tracking-[0.3em] font-bold text-fuchsia-300/80 mb-4">
           Enter the World of
         </p>
 
-        <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-none mb-4">
+        <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-none mb-5">
           <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
             CYBERGUARD
           </span>
         </h1>
 
-        {/* Skeleton mascot — shield in one hand, waving with the other */}
-        <svg width="190" height="190" viewBox="0 0 220 220" className="mb-1">
+        {/* Skeleton mascot: shield in one hand, waving with the other.
+            Size follows the screen height so it grows on big screens
+            but never pushes the page into scrolling. */}
+        <svg
+          viewBox="0 0 220 220"
+          className="mb-2"
+          style={{ width: "min(34vh, 24rem)", height: "min(34vh, 24rem)" }}
+        >
           <defs>
             <radialGradient id="boneGrad" cx="35%" cy="30%" r="80%">
               <stop offset="0%" stopColor="#ffffff" />
@@ -76,7 +82,7 @@ export default function Home() {
             <circle cx="95" cy="110" r="6" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
             <circle cx="58" cy="145" r="6" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
 
-            {/* Shield — cyber guard themed */}
+            {/* Shield: cyber guard themed */}
             <g className="shield-glow">
               <path
                 d="M40,120 L70,110 L100,120 L100,155 Q100,185 70,200 Q40,185 40,155 Z"
@@ -131,7 +137,7 @@ export default function Home() {
               <path d="M133,95 Q155,85 165,58" stroke="url(#boneGrad)" strokeWidth="9" fill="none" strokeLinecap="round" />
               <circle cx="133" cy="95" r="6" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
               <circle cx="152" cy="74" r="5" fill="url(#boneGrad)" stroke="#9333ea" strokeWidth="1.5" />
-              {/* waving hand — splayed finger bones */}
+              {/* waving hand: splayed finger bones */}
               <g stroke="url(#boneGrad)" strokeWidth="4" strokeLinecap="round">
                 <path d="M165,58 L160,42" />
                 <path d="M165,58 L168,40" />
@@ -142,7 +148,8 @@ export default function Home() {
             </g>
           </g>
         </svg>
-        <p className="text-sm text-fuchsia-300/70 font-medium">
+
+        <p className="text-lg md:text-xl text-fuchsia-300/70 font-medium">
           "Hey there — ready to level up your security skills?"
         </p>
       </main>
@@ -154,14 +161,14 @@ export default function Home() {
           .wave-track { animation: wave-scroll 14s linear infinite; width: 200%; display: flex; }
         `}</style>
         <div className="wave-track">
-          <svg viewBox="0 0 1440 150" className="w-1/2 h-24 md:h-32" preserveAspectRatio="none">
+          <svg viewBox="0 0 1440 150" className="w-1/2 h-28 md:h-40" preserveAspectRatio="none">
             <path d="M0,80 C240,140 480,20 720,70 C960,120 1200,30 1440,80 L1440,150 L0,150 Z" fill="#9333ea" fillOpacity="0.35" />
           </svg>
-          <svg viewBox="0 0 1440 150" className="w-1/2 h-24 md:h-32" preserveAspectRatio="none">
+          <svg viewBox="0 0 1440 150" className="w-1/2 h-28 md:h-40" preserveAspectRatio="none">
             <path d="M0,80 C240,140 480,20 720,70 C960,120 1200,30 1440,80 L1440,150 L0,150 Z" fill="#9333ea" fillOpacity="0.35" />
           </svg>
         </div>
-        <svg viewBox="0 0 1440 150" className="absolute bottom-0 w-full h-20 md:h-28" preserveAspectRatio="none">
+        <svg viewBox="0 0 1440 150" className="absolute bottom-0 w-full h-24 md:h-36" preserveAspectRatio="none">
           <path d="M0,100 C360,40 1080,160 1440,90 L1440,150 L0,150 Z" fill="#ec4899" fillOpacity="0.25" />
         </svg>
       </div>
