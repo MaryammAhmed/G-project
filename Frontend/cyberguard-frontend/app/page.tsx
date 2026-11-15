@@ -48,11 +48,6 @@ export default function Home() {
           </span>
         </h1>
 
-        <p className="text-base md:text-lg text-purple-200/70 max-w-lg mb-4">
-          Face real AI mentors, navigate high-stakes scenarios, and learn to
-          stop identity theft before it happens.
-        </p>
-
         {/* Skeleton mascot — shield in one hand, waving with the other */}
         <svg width="190" height="190" viewBox="0 0 220 220" className="mb-1">
           <defs>

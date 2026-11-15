@@ -11,6 +11,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 BACKEND = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +22,43 @@ os.environ.setdefault("GROQ_API_KEY", "test")
 
 import main  # noqa: E402
 from main import app, get_current_user, get_db, note_otp_failure  # noqa: E402
+
+
+def test_email_sender_reports_missing_brevo_settings(monkeypatch):
+    monkeypatch.setattr(main, "BREVO_API_KEY", None)
+    monkeypatch.setattr(main, "BREVO_SENDER_EMAIL", None)
+
+    with pytest.raises(HTTPException) as error:
+        main.send_brevo_email("student@example.com", "CyberGuard", "Test", "Test")
+
+    assert error.value.status_code == 503
+
+
+def test_email_sender_reports_brevo_rejections(monkeypatch):
+    monkeypatch.setattr(main, "BREVO_API_KEY", "test-key")
+    monkeypatch.setattr(main, "BREVO_SENDER_EMAIL", "sender@example.com")
+    monkeypatch.setattr(main.requests, "post", lambda *args, **kwargs: SimpleNamespace(status_code=401))
+
+    with pytest.raises(HTTPException) as error:
+        main.send_brevo_email("student@example.com", "CyberGuard", "Test", "Test")
+
+    assert error.value.status_code == 502
+
+
+def test_email_sender_reports_network_failures_with_timeout(monkeypatch):
+    monkeypatch.setattr(main, "BREVO_API_KEY", "test-key")
+    monkeypatch.setattr(main, "BREVO_SENDER_EMAIL", "sender@example.com")
+
+    def fail_request(*args, **kwargs):
+        assert kwargs["timeout"] == 10
+        raise main.requests.Timeout()
+
+    monkeypatch.setattr(main.requests, "post", fail_request)
+
+    with pytest.raises(HTTPException) as error:
+        main.send_brevo_email("student@example.com", "CyberGuard", "Test", "Test")
+
+    assert error.value.status_code == 502
 
 
 def test_otp_locks_on_fifth_miss():

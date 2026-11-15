@@ -11,6 +11,7 @@ import os
 import secrets
 import time
 import re
+import logging
 from datetime import datetime, timedelta
 
 import requests
@@ -32,6 +33,7 @@ from models import User, UserProgress
 
 load_dotenv()
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
 
 # =============================================================
@@ -164,18 +166,38 @@ BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL")
 
 
 def send_brevo_email(to_email: str, sender_name: str, subject: str, html: str) -> None:
-    response = requests.post(
-        "https://api.brevo.com/v3/smtp/email",
-        headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
-        json={
-            "sender": {"email": BREVO_SENDER_EMAIL, "name": sender_name},
-            "to": [{"email": to_email}],
-            "subject": subject,
-            "htmlContent": html,
-        },
-    )
+    if not BREVO_API_KEY or not BREVO_SENDER_EMAIL:
+        logger.error("Brevo email settings are missing")
+        raise HTTPException(
+            status_code=503,
+            detail="Email verification is not configured on the server.",
+        )
+
+    try:
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+            json={
+                "sender": {"email": BREVO_SENDER_EMAIL, "name": sender_name},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html,
+            },
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Brevo email request failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail="Email verification service is unavailable. Please try again.",
+        ) from exc
+
     if response.status_code != 201:
-        raise Exception(f"Email send failed: {response.text}")
+        logger.error("Brevo rejected an email request with status %s", response.status_code)
+        raise HTTPException(
+            status_code=502,
+            detail="Email verification could not be sent. Check the email provider configuration.",
+        )
 
 
 def send_otp_email(to_email: str, otp_code: str) -> None:
