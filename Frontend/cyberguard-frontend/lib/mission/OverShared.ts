@@ -12,7 +12,7 @@ export const safeAIMission: Mission = {
   module: 4,
   title: "Overshared",
   place: "CYBERGUARD // CASE FILE 004",
-  badge: "CLUBBOT PATCH",
+  badge: "SECRET OUT",
   accent: "#FBBF24",
   flashGood: "SAFE MOVE",
   flashBad: "SHIELD LOST",

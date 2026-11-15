@@ -18,8 +18,8 @@ const whyPhoto = "Screenshots and photos get backed up to the cloud and can be s
 export const vaultLevels: LevelSpec[] = [
   {
     level: 1,
-    title: "The Public Profile",
-    badge: "Profile Reader",
+    title: "Glass Locker",
+    badge: "Open Book",
     icon: "🔎",
     incident: "A student gets locked out at midnight because their password was their name plus a birth year posted on their profile.",
     beats: [
@@ -49,8 +49,8 @@ export const vaultLevels: LevelSpec[] = [
   },
   {
     level: 2,
-    title: "One Key, Every Door",
-    badge: "Domino Stopper",
+    title: "Same Key",
+    badge: "Chain Break",
     icon: "🧱",
     incident: "A student used the same password on a game site, SnapGram, school email, and Discord. One leak opens all of them.",
     beats: [
@@ -80,8 +80,8 @@ export const vaultLevels: LevelSpec[] = [
   },
   {
     level: 3,
-    title: "The Long Way",
-    badge: "Passphrase Maker",
+    title: "The Long Key",
+    badge: "Long Key",
     icon: "🔑",
     incident: "The school portal asks for a new password. The form demands a symbol and a monthly change. Length matters more than those tricks.",
     beats: [
@@ -111,8 +111,8 @@ export const vaultLevels: LevelSpec[] = [
   },
   {
     level: 4,
-    title: "Was This You?",
-    badge: "Prompt Guard",
+    title: "The Knock",
+    badge: "No Tap",
     icon: "🛡️",
     incident: "A sign-in prompt appears while the student is not logging in, then a voice note asks them to read out a text code.",
     beats: [
@@ -142,8 +142,8 @@ export const vaultLevels: LevelSpec[] = [
   },
   {
     level: 5,
-    title: "The Whole Night",
-    badge: "Night Defender",
+    title: "All Night",
+    badge: "Night Watch",
     icon: "🌙",
     incident: "A friend's hacked account sends a free-Nitro link, then asks for a login code. The student refuses both, finds out the friend was phished, and locks down their own account.",
     beats: [

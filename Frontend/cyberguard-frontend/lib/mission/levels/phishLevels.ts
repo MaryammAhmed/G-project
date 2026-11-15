@@ -16,8 +16,8 @@ const whyAfter = "If you already typed a password on a fake page, change it from
 export const phishLevels: LevelSpec[] = [
   {
     level: 1,
-    title: "The Real Address",
-    badge: "Address Checker",
+    title: "Wrong Door",
+    badge: "Link Reader",
     icon: "🔗",
     incident: "A student gets a scary text from the 'principal' about failing grades, but the website address doesn't match the school's real portal.",
     beats: [
@@ -47,8 +47,8 @@ export const phishLevels: LevelSpec[] = [
   },
   {
     level: 2,
-    title: "Three Texts",
-    badge: "Text Filter",
+    title: "The Code Text",
+    badge: "No Reply",
     icon: "💬",
     incident: "Three texts arrive in one minute: a principal, a package, and a bank code. Each one wants a fast reply.",
     beats: [
@@ -78,8 +78,8 @@ export const phishLevels: LevelSpec[] = [
   },
   {
     level: 3,
-    title: "The File",
-    badge: "Attachment Guard",
+    title: "Enable Content",
+    badge: "Leave It",
     icon: "📎",
     incident: "A scholarship email and a class file both ask the student to open something. One wants them to enable content.",
     beats: [
@@ -109,8 +109,8 @@ export const phishLevels: LevelSpec[] = [
   },
   {
     level: 4,
-    title: "The Dream Park Trip",
-    badge: "Targeted Eye",
+    title: "They Know Us",
+    badge: "Still Fake",
     icon: "🎢",
     incident: "A hacker uses real details from a friend's account to send a fake ticket link for the senior class trip to Dream Park. The player must spot the Phish Scale red flags.",
     beats: [
@@ -140,8 +140,8 @@ export const phishLevels: LevelSpec[] = [
   },
   {
     level: 5,
-    title: "You Already Tapped",
-    badge: "Recovery Lead",
+    title: "Too Late",
+    badge: "Changed It",
     icon: "🛟",
     incident: "The student clicks a perfectly timed fake link, enters their password, and realizes they've been phished. They must now lock down their account and warn the school.",
     beats: [

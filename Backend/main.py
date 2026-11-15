@@ -35,10 +35,16 @@ app = FastAPI()
 
 
 # =============================================================
-# CORS — allow any localhost / 127.0.0.1 port in development.
+# CORS allows the deployed frontend plus localhost during development.
 # =============================================================
+frontend_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("FRONTEND_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=frontend_origins,
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
@@ -691,31 +697,32 @@ async def scenario_feedback(payload: ScenarioFeedbackPayload, user: User = Depen
 # it. That's fine for a learning game (the field is capped below); don't use it for grading.
 # =============================================================
 
-MODULE_SCENARIOS = {1: "vault", 2: "spot-the-phish", 3: "social-engineering", 4: "safe-ai"}
+MODULE_SCENARIOS = {1: "vault", 2: "spot-the-phish", 3: "social-engineering", 4: "safe-ai", 5: "takeover"}
 
 # Badge id, title, and icon are assigned by the server when a level is completed.
 # The browser cannot invent a badge by sending a higher score.
 BADGE_CATALOG = {
-    (1, 1): {"id": "m1l1", "title": "Profile Reader", "icon": "🔎"},
-    (1, 2): {"id": "m1l2", "title": "Domino Stopper", "icon": "🧱"},
-    (1, 3): {"id": "m1l3", "title": "Passphrase Maker", "icon": "🔑"},
-    (1, 4): {"id": "m1l4", "title": "Prompt Guard", "icon": "🛡️"},
-    (1, 5): {"id": "m1l5", "title": "Night Defender", "icon": "🌙"},
-    (2, 1): {"id": "m2l1", "title": "Address Checker", "icon": "🔗"},
-    (2, 2): {"id": "m2l2", "title": "Text Filter", "icon": "💬"},
-    (2, 3): {"id": "m2l3", "title": "Attachment Guard", "icon": "📎"},
-    (2, 4): {"id": "m2l4", "title": "Targeted Eye", "icon": "🎯"},
-    (2, 5): {"id": "m2l5", "title": "Recovery Lead", "icon": "🛟"},
-    (3, 1): {"id": "m3l1", "title": "Pressure Spotter", "icon": "📞"},
-    (3, 2): {"id": "m3l2", "title": "Code Keeper", "icon": "🤐"},
-    (3, 3): {"id": "m3l3", "title": "Profile Lock", "icon": "👤"},
-    (3, 4): {"id": "m3l4", "title": "Trick Sorter", "icon": "🎭"},
-    (3, 5): {"id": "m3l5", "title": "Hang Up", "icon": "📴"},
-    (4, 1): {"id": "m4l1", "title": "Mosaic", "icon": "🧩"},
-    (4, 2): {"id": "m4l2", "title": "Fact Checker", "icon": "📚"},
-    (4, 3): {"id": "m4l3", "title": "Inbox Judge", "icon": "📥"},
-    (4, 4): {"id": "m4l4", "title": "Callback", "icon": "🎙️"},
-    (4, 5): {"id": "m4l5", "title": "ClubBot Patch", "icon": "🤖"},
+    (1, 1): {"id": "m1l1", "title": "Open Book", "icon": "🔎"},
+    (1, 2): {"id": "m1l2", "title": "Chain Break", "icon": "🧱"},
+    (1, 3): {"id": "m1l3", "title": "Long Key", "icon": "🔑"},
+    (1, 4): {"id": "m1l4", "title": "No Tap", "icon": "🛡️"},
+    (1, 5): {"id": "m1l5", "title": "Night Watch", "icon": "🌙"},
+    (2, 1): {"id": "m2l1", "title": "Link Reader", "icon": "🔗"},
+    (2, 2): {"id": "m2l2", "title": "No Reply", "icon": "💬"},
+    (2, 3): {"id": "m2l3", "title": "Leave It", "icon": "📎"},
+    (2, 4): {"id": "m2l4", "title": "Still Fake", "icon": "🎯"},
+    (2, 5): {"id": "m2l5", "title": "Changed It", "icon": "🛟"},
+    (3, 1): {"id": "m3l1", "title": "Slow Down", "icon": "📞"},
+    (3, 2): {"id": "m3l2", "title": "Code Kept", "icon": "🤐"},
+    (3, 3): {"id": "m3l3", "title": "Locked Posts", "icon": "👤"},
+    (3, 4): {"id": "m3l4", "title": "Your Badge", "icon": "🎭"},
+    (3, 5): {"id": "m3l5", "title": "Line Dead", "icon": "📴"},
+    (4, 1): {"id": "m4l1", "title": "The Picture", "icon": "🧩"},
+    (4, 2): {"id": "m4l2", "title": "Checked It", "icon": "📚"},
+    (4, 3): {"id": "m4l3", "title": "You Approve", "icon": "📥"},
+    (4, 4): {"id": "m4l4", "title": "Called Back", "icon": "🎙️"},
+    (4, 5): {"id": "m4l5", "title": "Secret Out", "icon": "🤖"},
+    (5, 1): {"id": "finale", "title": "World Saver", "icon": "🌍"},
 }
 
 
@@ -733,14 +740,24 @@ def unlocked_modules(done: set, open_all: bool = False) -> list:
     """Module 1 is always open; module N opens when module N-1's five levels are done.
 
     An admin gets every realm open so they can test the game. That does not mark the levels finished.
+    The finale (module 5) is not part of this realm chain.
     """
     if open_all:
         return [1, 2, 3, 4]
     return [1] + [m for m in (2, 3, 4) if (m - 1) in done]
 
 
+def finale_is_open(rows: list, open_all: bool = False) -> bool:
+    """The Takeover unlocks when all four realms are finished, or for an admin."""
+    if open_all:
+        return True
+    return modules_finished(rows) >= {1, 2, 3, 4}
+
+
 def level_is_open(rows: list, module: int, level: int, open_all: bool = False) -> bool:
     """Level 1 of an unlocked module is open. Later levels need the previous level completed."""
+    if module == 5:
+        return level == 1 and finale_is_open(rows, open_all)
     if open_all:
         return True
     if module not in unlocked_modules(modules_finished(rows)):
@@ -765,6 +782,7 @@ def progress_snapshot(rows: list, open_all: bool = False) -> dict:
     by_key = {(r.module, r.level): r for r in rows}
     finished = modules_finished(rows)
     unlocked = unlocked_modules(finished, open_all)
+    finale_row = by_key.get((5, 1))
     modules = []
     levels = []
     badges = []
@@ -797,9 +815,15 @@ def progress_snapshot(rows: list, open_all: bool = False) -> dict:
             })
             if earned:
                 badges.append({"module": module, "level": lv, **spec})
+    if finale_row and finale_row.completed:
+        badges.append({"module": 5, "level": 1, **BADGE_CATALOG[(5, 1)]})
     return {
         "modules": modules,
         "levels": levels,
+        "finale": {
+            "unlocked": finale_is_open(rows, open_all),
+            "completed": bool(finale_row and finale_row.completed),
+        },
         "badges": badges,
         "unlocked": unlocked,
         "total_score": sum(x["best_score"] for x in modules),
@@ -807,7 +831,7 @@ def progress_snapshot(rows: list, open_all: bool = False) -> dict:
 
 
 class ProgressStartPayload(BaseModel):
-    module: int = Field(ge=1, le=4)
+    module: int = Field(ge=1, le=5)
     scenario: str
     level: int = Field(default=1, ge=1, le=5)
 
@@ -820,6 +844,8 @@ def check_level_request(module: int, scenario: str, level: int, rows: list, open
     """The scenario must match the module, and this level must already be unlocked."""
     if MODULE_SCENARIOS.get(module) != scenario:
         raise HTTPException(status_code=400, detail="Scenario does not match module")
+    if module == 5 and level != 1:
+        raise HTTPException(status_code=400, detail="Finale has only one stage")
     if not level_is_open(rows, module, level, open_all):
         raise HTTPException(status_code=403, detail="Level locked: finish the previous level first")
 

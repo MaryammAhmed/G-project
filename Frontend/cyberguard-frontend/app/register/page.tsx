@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
 import { AUTH_CSS, AuthRain, MODULES, ModIcon } from "@/components/ui/moduleMarks";
+import { API_BASE_URL } from "@/lib/api";
 
 const FIXED_AGE_GROUP = "A";
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
@@ -41,7 +42,7 @@ export default function Register() {
     setStatus(null);
     setBusy(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/register", {
+      const res = await fetch(`${API_BASE_URL}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password, ageGroup: FIXED_AGE_GROUP }),

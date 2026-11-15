@@ -19,6 +19,7 @@ import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
 import { AUTH_CSS, AuthRain } from "@/components/ui/moduleMarks";
+import { API_BASE_URL } from "@/lib/api";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const CODE_LEN = 6;
@@ -67,7 +68,7 @@ function VerifyOtpInner() {
     setBusy(true);
     try {
       // Send the typed code + username to the backend for checking
-      const res = await fetch("http://127.0.0.1:8000/api/verify-otp", {
+      const res = await fetch(`${API_BASE_URL}/api/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, code }),
@@ -98,7 +99,7 @@ function VerifyOtpInner() {
     setInfo("");
     try {
       // Just triggers a new code. The user will wait for the new email.
-      await fetch("http://127.0.0.1:8000/api/resend-otp", {
+      await fetch(`${API_BASE_URL}/api/resend-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),

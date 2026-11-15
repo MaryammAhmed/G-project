@@ -16,13 +16,13 @@ import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProgress, moduleStatus } from "@/lib/progress";
+import { fetchProgress, finaleStatus, moduleStatus } from "@/lib/progress";
 import type { ProgressSnapshot } from "@/lib/progress";
 import type { Mood } from "@/lib/mission/types";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-const W = 1260;
+const W = 1400;
 const H = 640;
 const S = 1.1;
 
@@ -45,6 +45,7 @@ const BASE_MISSIONS: Realm[] = [
   { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 500, y: 335 },
   { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 810, y: 455 },
   { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 1120, y: 335 },
+  { id: "takeover", order: 5, title: "The Takeover", brief: "Face the rogue AI. Prove what you learned.", href: "/mission/takeover", status: "locked", color: "#fb4b5b", x: 1320, y: 470 },
 ];
 
 const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 };
@@ -232,6 +233,21 @@ function OracleArt({ kind, color }: { kind: boolean; color: string }) {
   );
 }
 
+function TakeoverArt({ hov, color }: { hov: boolean; color: string }) {
+  return (
+    <g>
+      <Islet color={color} />
+      <g style={{ filter: `drop-shadow(0 0 ${hov ? 18 : 8}px ${color})`, transition: "filter .3s" }}>
+        <circle cx="0" cy="-40" r="48" fill="#1a0a10" stroke={color} strokeWidth="3" />
+        <circle cx="0" cy="-40" r="22" fill="#05070d" />
+        <circle cx="0" cy="-40" r="10" fill={color} className={hov ? "" : "mp-blink"} />
+        <path d="M-40 -10 L40 -10 L28 40 L-28 40 Z" fill="#171c28" stroke={color} strokeWidth="2.5" />
+        <text x="0" y="22" textAnchor="middle" fontSize="11" fontWeight="700" fill={color} style={MONO}>AI</text>
+      </g>
+    </g>
+  );
+}
+
 function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
   const locked = realm.status === "locked";
   const done = realm.status === "completed";
@@ -242,6 +258,7 @@ function RealmArt({ realm, hov }: { realm: Realm; hov: boolean }) {
         {realm.id === "mirage" && <MirageArt hov={hov} color={realm.color} />}
         {realm.id === "whisper" && <WhisperArt hov={hov} color={realm.color} />}
         {realm.id === "oracle" && <OracleArt kind={hov} color={realm.color} />}
+        {realm.id === "takeover" && <TakeoverArt hov={hov} color={realm.color} />}
       </g>
       {locked && (
         <g transform="translate(0 -40)">
@@ -314,6 +331,7 @@ export default function MissionMapPage() {
 
   const MISSIONS: Realm[] = BASE_MISSIONS.map((m) => {
     if (!progressReady && !snap) return m;
+    if (m.id === "takeover") return { ...m, status: finaleStatus(snap) };
     return { ...m, status: moduleStatus(MODULE_OF[m.id], snap) };
   });
 

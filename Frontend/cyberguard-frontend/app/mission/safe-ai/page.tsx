@@ -8,7 +8,7 @@ export default function SafeAIPathPage() {
     <LevelPath
       mission={safeAIMission}
       hrefBase="/mission/safe-ai"
-      blurb="Five weeks as the Robotics Club organizer. What you type, what the AI invents, and a helper bot that must not know the door code."
+      blurb="Follow NOVA from a study prompt to a school-wide data exposure. Learn what to share, how clues combine, how to verify AI, and why access must be limited."
     />
   );
 }

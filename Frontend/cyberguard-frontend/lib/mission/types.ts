@@ -6,28 +6,22 @@
 // The five hands-on tasks of Mission 1 ("The Vault"). A "pw-task" beat picks one with `task`.
 export type PWTaskId = "guess" | "domino" | "policy" | "prompts" | "siege";
 
-// The five new hands-on tasks of Mission 2 ("The Mirage"). A "ph-task" beat picks one with `task`.
+// The five hands-on tasks of Mission 2 ("The Mirage"). A "ph-task" beat picks one with `task`.
 export type PHTaskId = "domain" | "attach" | "textstorm" | "audience" | "recovery";
 
 export type Mood = "calm" | "alert" | "breach" | "safe";
 
-// NEW: the five hands-on tasks of Mission 3 ("The Whisper").
+// The five hands-on tasks of Mission 3 ("The Whisper").
 // A "se-task" beat picks one with its `task` field. Used by components/game/SETasks.tsx.
 export type SETaskId = "tactics" | "chat" | "recon" | "gauntlet" | "call";
 
-// EDIT A: add next to SETaskId
-// The five hands-on tasks of Mission 4 ("The Oracle"). A "ai-task" beat picks one with `task`.
+// The five hands-on tasks of Mission 4 ("The NOVA Case"). An "ai-task" beat picks one with `task`.
 export type AITaskId =
-  | "redact"
-  | "verify"
-  | "askbot"
-  | "twins"
-  | "gauntlet"
-  | "mosaic"
-  | "budget"
-  | "inbox"
-  | "voice"
-  | "clubbot";
+  | "blackout"      // L1 Minimize data and sanitize a prompt
+  | "inference"     // L2 Connect harmless clues into a privacy profile
+  | "liedetector"   // L3 Verify confident AI answers
+  | "xray"           // L4 Detect and safely handle prompt injection
+  | "switchboard";   // L5 Apply every skill in the AI breach simulation
 
 
 export interface Choice {

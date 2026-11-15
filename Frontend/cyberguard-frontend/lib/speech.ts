@@ -5,8 +5,9 @@
 */
 
 import { ensureAudio } from "@/lib/mission/audio";
+import { API_BASE_URL } from "@/lib/api";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API = API_BASE_URL;
 
 const pending: string[] = [];
 const cache = new Map<string, ArrayBuffer>();

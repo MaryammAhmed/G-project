@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
+import { API_BASE_URL } from "@/lib/api";
 
 import PageCompanion from "@/components/layout/PageCompanion";
 
@@ -102,7 +103,7 @@ export default function Login() {
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/login", {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

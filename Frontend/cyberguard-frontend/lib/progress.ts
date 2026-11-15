@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/lib/api";
+
 /*
   lib/progress.ts
   Talks to the backend progress endpoints. Every call takes the login token.
@@ -5,7 +7,7 @@
   local list so a demo can still move forward one level at a time.
 */
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API = API_BASE_URL;
 const LOCAL_KEY = "cg-level-done";
 
 export interface ModuleProgress {
@@ -44,6 +46,26 @@ export interface ProgressSnapshot {
   badges: EarnedBadge[];
   unlocked: number[];
   total_score: number;
+  finale?: { unlocked: boolean; completed: boolean };
+}
+
+/** The Takeover opens when all four realms are finished (or the server says so for admins). */
+export function finaleStatus(snap: ProgressSnapshot | null): "completed" | "available" | "locked" {
+  if (snap?.finale) {
+    if (snap.finale.completed) return "completed";
+    return snap.finale.unlocked ? "available" : "locked";
+  }
+  if (snap) {
+    const allDone = [1, 2, 3, 4].every((module) =>
+      snap.modules.some((row) => row.module === module && row.completed),
+    );
+    return allDone ? "available" : "locked";
+  }
+  const localAll = [1, 2, 3, 4].every((module) =>
+    [1, 2, 3, 4, 5].every((level) => localDone().includes(`${module}-${level}`)),
+  );
+  if (localDone().includes("5-1")) return "completed";
+  return localAll ? "available" : "locked";
 }
 
 function headers(token: string) {

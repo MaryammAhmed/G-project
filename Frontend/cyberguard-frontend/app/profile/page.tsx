@@ -8,8 +8,9 @@ import CyberShell from "@/components/layout/CyberShell";
 import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import CompanionSkeleton from "@/components/mission/CompanionSkeleton";
 import type { Mood } from "@/lib/mission/types";
+import { API_BASE_URL } from "@/lib/api";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API = API_BASE_URL;
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
 type ModuleProgress = {
@@ -37,7 +38,7 @@ const MODULE_META: Record<number, { icon: string; title: string; color: string }
   1: { icon: "🔐", title: "Locked Out", color: "#34D399" },
   2: { icon: "🎣", title: "The Mirage", color: "#22D3EE" },
   3: { icon: "🎭", title: "The Whisper", color: "#A855F7" },
-  4: { icon: "🤖", title: "The Oracle", color: "#FBBF24" },
+  4: { icon: "🤖", title: "Overshared", color: "#FBBF24" },
 };
 
 export default function ProfilePage() {

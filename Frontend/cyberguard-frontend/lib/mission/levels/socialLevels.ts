@@ -15,8 +15,8 @@ const whyDoor = "Holding a door or sharing a badge gives a stranger your access.
 export const socialLevels: LevelSpec[] = [
   {
     level: 1,
-    title: "The IT Call",
-    badge: "Pressure Spotter",
+    title: "Two Minutes",
+    badge: "Slow Down",
     icon: "📞",
     incident: "Someone calls a student during exam week, claims to be school IT, and wants a password. They use urgency and a job title.",
     beats: [
@@ -46,8 +46,8 @@ export const socialLevels: LevelSpec[] = [
   },
   {
     level: 2,
-    title: "The Friend Account",
-    badge: "Code Keeper",
+    title: "Not Sam",
+    badge: "Code Kept",
     icon: "🤐",
     incident: "A friend's account DMs a student and asks for the login code that just arrived. The code is for the student's own account.",
     beats: [
@@ -77,8 +77,8 @@ export const socialLevels: LevelSpec[] = [
   },
   {
     level: 3,
-    title: "What You Posted",
-    badge: "Profile Lock",
+    title: "Public Answers",
+    badge: "Locked Posts",
     icon: "👤",
     incident: "An attacker never hacks Jordan's account. They just read her public posts, answer her security questions, and take it over. Then they try the same trick on you.",
     beats: [
@@ -109,8 +109,8 @@ export const socialLevels: LevelSpec[] = [
   },
   {
     level: 4,
-    title: "The Office Test",
-    badge: "Trick Sorter",
+    title: "Hold the Door",
+    badge: "Your Badge",
     icon: "🏢",
     incident: "You are on your first week as an intern at a tech company. Three ordinary moments test if you can spot someone pushing you to break the rules.",
     beats: [
@@ -142,8 +142,8 @@ export const socialLevels: LevelSpec[] = [
   },
   {
     level: 5,
-    title: "Stay on the Line",
-    badge: "Hang Up",
+    title: "Hang Up",
+    badge: "Line Dead",
     icon: "📴",
     incident: "A caller claims to be the principal, refuses to let the student hang up, and asks for a one-time code.",
     beats: [

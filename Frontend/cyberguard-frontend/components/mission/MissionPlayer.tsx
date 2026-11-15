@@ -75,7 +75,6 @@ import {
 } from "./manipulatedScenes";
 import { WHISPER_CHECKPOINTS } from "@/lib/mission/Manipulated";
 
-import { AI_TASK_MAX_XP } from "@/components/game/AITasks";
 import OracleIntro from "@/components/mission/intros/OverSharedIntro";
 import {
   OracleBackdrop,
@@ -85,7 +84,7 @@ import {
 } from "./safeAI/OracleScene";
 import { ORACLE_CHECKPOINTS } from "@/lib/mission/OverShared";
 
-import OracleTask from "@/components/game/OracleTasks";
+import OracleTask, { AI_TASK_MAX_XP } from "@/components/game/OracleTasks";
 import PWTask, { PW_TASK_MAX_XP } from "@/components/game/PWTasks";
 import VaultIntro from "@/components/mission/intros/LockedOutIntro";
 import {
@@ -105,11 +104,12 @@ import {
   MIRAGE_CSS,
 } from "./Phished/Phishedscenes";
 import { MIRAGE_CHECKPOINTS } from "@/lib/mission/Phished";
+import { API_BASE_URL } from "@/lib/api";
 
 /* ======================================================================
    1. CONSTANTS
    ====================================================================== */
-const API = "http://127.0.0.1:8000"; // FastAPI backend (local machine; change for production!)
+const API = API_BASE_URL;
 
 // XP awarded for each kind of action
 const XP = {
@@ -712,7 +712,7 @@ function BeatView({
 
             {beat.type === "ai-task" && (
               <OracleTask
-                task={beat.task ?? "clubbot"}
+                task={beat.task ?? "switchboard"}
                 onMood={onMood}
                 onComplete={finishTask}
               />
@@ -898,7 +898,7 @@ export default function MissionPlayer({
     if (b.type === "csi-investigate") return sum + 50;
     if (b.type === "live-inspector") return sum + 50;
     if (b.type === "se-task") return sum + SE_TASK_MAX_XP[b.task ?? "gauntlet"];
-    if (b.type === "ai-task") return sum + AI_TASK_MAX_XP[b.task ?? "gauntlet"];
+    if (b.type === "ai-task") return sum + AI_TASK_MAX_XP[b.task ?? "switchboard"];
     if (b.type === "pw-task") return sum + PW_TASK_MAX_XP[b.task ?? "guess"];
     // ───────────── EDIT 9 · maxXp reduce: add one line ─────────────
     if (b.type === "ph-task") return sum + PH_TASK_MAX_XP[b.task ?? "domain"];
