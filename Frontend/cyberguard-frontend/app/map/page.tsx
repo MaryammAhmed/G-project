@@ -466,12 +466,12 @@ export default function MissionMapPage() {
                 ))}
 
                 {/* Skeleton companion: placed in map coordinates, directly above Mission 5
-                    (island at x 1350). Change the 200 below to move him up or down. */}
+                    (island at x 1380). Change the 190 below to move him up or down. */}
                 <div
                   className="absolute z-30"
                   style={{
-                    left: `${(1350 / W) * 100}%`,
-                    top: `${(200 / H) * 100}%`,
+                    left: `${(1380 / W) * 100}%`,
+                    top: `${(190 / H) * 100}%`,
                     width: `${(150 / W) * 100}%`,
                     height: `${(150 / H) * 100}%`,
                     transform: "translate(-50%, -50%)",
