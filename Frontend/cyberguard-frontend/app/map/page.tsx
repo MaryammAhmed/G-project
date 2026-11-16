@@ -43,7 +43,7 @@ interface Realm {
 // Islands are spaced exactly 280 apart and alternate low / high / low / high / low,
 // with equal margins on the left and right.
 const BASE_MISSIONS: Realm[] = [
-  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 140, y: 450 },
+  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/locked-out", status: "available", color: "#34D399", x: 140, y: 450 },
   { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 420, y: 335 },
   { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 700, y: 450 },
   { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 980, y: 335 },
@@ -72,7 +72,6 @@ const WAVES = [
 const STARS: [number, number, number][] = Array.from({ length: 34 }, (_, i) => [(i * 149 + 40) % W, 18 + ((i * 53) % 112), 1 + (i % 3) * 0.25]);
 
 const CSS = `
-.mp-mobile-list { display: none; }
 .mp-w1 { animation: mpWave 16s linear infinite; }
 .mp-w2 { animation: mpWave 11s linear infinite reverse; }
 .mp-bob { animation: mpBob 5s ease-in-out infinite; }
@@ -95,12 +94,6 @@ const CSS = `
 @keyframes mpPop { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 @keyframes mpShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 @media (prefers-reduced-motion: reduce) { .mp-sea *, .mp-sea *::before, .mp-sea *::after { animation: none !important; transition: none !important; } }
-@media (max-width: 1100px), (max-height: 520px) {
-  .mp-shell { padding: max(.5rem, env(safe-area-inset-top)) max(.5rem, env(safe-area-inset-right)) max(.5rem, env(safe-area-inset-bottom)) max(.5rem, env(safe-area-inset-left)); }
-  .mp-sea { overflow-y: auto; overscroll-behavior: contain; }
-  .mp-map-canvas, .mp-desktop-intel { display: none !important; }
-  .mp-mobile-list { display: grid; gap: 1rem; padding: 1rem; }
-}
 `;
 
 function Islet({ color }: { color: string }) {
@@ -384,18 +377,17 @@ export default function MissionMapPage() {
     <CyberShell variant="app" accent="cyan">
       <style>{CSS}</style>
 
-      <div className="mp-shell fixed inset-0 z-10 flex flex-col p-2 sm:p-4">
+      <div className="fixed inset-0 z-10 flex flex-col p-2 sm:p-4">
         <div className="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col">
           <TerminalHeader
             title="cyberguard/mission-map"
             status="ONLINE"
             clearance="TIER 1"
             right={<ProfileButton xp={snap ? snap.total_score : null} />}
-            className="mp-terminal-header"
           />
 
           <div className="mp-sea relative min-h-0 flex-1 overflow-hidden rounded-b-2xl border border-t-0 border-cyan-300/20 bg-[#0b3550]">
-            <div className="mp-map-canvas absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
+            <div className="absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
               <div className="relative" style={{ width: `min(100cqw, ${(W / H) * 100}cqh)`, aspectRatio: `${W} / ${H}` }}>
                 <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
@@ -490,12 +482,13 @@ export default function MissionMapPage() {
               </div>
             </div>
 
-            <div className="mp-desktop-intel pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
-              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">MODULE {unlockedCount}/{MISSIONS.length}</span>
+            <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
+              <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">&#9679; SONAR ONLINE</span>
+              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">REALMS {unlockedCount}/{MISSIONS.length}</span>
             </div>
 
             {selected && (
-              <div className="mp-desktop-intel pointer-events-none absolute left-1/2 top-3 z-40 w-[min(360px,90%)] -translate-x-1/2">
+              <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(360px,90%)] -translate-x-1/2">
                 <div
                   key={selected.id}
                   className="mp-pop overflow-hidden rounded-xl border backdrop-blur-xl text-center"
@@ -516,43 +509,6 @@ export default function MissionMapPage() {
                 </div>
               </div>
             )}
-
-            <section className="mp-mobile-list" aria-label="Mission route">
-              <div className="flex items-center justify-between gap-3">
-                <h1 className="text-base font-bold tracking-wide text-white">Mission route</h1>
-                <span className="shrink-0 rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-xs font-bold tracking-wider text-cyan-200" style={MONO}>
-                  {unlockedCount}/{MISSIONS.length} OPEN
-                </span>
-              </div>
-              <ol className="grid gap-2">
-                {MISSIONS.map((realm) => {
-                  const statusLabel = realm.status === "completed" ? "DONE" : realm.status === "available" ? "OPEN" : "LOCKED";
-                  const statusColor = realm.status === "locked" ? "#a1a1aa" : realm.color;
-                  return (
-                    <li key={realm.id}>
-                      <button
-                        type="button"
-                        onClick={() => launch(realm)}
-                        aria-label={`${realm.title}. ${STATUS_TEXT[realm.status]}. ${realm.brief}`}
-                        className="grid min-h-[76px] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-[#07131d]/90 p-3 text-left transition hover:bg-[#0b1c29] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b3550]"
-                        style={{ borderColor: `${statusColor}66` }}
-                      >
-                        <span className="grid h-10 w-10 place-items-center rounded-lg border bg-[#050611]" style={{ borderColor: `${statusColor}66`, color: statusColor, ...MONO }}>
-                          0{realm.order}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-white">{realm.title}</span>
-                          <span className="mt-1 block text-xs leading-relaxed text-slate-300">{realm.brief}</span>
-                        </span>
-                        <span className="shrink-0 text-[10px] font-bold tracking-wider" style={{ color: statusColor, ...MONO }}>
-                          {statusLabel}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
 
             {denied && (
               <div className="pointer-events-none absolute inset-x-3 top-1/2 z-50 mx-auto w-[min(360px,90%)] -translate-y-1/2">
