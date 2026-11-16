@@ -1,5 +1,23 @@
 "use client";
 
+/*
+  app/register/page.tsx
+  =====================
+  THE RECRUIT DESK: fill in the form on the left, watch your agent ID card build itself on the right.
+
+  LOGIC IS UNCHANGED: same /api/register call, same redirect to /login after success.
+
+  WHAT CHANGED IN THIS VERSION (layout only):
+    1. NO SCROLL: the page is locked to the screen height (100dvh). Titles, inputs, button and
+       spacing all use clamp(), so the form compresses to fit short screens and phones.
+    2. NO SCROLLBAR: the white scrollbar is hidden everywhere. On a really tiny screen the card can
+       still be swiped, but no bar is ever drawn.
+    3. PHONE FRIENDLY: below the "md" breakpoint the ID-card panel is hidden and the form takes the
+       whole card. The password rules stay in 2 compact columns so they don't push the button off-screen.
+    4. SHORT SCREENS: the less important text (kicker, subtitle, badges, scenario note) is hidden
+       automatically when the screen height is small.
+*/
+
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -22,6 +40,44 @@ const RULES: { test: (p: string) => boolean; text: string }[] = [
 ];
 const STRENGTH = ["#fb4b5b", "#fb4b5b", "#fb923c", "#FBBF24", "#22D3EE", "#34D399"];
 
+/*
+  FIT_CSS: everything that makes the page fit the screen.
+  Scoped under .fit-root so it cannot leak into other pages.
+  (!important is used on the card only to beat the older .auth-fill rule inside AUTH_CSS.)
+*/
+const FIT_CSS = `
+/* hide the scrollbar on the whole page (Chrome/Safari/Edge + Firefox) */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+/* the card is exactly one screen tall (minus the shell's small margin). Overflow is a hidden-bar fallback only. */
+.fit-root .auth-fill {
+  width: min(100%, 72rem) !important;
+  height: calc(100dvh - 1.5rem) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.fit-root .auth-fill::-webkit-scrollbar { display: none; }
+
+/* padding and vertical rhythm shrink with the screen */
+.fit-root .fit-pad   { padding: clamp(.8rem, 2.6dvh, 2.25rem) clamp(1rem, 4vw, 2.25rem); }
+.fit-root .fit-stack > * + * { margin-top: clamp(.4rem, 1.6dvh, 1.25rem); }
+
+/* the big title scales with the screen height */
+.fit-root .fit-title { font-size: clamp(1.3rem, 2.3dvh + .85rem, 2.3rem); line-height: 1.12; }
+
+/* inputs, button and labels compress on short screens */
+.fit-root .cg-input { padding: clamp(.5rem, 1.5dvh, .9rem) 1rem; font-size: clamp(.92rem, 1.1dvh + .5rem, 1.0625rem); }
+.fit-root .cg-btn   { padding: clamp(.65rem, 1.8dvh, 1rem) 1.5rem; font-size: clamp(.95rem, 1.1dvh + .5rem, 1.05rem); }
+.fit-root .cg-label { font-size: .78rem; margin-bottom: clamp(.15rem, .6dvh, .4rem); }
+
+/* hide the less important bits when the screen is short */
+@media (max-height: 700px) { .fit-root .fit-hide-short { display: none !important; } }
+@media (max-height: 520px) { .fit-root .fit-hide-tiny  { display: none !important; } }
+`;
+
 export default function Register() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -38,6 +94,21 @@ export default function Register() {
   useEffect(() => {
     return () => {
       if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, []);
+
+  /* LAYOUT: lock the page itself so the browser never shows a page-level scrollbar.
+     The old overflow values are put back when the user leaves this page. */
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
     };
   }, []);
 
@@ -75,8 +146,10 @@ export default function Register() {
 
   return (
     <CyberShell variant="center" accent="emerald">
-      <div className="ax-root contents">
+      {/* fit-root = the scope for all the layout rules in FIT_CSS */}
+      <div className="ax-root fit-root contents">
         <style>{AUTH_CSS}</style>
+        <style>{FIT_CSS}</style>
         <AuthRain words={["letmein", "ACCESS", "HELLO?", "2FA", "PASSPHRASE", "VERIFY", "SECRET", "TIER 1"]} />
         <PageCompanion
           mood={status?.kind === "err" ? "breach" : status?.kind === "ok" ? "safe" : passed === 5 ? "safe" : "calm"}
@@ -90,9 +163,9 @@ export default function Register() {
 
         <div className="auth-fill cg-glass ax-card ax-scan ax-in relative z-10 grid w-full md:grid-cols-[1.1fr_1fr]" style={{ "--c": accent } as CSSProperties}>
 
-          {/* ======== LEFT: the form ======== */}
-          <div className="flex h-full flex-col justify-center space-y-4 p-6 lg:p-8">
-            <div className="flex items-center gap-1.5" aria-hidden="true">
+          {/* ======== LEFT: the form (the whole card on phones) ======== */}
+          <div className="fit-pad fit-stack flex h-full flex-col justify-center">
+            <div className="fit-hide-tiny flex items-center gap-1.5" aria-hidden="true">
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
@@ -100,12 +173,12 @@ export default function Register() {
             </div>
 
             <div>
-              <p className="cg-kicker mb-1">{"// AGENT REGISTRATION"}</p>
-              <h2 className="cg-title text-4xl font-bold" style={{ color: accent }}>Create Account</h2>
-              <p className="mt-1 text-xs text-text-secondary font-hud">Choose your training identity to begin<span className="ax-blink" style={{ color: accent }}>_</span></p>
+              <p className="cg-kicker fit-hide-short mb-1">{"// AGENT REGISTRATION"}</p>
+              <h2 className="cg-title fit-title font-bold" style={{ color: accent }}>Create Account</h2>
+              <p className="fit-hide-short mt-1 text-xs text-text-secondary font-hud">Choose your training identity to begin<span className="ax-blink" style={{ color: accent }}>_</span></p>
             </div>
 
-            <form onSubmit={handleRegister} className="space-y-4" aria-busy={busy}>
+            <form onSubmit={handleRegister} className="fit-stack" aria-busy={busy}>
               <div>
                 <label htmlFor="rg-user" className="cg-label">Username</label>
                 <input id="rg-user" type="text" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} className="cg-input" placeholder="e.g. Layla_H" />
@@ -123,11 +196,12 @@ export default function Register() {
                   </button>
                 </div>
 
-                <ul className="mt-1.5 grid gap-x-3 gap-y-0.5 sm:grid-cols-2" aria-live="polite">
+                {/* password rules: always 2 compact columns, so they stay short even on a phone */}
+                <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5" aria-live="polite">
                   {RULES.map((r) => {
                     const ok = r.test(password);
                     return (
-                      <li key={r.text} className="text-[10px]" style={{ ...MONO, color: ok ? "#34D399" : "#77748c" }}>
+                      <li key={r.text} className="text-[10px] leading-tight" style={{ ...MONO, color: ok ? "#34D399" : "#77748c" }}>
                         {ok ? "\u2713" : "\u25CB"} {r.text}
                       </li>
                     );
@@ -147,14 +221,14 @@ export default function Register() {
               </button>
             </form>
 
-            <p className="text-center text-xs text-text-secondary font-hud mt-2">
+            <p className="text-center text-xs text-text-secondary font-hud">
               Already have an account?{" "}
               <Link href="/login" className="font-semibold hover:underline" style={{ color: accent }}>Sign in here</Link>
             </p>
           </div>
 
-          {/* ======== RIGHT: the live agent ID card + badges ======== */}
-          <aside className="hidden flex-col gap-4 border-s border-white/10 bg-black/20 p-6 lg:p-8 md:flex" aria-label="Your agent card">
+          {/* ======== RIGHT: the live agent ID card + badges (hidden on phones) ======== */}
+          <aside className="fit-pad fit-stack hidden flex-col justify-center overflow-hidden border-s border-white/10 bg-black/20 md:flex" aria-label="Your agent card">
             <div className="relative overflow-hidden rounded-2xl border p-4" style={{ borderColor: `${accent}99`, background: "rgba(7,7,17,.75)", boxShadow: `0 0 24px ${accent}33` }}>
               <p className="text-[10px] font-bold tracking-[0.3em]" style={{ ...MONO, color: accent }}>CYBERGUARD AGENT ID</p>
               <div className="mt-2 flex items-center gap-3">
@@ -174,7 +248,8 @@ export default function Register() {
               </div>
             </div>
 
-            <div>
+            {/* badges: hidden on short screens to keep everything in view */}
+            <div className="fit-hide-short">
               <p className="mb-1.5 text-[10px] font-bold tracking-[0.25em] text-text-secondary" style={MONO}>BADGES TO EARN</p>
               <ul className="grid grid-cols-2 gap-2">
                 {MODULES.map((m) => (
@@ -189,7 +264,7 @@ export default function Register() {
               </ul>
             </div>
 
-            <p className="text-[10px] leading-relaxed text-text-secondary">
+            <p className="fit-hide-short text-[10px] leading-relaxed text-text-secondary">
               Scenarios: school exam portals, gaming accounts, social media.
             </p>
           </aside>
