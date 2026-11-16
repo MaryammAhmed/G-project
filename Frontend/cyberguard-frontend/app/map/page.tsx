@@ -3,11 +3,23 @@
 /*
   app/map/page.tsx
   ================
-  THE SEA OF REALMS (full-screen edition): the whole page is ONE map that fits the screen, no scrolling.
+  THE SEA OF REALMS (full-screen, responsive edition): the whole page is ONE map, no page scrolling.
+
+  HOW IT ADAPTS TO SCREENS (this is the new part):
+    1. WIDE SCREENS (desktop, tablet, phone in landscape): the whole map is shown at once and scaled
+       to fit ("contain" mode), exactly like before.
+    2. NARROW SCREENS (phone in portrait): showing the whole map would make every island tiny and
+       unreadable. So the map is scaled to the screen HEIGHT instead and becomes swipeable sideways
+       ("pan" mode). It starts centred on your current mission, and a small "SWIPE" hint appears.
+       The scrollbar is hidden, so nothing white shows up.
+    3. LABELS SCALE WITH THE MAP: mission labels use container-query units (cqw), so they grow and
+       shrink with the map instead of staying a fixed pixel size.
+    4. PHONE EXTRAS: the page uses 100dvh (so mobile browser bars don't cut it off) and respects the
+       notch / home-bar safe areas.
 */
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CyberShell from "@/components/layout/CyberShell";
@@ -25,6 +37,14 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const W = 1400;
 const H = 640;
 const S = 1.1;
+
+/* If the "fit the whole map" width would be narrower than this (in px), switch to swipe mode.
+   Raise it to use swipe mode on more devices (e.g. 800), lower it to keep the full map longer. */
+const MIN_FIT_W = 720;
+
+/* Where the skeleton companion sits (map coordinates). x is capped so he never gets cut off. */
+const COMPANION_X = Math.min(1380, W - 80);
+const COMPANION_Y = 190;
 
 type Status = "completed" | "available" | "locked";
 
@@ -83,6 +103,7 @@ const CSS = `
 .mp-glitch { animation: mpGlitch 3s steps(1) infinite; }
 .mp-pop { animation: mpPop .22s ease-out both; }
 .mp-shake { animation: mpShake .4s ease-in-out; }
+.mp-hint { animation: mpHint 1.6s ease-in-out infinite; }
 @keyframes mpWave { to { transform: translateX(-200px); } }
 @keyframes mpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 @keyframes mpTwinkle { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
@@ -93,6 +114,12 @@ const CSS = `
 @keyframes mpGlitch { 0%,92%,100% { transform: translate(0,0); } 94% { transform: translate(-3px,1px); } 97% { transform: translate(3px,-1px); } }
 @keyframes mpPop { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 @keyframes mpShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes mpHint { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+
+/* swipe mode: hide the scrollbar completely (Firefox + Chrome/Safari/Edge) and stop the page "bouncing" sideways */
+.mp-scroll { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.mp-scroll::-webkit-scrollbar { display: none; }
+
 @media (prefers-reduced-motion: reduce) { .mp-sea *, .mp-sea *::before, .mp-sea *::after { animation: none !important; transition: none !important; } }
 `;
 
@@ -340,6 +367,43 @@ export default function MissionMapPage() {
   const unlockedCount = MISSIONS.filter(isUnlocked).length;
   const selected = MISSIONS.find((r) => r.id === hovered) ?? null;
 
+  /* ---------------- RESPONSIVE SIZING ----------------
+     seaRef   = the box the map lives in (we measure it).
+     scrollRef = the swipeable strip used in pan mode.
+     box      = measured width/height of the sea box, in px. */
+  const seaRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [swiped, setSwiped] = useState(false);   // true once the player has swiped, which hides the hint
+
+  useEffect(() => {
+    const el = seaRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const r = entry.contentRect;
+      setBox({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // width the WHOLE map would have if it had to fit inside the box
+  const fitW = box.h > 0 ? Math.min(box.w, box.h * (W / H)) : 0;
+  // width the map has if it fills the box HEIGHT (used in pan mode)
+  const fullH_W = box.h * (W / H);
+  // pan mode = the whole map would be too small AND filling the height actually makes it wider than the screen
+  const panMode = box.h > 0 && fitW < MIN_FIT_W && fullH_W > box.w + 1;
+
+  /* In pan mode, start centred on the player's current mission (the first available one,
+     otherwise the last unlocked one). Runs again when progress loads or the screen is rotated. */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!panMode || !el) return;
+    const target = MISSIONS.find((m) => m.status === "available") ?? [...MISSIONS].reverse().find(isUnlocked) ?? MISSIONS[0];
+    el.scrollTo({ left: (target.x / W) * fullH_W - el.clientWidth / 2, behavior: "auto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panMode, progressReady, fullH_W]);
+
   useEffect(() => {
     const mark = () => { gesture.current = true; };
     window.addEventListener("pointerdown", mark, { capture: true });
@@ -373,11 +437,128 @@ export default function MissionMapPage() {
 
   const mood: Mood = denied ? "breach" : selected ? (isUnlocked(selected) ? "safe" : "alert") : "calm";
 
+  /* ---------------- THE MAP ITSELF ----------------
+     Built as a function so the SAME map is used in both modes.
+     clipSvg = true in pan mode (the sky/sea rectangles are huge, and visible overflow would
+     make the swipe strip scroll for miles), false in contain mode (the sky/sea fill the empty space). */
+  const renderMap = (clipSvg: boolean): ReactNode => (
+    <>
+      <svg viewBox={`0 0 ${W} ${H}`} className={`absolute inset-0 h-full w-full ${clipSvg ? "overflow-hidden" : "overflow-visible"}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <linearGradient id="mpSky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="160"><stop offset="0" stopColor="#040613" /><stop offset="1" stopColor="#0c2347" /></linearGradient>
+          <linearGradient id="mpSea" gradientUnits="userSpaceOnUse" x1="0" y1="160" x2="0" y2={H}><stop offset="0" stopColor="#0b3550" /><stop offset="1" stopColor="#030d17" /></linearGradient>
+          <linearGradient id="mpWaveFill" gradientUnits="userSpaceOnUse" x1="0" y1="180" x2="0" y2={H}><stop offset="0" stopColor="#0d4a68" /><stop offset="1" stopColor="#031018" /></linearGradient>
+          <linearGradient id="mpSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#33433e" /><stop offset="1" stopColor="#0f1a17" /></linearGradient>
+          <radialGradient id="mpMoon" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#e8f6ff" stopOpacity=".5" /><stop offset="1" stopColor="#e8f6ff" stopOpacity="0" /></radialGradient>
+          <filter id="mpGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+        </defs>
+
+        <rect x="-3000" y="-3000" width="7260" height="3160" fill="url(#mpSky)" />
+        <rect x="-3000" y="160" width="7260" height="3200" fill="url(#mpSea)" />
+        <line x1="-3000" y1="160" x2="4260" y2="160" stroke="#4cc9ff" strokeOpacity=".35" />
+
+        {STARS.map(([x, y, r], i) => <circle key={i} className="mp-twinkle" cx={x} cy={y} r={r} fill="#e0fbff" style={{ animationDelay: `${i * 0.3}s` }} />)}
+
+        {/* MOON: one group, so everything moves together.
+            translate(-810 0) moves it from x=1090 to x=280, the middle between Mission 1 (x=140) and Mission 2 (x=420).
+            Change -810 to nudge it: a bigger negative number goes further left. */}
+        <g transform="translate(-810 0)">
+          <circle cx="1090" cy="82" r="72" fill="url(#mpMoon)" />
+          <circle cx="1090" cy="82" r="29" fill="#eaf6ff" />
+          <circle cx="1080" cy="76" r="5" fill="#cfe3f2" /><circle cx="1100" cy="92" r="3.5" fill="#cfe3f2" />
+          {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} className="mp-twinkle" x={1076 - i * 3} y={180 + i * 26} width={28 + i * 7} height="2.5" rx="1" fill="#eaf6ff" opacity=".5" style={{ animationDelay: `${i * 0.4}s` }} />)}
+        </g>
+
+        {WAVES.slice(0, 2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
+
+        {MISSIONS.slice(0, -1).map((a, i) => {
+          const b = MISSIONS[i + 1];
+          // Curve handles scale with the gap, so every route has the same gentle shape
+          const sx = a.x + 100, sy = a.y + 44, ex = b.x - 100, ey = b.y + 44;
+          const k = (ex - sx) * 0.4;
+          const d = `M${sx} ${sy} C ${sx + k} ${sy + 50}, ${ex - k} ${ey + 50}, ${ex} ${ey}`;
+          const live = isUnlocked(a) && isUnlocked(b);
+          const lit = hovered === a.id || hovered === b.id;
+          const col = lit ? (selected?.color ?? "#4cc9ff") : live ? "#4cc9ff" : "#6b7280";
+          return (
+            <g key={a.id}>
+              <path d={d} fill="none" stroke="#02040d" strokeWidth="12" strokeLinecap="round" opacity=".55" />
+              <path id={`mpRoute-${i}`} d={d} fill="none" stroke={col} strokeWidth={lit ? 4 : 2.2} strokeOpacity={lit ? 1 : live ? 0.7 : 0.35} strokeDasharray="4 9" strokeLinecap="round" className={live ? "mp-flow" : undefined} filter={lit ? "url(#mpGlow)" : undefined} />
+              {live && [0, 1.6].map((begin) => (
+                <circle key={begin} r="4.5" fill="#e6fbff" filter="url(#mpGlow)">
+                  <animateMotion dur="3.4s" begin={`${begin}s`} repeatCount="indefinite"><mpath href={`#mpRoute-${i}`} /></animateMotion>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
+
+        {MISSIONS.map((r, i) => (
+          <g key={r.id} transform={`translate(${r.x} ${r.y}) scale(${S})`}>
+            <g className="mp-bob" style={{ animationDelay: `${i * 0.8}s` }}>
+              <RealmArt realm={r} hov={hovered === r.id} />
+            </g>
+            <ellipse cx="0" cy="84" rx="100" ry="10" fill="none" stroke={r.color} strokeOpacity={isUnlocked(r) ? 0.35 : 0.12} strokeDasharray="3 8" />
+          </g>
+        ))}
+
+        {WAVES.slice(2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
+      </svg>
+
+      {/* invisible buttons laid over each island (positions are % of the map, so they scale with it).
+          The labels under each island use cqw units: they scale with the MAP width, with a readable minimum. */}
+      {MISSIONS.map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          onClick={() => launch(r)}
+          onPointerEnter={(e) => { if (e.pointerType === "mouse") highlight(r.id); }}
+          onPointerLeave={() => setHovered(null)}
+          onFocus={() => highlight(r.id)}
+          onBlur={() => setHovered(null)}
+          aria-label={`${r.title}, ${STATUS_TEXT[r.status]}`}
+          className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white"
+          style={{ left: `${(r.x / W) * 100}%`, top: `${((r.y - 45) / H) * 100}%`, width: `${(240 / W) * 100}%`, height: `${(290 / H) * 100}%` } as CSSProperties}
+        >
+          <span className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 whitespace-nowrap" style={{ bottom: "-1.75rem" }}>
+            <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 font-bold tracking-widest" style={{ ...MONO, fontSize: "clamp(8px, .72cqw, 12px)", color: isUnlocked(r) ? r.color : "#9ca3af" }}>MISSION 0{r.order}</span>
+            <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 font-bold text-[#f5f3ff]" style={{ ...MONO, fontSize: "clamp(9px, .8cqw, 13px)" }}>{r.title}</span>
+          </span>
+        </button>
+      ))}
+
+      {/* Skeleton companion: placed in map coordinates (COMPANION_X / COMPANION_Y at the top of the file). */}
+      <div
+        className="absolute z-30"
+        style={{
+          left: `${(COMPANION_X / W) * 100}%`,
+          top: `${(COMPANION_Y / H) * 100}%`,
+          width: `${(150 / W) * 100}%`,
+          height: `${(150 / H) * 100}%`,
+          transform: "translate(-50%, -50%)",
+        }}
+      >
+        <CompanionSkeleton mood={mood} />
+      </div>
+    </>
+  );
+
   return (
     <CyberShell variant="app" accent="cyan">
       <style>{CSS}</style>
 
-      <div className="fixed inset-0 z-10 flex flex-col p-2 sm:p-4">
+      {/* The page frame: 100dvh (not 100vh) so phone browser bars don't cut it off,
+          and padding that respects the notch and the home bar. */}
+      <div
+        className="fixed inset-x-0 top-0 z-10 flex flex-col p-2 sm:p-4"
+        style={{
+          height: "100dvh",
+          paddingTop: "max(.5rem, env(safe-area-inset-top))",
+          paddingBottom: "max(.5rem, env(safe-area-inset-bottom))",
+          paddingLeft: "max(.5rem, env(safe-area-inset-left))",
+          paddingRight: "max(.5rem, env(safe-area-inset-right))",
+        }}
+      >
         <div className="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col">
           <TerminalHeader
             title="cyberguard/mission-map"
@@ -386,106 +567,48 @@ export default function MissionMapPage() {
             right={<ProfileButton xp={snap ? snap.total_score : null} />}
           />
 
-          <div className="mp-sea relative min-h-0 flex-1 overflow-hidden rounded-b-2xl border border-t-0 border-cyan-300/20 bg-[#0b3550]">
-            <div className="absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
-              <div className="relative" style={{ width: `min(100cqw, ${(W / H) * 100}cqh)`, aspectRatio: `${W} / ${H}` }}>
-                <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="mpSky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="160"><stop offset="0" stopColor="#040613" /><stop offset="1" stopColor="#0c2347" /></linearGradient>
-                    <linearGradient id="mpSea" gradientUnits="userSpaceOnUse" x1="0" y1="160" x2="0" y2={H}><stop offset="0" stopColor="#0b3550" /><stop offset="1" stopColor="#030d17" /></linearGradient>
-                    <linearGradient id="mpWaveFill" gradientUnits="userSpaceOnUse" x1="0" y1="180" x2="0" y2={H}><stop offset="0" stopColor="#0d4a68" /><stop offset="1" stopColor="#031018" /></linearGradient>
-                    <linearGradient id="mpSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#33433e" /><stop offset="1" stopColor="#0f1a17" /></linearGradient>
-                    <radialGradient id="mpMoon" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#e8f6ff" stopOpacity=".5" /><stop offset="1" stopColor="#e8f6ff" stopOpacity="0" /></radialGradient>
-                    <filter id="mpGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                  </defs>
+          {/* seaRef = the box we measure to decide between contain mode and pan mode */}
+          <div ref={seaRef} className="mp-sea relative min-h-0 flex-1 overflow-hidden rounded-b-2xl border border-t-0 border-cyan-300/20 bg-[#0b3550]">
 
-                  <rect x="-3000" y="-3000" width="7260" height="3160" fill="url(#mpSky)" />
-                  <rect x="-3000" y="160" width="7260" height="3200" fill="url(#mpSea)" />
-                  <line x1="-3000" y1="160" x2="4260" y2="160" stroke="#4cc9ff" strokeOpacity=".35" />
-
-                  {STARS.map(([x, y, r], i) => <circle key={i} className="mp-twinkle" cx={x} cy={y} r={r} fill="#e0fbff" style={{ animationDelay: `${i * 0.3}s` }} />)}
-                  <circle cx="1090" cy="82" r="72" fill="url(#mpMoon)" />
-                  <circle cx="1090" cy="82" r="29" fill="#eaf6ff" />
-                  <circle cx="1080" cy="76" r="5" fill="#cfe3f2" /><circle cx="1100" cy="92" r="3.5" fill="#cfe3f2" />
-                  {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} className="mp-twinkle" x={1076 - i * 3} y={180 + i * 26} width={28 + i * 7} height="2.5" rx="1" fill="#eaf6ff" opacity=".5" style={{ animationDelay: `${i * 0.4}s` }} />)}
-
-                  {WAVES.slice(0, 2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
-
-                  {MISSIONS.slice(0, -1).map((a, i) => {
-                    const b = MISSIONS[i + 1];
-                    // Curve handles scale with the gap, so every route has the same gentle shape
-                    const sx = a.x + 100, sy = a.y + 44, ex = b.x - 100, ey = b.y + 44;
-                    const k = (ex - sx) * 0.4;
-                    const d = `M${sx} ${sy} C ${sx + k} ${sy + 50}, ${ex - k} ${ey + 50}, ${ex} ${ey}`;
-                    const live = isUnlocked(a) && isUnlocked(b);
-                    const lit = hovered === a.id || hovered === b.id;
-                    const col = lit ? (selected?.color ?? "#4cc9ff") : live ? "#4cc9ff" : "#6b7280";
-                    return (
-                      <g key={a.id}>
-                        <path d={d} fill="none" stroke="#02040d" strokeWidth="12" strokeLinecap="round" opacity=".55" />
-                        <path id={`mpRoute-${i}`} d={d} fill="none" stroke={col} strokeWidth={lit ? 4 : 2.2} strokeOpacity={lit ? 1 : live ? 0.7 : 0.35} strokeDasharray="4 9" strokeLinecap="round" className={live ? "mp-flow" : undefined} filter={lit ? "url(#mpGlow)" : undefined} />
-                        {live && [0, 1.6].map((begin) => (
-                          <circle key={begin} r="4.5" fill="#e6fbff" filter="url(#mpGlow)">
-                            <animateMotion dur="3.4s" begin={`${begin}s`} repeatCount="indefinite"><mpath href={`#mpRoute-${i}`} /></animateMotion>
-                          </circle>
-                        ))}
-                      </g>
-                    );
-                  })}
-
-                  {MISSIONS.map((r, i) => (
-                    <g key={r.id} transform={`translate(${r.x} ${r.y}) scale(${S})`}>
-                      <g className="mp-bob" style={{ animationDelay: `${i * 0.8}s` }}>
-                        <RealmArt realm={r} hov={hovered === r.id} />
-                      </g>
-                      <ellipse cx="0" cy="84" rx="100" ry="10" fill="none" stroke={r.color} strokeOpacity={isUnlocked(r) ? 0.35 : 0.12} strokeDasharray="3 8" />
-                    </g>
-                  ))}
-
-                  {WAVES.slice(2).map((w, i) => <g key={i} className={w.cls} opacity={w.op}><path d={w.d} fill="url(#mpWaveFill)" /></g>)}
-                </svg>
-
-                {MISSIONS.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => launch(r)}
-                    onPointerEnter={(e) => { if (e.pointerType === "mouse") highlight(r.id); }}
-                    onPointerLeave={() => setHovered(null)}
-                    onFocus={() => highlight(r.id)}
-                    onBlur={() => setHovered(null)}
-                    aria-label={`${r.title}, ${STATUS_TEXT[r.status]}`}
-                    className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    style={{ left: `${(r.x / W) * 100}%`, top: `${((r.y - 45) / H) * 100}%`, width: `${(240 / W) * 100}%`, height: `${(290 / H) * 100}%` } as CSSProperties}
-                  >
-                    <span className="pointer-events-none absolute -bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 whitespace-nowrap">
-                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[8px] font-bold tracking-widest sm:text-[10px]" style={{ ...MONO, color: isUnlocked(r) ? r.color : "#9ca3af" }}>MISSION 0{r.order}</span>
-                      <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 text-[9px] font-bold text-[#f5f3ff] sm:text-[11px]" style={MONO}>{r.title}</span>
-                    </span>
-                  </button>
-                ))}
-
-                {/* Skeleton companion: placed in map coordinates, directly above Mission 5
-                    (island at x 1380). Change the 190 below to move him up or down. */}
-                <div
-                  className="absolute z-30"
-                  style={{
-                    left: `${(1380 / W) * 100}%`,
-                    top: `${(190 / H) * 100}%`,
-                    width: `${(150 / W) * 100}%`,
-                    height: `${(150 / H) * 100}%`,
-                    transform: "translate(-50%, -50%)",
-                  }}
-                >
-                  <CompanionSkeleton mood={mood} />
+            {panMode ? (
+              /* ===== PAN MODE (portrait phones): map fills the height, swipe sideways ===== */
+              <div
+                ref={scrollRef}
+                className="mp-scroll absolute inset-0 overflow-x-auto overflow-y-hidden"
+                style={{ touchAction: "pan-x" }}
+                onTouchStart={() => setSwiped(true)}
+                onWheel={(e) => {
+                  // mouse wheel scrolls sideways too (useful on a narrow desktop window)
+                  setSwiped(true);
+                  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY;
+                }}
+              >
+                <div className="relative mx-auto h-full shrink-0" style={{ width: fullH_W, containerType: "inline-size" } as CSSProperties}>
+                  {renderMap(true)}
                 </div>
               </div>
+            ) : (
+              /* ===== CONTAIN MODE (desktop, tablet, landscape): the whole map, scaled to fit ===== */
+              <div className="absolute inset-0 flex items-center justify-center" style={{ containerType: "size" } as CSSProperties}>
+                <div className="relative" style={{ width: `min(100cqw, ${(W / H) * 100}cqh)`, aspectRatio: `${W} / ${H}`, containerType: "inline-size" } as CSSProperties}>
+                  {renderMap(false)}
+                </div>
+              </div>
+            )}
+
+            {/* mission counter: fades out on small screens while the intel card is open so they never overlap */}
+            <div className={`pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2 ${selected ? "opacity-0 sm:opacity-100" : ""}`} style={MONO}>
+              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">MISSION {unlockedCount}/{MISSIONS.length}</span>
             </div>
 
-            <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2" style={MONO}>
-              <span className="w-fit rounded border border-emerald-400/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-emerald-300 sm:text-[10px]">&#9679; SONAR ONLINE</span>
-              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">REALMS {unlockedCount}/{MISSIONS.length}</span>
-            </div>
+            {/* swipe hint: only in pan mode, disappears after the first swipe */}
+            {panMode && !swiped && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center" style={MONO}>
+                <span className="mp-hint rounded-full border border-cyan-300/40 bg-[#050611]/90 px-3 py-1 text-[10px] font-bold tracking-[0.25em] text-cyan-200">
+                  &#9664; SWIPE &#9654;
+                </span>
+              </div>
+            )}
 
             {selected && (
               <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(360px,90%)] -translate-x-1/2">
