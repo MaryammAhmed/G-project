@@ -36,8 +36,8 @@ const BADGE_COLORS = ["#34D399", "#22D3EE", "#A855F7", "#FBBF24"];
 
 const MODULE_META: Record<number, { icon: string; title: string; color: string }> = {
   1: { icon: "🔐", title: "Locked Out", color: "#34D399" },
-  2: { icon: "🎣", title: "The Mirage", color: "#22D3EE" },
-  3: { icon: "🎭", title: "The Whisper", color: "#A855F7" },
+  2: { icon: "🎣", title: "Phished", color: "#22D3EE" },
+  3: { icon: "🎭", title: "Manipulated", color: "#A855F7" },
   4: { icon: "🤖", title: "Overshared", color: "#FBBF24" },
 };
 

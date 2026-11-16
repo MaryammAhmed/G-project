@@ -63,7 +63,7 @@ interface Realm {
 // Islands are spaced exactly 280 apart and alternate low / high / low / high / low,
 // with equal margins on the left and right.
 const BASE_MISSIONS: Realm[] = [
-  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/locked-out", status: "available", color: "#34D399", x: 140, y: 450 },
+  { id: "vault", order: 1, title: "Locked Out", brief: "Strong passwords and 2FA stop hackers.", href: "/mission/vault", status: "available", color: "#34D399", x: 140, y: 450 },
   { id: "mirage", order: 2, title: "Phished", brief: "Spot fake emails and scams.", href: "/mission/spot-the-phish", status: "locked", color: "#22D3EE", x: 420, y: 335 },
   { id: "whisper", order: 3, title: "Manipulated", brief: "Outsmart fake calls and mind games.", href: "/mission/social-engineering", status: "locked", color: "#A855F7", x: 700, y: 450 },
   { id: "oracle", order: 4, title: "Overshared", brief: "Stop leaking secrets to AI.", href: "/mission/safe-ai", status: "locked", color: "#FBBF24", x: 980, y: 335 },
