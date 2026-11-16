@@ -510,10 +510,12 @@ def synthesize_piper(text: str) -> bytes | None:
     global _piper_voice
     model = os.environ.get("PIPER_MODEL", os.path.join(os.path.dirname(__file__), "voices", "en_US-lessac-medium.onnx"))
     if not os.path.isfile(model):
+        logger.error("Piper voice model is missing from the deployment")
         return None
     try:
         from piper import PiperVoice
     except ImportError:
+        logger.exception("Piper TTS runtime is unavailable")
         return None
     if _piper_voice is None:
         _piper_voice = PiperVoice.load(model)

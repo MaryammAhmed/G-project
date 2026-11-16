@@ -122,6 +122,19 @@ def test_tts_returns_a_wav_without_a_login(client, monkeypatch):
     assert response.content.startswith(b"RIFF")
 
 
+def test_tts_generates_wav_with_the_bundled_piper_voice(client, monkeypatch):
+    model = os.path.join(BACKEND, "voices", "en_US-lessac-medium.onnx")
+    monkeypatch.setenv("PIPER_MODEL", model)
+    monkeypatch.setattr(main, "_piper_voice", None)
+
+    response = client.post("/api/tts", json={"text": "Piper deployment check."})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("audio/wav")
+    assert response.content[:4] == b"RIFF"
+    assert response.content[8:12] == b"WAVE"
+
+
 def test_sensitive_routes_require_a_token(client):
     bodies = {
         "/api/chat": {"message": "hi", "module": 1},
