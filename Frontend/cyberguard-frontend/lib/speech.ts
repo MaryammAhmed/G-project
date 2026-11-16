@@ -61,12 +61,19 @@ async function fetchWav(text: string): Promise<ArrayBuffer | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: text.slice(0, 500) }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`Piper narration request failed with HTTP ${res.status}`);
+      return null;
+    }
     const bytes = await res.arrayBuffer();
-    if (bytes.byteLength < 44) return null;
+    if (bytes.byteLength < 44) {
+      console.warn("Piper narration returned an invalid WAV response");
+      return null;
+    }
     cache.set(text, bytes);
     return bytes.slice(0);
-  } catch {
+  } catch (error) {
+    console.warn("Piper narration request could not reach the backend", error);
     return null;
   }
 }
