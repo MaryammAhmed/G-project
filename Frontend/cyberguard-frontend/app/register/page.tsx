@@ -36,7 +36,6 @@ const RULES: { test: (p: string) => boolean; text: string }[] = [
   { test: (p) => /[A-Z]/.test(p), text: "An uppercase letter" },
   { test: (p) => /[a-z]/.test(p), text: "A lowercase letter" },
   { test: (p) => /\d/.test(p), text: "A number" },
-  { test: (p) => /[@#$%!^&*]/.test(p), text: "A special character (@#$%!^&*)" },
 ];
 const STRENGTH = ["#fb4b5b", "#fb4b5b", "#fb923c", "#FBBF24", "#22D3EE", "#34D399"];
 
