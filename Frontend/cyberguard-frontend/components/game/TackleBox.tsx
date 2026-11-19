@@ -29,7 +29,7 @@ const CLUES: Clue[] = [
     title: "Fake Sender",
     icon: "✉️",
     shortDesc: "Look-alike domains and hidden links (NIST: Technical).",
-    fullDesc: "Official organizations never use free emails like @gmail.com. And watch out for look-alike domains, like @metropolitan-helpdesk.com instead of @metropolitan.edu.",
+    fullDesc: "Official organizations never use free emails like @gmail.com. And watch out for look-alike domains, like @northhigh-helpdesk.com instead of @northhigh.edu.",
     hackerTip: "This is the hardest clue for a hacker to fake. Always read the domain name."
   },
   {
