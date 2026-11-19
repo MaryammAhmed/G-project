@@ -7,7 +7,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from database import Base
+from database import DATABASE_URL, Base
 import models
 
 # --- WINDOWS FIX FOR ASYNCPG ---
@@ -17,6 +17,8 @@ if sys.platform == "win32":
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+# Use the same URL the app uses. ConfigParser treats % as interpolation.
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

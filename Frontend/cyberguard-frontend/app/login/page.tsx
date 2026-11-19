@@ -14,7 +14,14 @@
   The cycle pauses the moment the player starts typing, so nothing distracts them while they sign in.
 
   LOGIC IS UNCHANGED: same /api/login call, same OTP redirect, same login(token, email).
-  UI-only additions: inline error banner, loading state, show/hide password, Caps Lock warning.
+
+  WHAT CHANGED IN THIS VERSION (layout only):
+    1. NO SCROLL: the page is locked to the screen height (100dvh) and every size (title, inputs,
+       button, spacing, logo, mission buttons) uses clamp() so it shrinks to fit short screens.
+    2. NO SCROLLBAR: the white scrollbar is hidden everywhere. On a really tiny screen the card can
+       still be swiped, but no bar is ever drawn.
+    3. PHONE FRIENDLY: below the "md" breakpoint the left mission panel is hidden and the form takes
+       the whole card. Padding and font sizes scale with the screen width.
 */
 
 import { useEffect, useState } from "react";
@@ -23,21 +30,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
+import { API_BASE_URL } from "@/lib/api";
 
 import PageCompanion from "@/components/layout/PageCompanion";
 
 /* ---------- the four missions (colour + a one-line promise each) ---------- */
 type ModId = "vault" | "mirage" | "whisper" | "oracle";
 const MODULES: { id: ModId; name: string; color: string; topic: string; line: string }[] = [
-  { id: "vault", name: "THE VAULT", color: "#34D399", topic: "Passwords", line: "Lock every account." },
-  { id: "mirage", name: "THE MIRAGE", color: "#22D3EE", topic: "Phishing", line: "Cut the line before it bites." },
-  { id: "whisper", name: "THE WHISPER", color: "#A855F7", topic: "Social engineering", line: "Verify the voice." },
-  { id: "oracle", name: "THE ORACLE", color: "#FBBF24", topic: "Safe AI use", line: "Guard what you type." },
+  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "Passwords", line: "Lock every account." },
+  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "Phishing", line: "Cut the line before it bites." },
+  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "Social engineering", line: "Verify the voice." },
+  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "Safe AI use", line: "Guard what you type." },
 ];
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-/* Small animation CSS, scoped under .lg-root so it can't leak into other pages. */
+/* Small animation CSS + layout CSS, scoped under .lg-root so it can't leak into other pages. */
 const CSS = `
 @keyframes lgSpin { to { transform: rotate(360deg); } }
 @keyframes lgFloat { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-8px) rotate(var(--r,0deg)); } }
@@ -52,6 +60,40 @@ const CSS = `
 .lg-root .lg-blink { animation: lgBlink 1s steps(1) infinite; }
 .lg-root .lg-in { animation: lgIn .5s ease-out both; }
 .lg-root .lg-card { transition: border-color .9s ease, box-shadow .9s ease; }
+
+/* ---------- FIT-TO-SCREEN RULES ---------- */
+
+/* hide the scrollbar on the whole page (Chrome/Safari/Edge + Firefox) */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+/* the card is exactly one screen tall (minus the shell's small margin). Overflow is a hidden-bar fallback only. */
+.lg-root .auth-fill {
+  width: min(100%, 76rem);
+  height: calc(100dvh - 1.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lg-root .auth-fill::-webkit-scrollbar { display: none; }
+
+/* padding and vertical rhythm shrink with the screen */
+.lg-root .fit-pad   { padding: clamp(.9rem, 2.8dvh, 2.5rem) clamp(1rem, 4vw, 2.5rem); }
+.lg-root .fit-stack > * + * { margin-top: clamp(.5rem, 1.9dvh, 1.5rem); }
+
+/* the big title scales with the screen height */
+.lg-root .fit-title { font-size: clamp(1.35rem, 2.4dvh + .9rem, 2.4rem); line-height: 1.12; }
+
+/* inputs, button and labels: same look as before, but they compress on short screens */
+.lg-root .cg-input { padding: clamp(.6rem, 1.7dvh, 1rem) 1.1rem; font-size: clamp(.95rem, 1.2dvh + .5rem, 1.0625rem); }
+.lg-root .cg-btn   { padding: clamp(.7rem, 1.9dvh, 1.05rem) 1.5rem; font-size: clamp(.95rem, 1.1dvh + .5rem, 1.05rem); }
+.lg-root .cg-label { font-size: .8rem; margin-bottom: clamp(.2rem, .7dvh, .45rem); }
+
+/* hide the less important bits when the screen is short */
+@media (max-height: 700px) { .lg-root .fit-hide-short { display: none !important; } }
+@media (max-height: 520px) { .lg-root .fit-hide-tiny  { display: none !important; } }
+
 @media (prefers-reduced-motion: reduce) { .lg-root *, .lg-root *::before, .lg-root *::after { animation: none !important; transition: none !important; } }
 `;
 
@@ -85,6 +127,21 @@ export default function Login() {
   const mod = MODULES[active];
   const typing = username.length > 0 || password.length > 0;
 
+  /* LAYOUT: lock the page itself so the browser never shows a page-level scrollbar.
+     The old overflow values are put back when the user leaves this page. */
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, []);
+
   /* The accent cycles every ~4s, but pauses while typing and for people who prefer less motion. */
   useEffect(() => {
     if (typing || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -98,7 +155,7 @@ export default function Login() {
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/login", {
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -152,14 +209,14 @@ export default function Login() {
 
         {/* ---- The card: --c is the cycling mission colour, so the glass border and button follow it ---- */}
         <div
-          className="cg-glass lg-card lg-scan lg-in relative z-10 grid w-full max-w-4xl overflow-hidden md:grid-cols-[1fr_1.1fr]"
+          className="auth-fill cg-glass lg-card lg-scan lg-in relative z-10 grid w-full md:grid-cols-[1fr_1.05fr]"
           style={{ "--c": mod.color } as CSSProperties}
         >
-          {/* ======== LEFT: the four doors (hidden on small screens) ======== */}
-          <aside className="hidden flex-col justify-between gap-6 border-e border-white/10 bg-black/20 p-8 md:flex" aria-label="CyberGuard missions">
+          {/* ======== LEFT: the four doors (hidden on phones / small screens) ======== */}
+          <aside className="fit-pad fit-stack hidden flex-col justify-between overflow-hidden border-e border-white/10 bg-black/20 md:flex" aria-label="CyberGuard missions">
             <div>
-              {/* logo: a vault dial made of four mission-coloured arcs */}
-              <svg viewBox="0 0 100 100" className="h-24 w-24" role="img" aria-label="CyberGuard vault dial">
+              {/* logo: a vault dial made of four mission-coloured arcs. Its size follows the screen height. */}
+              <svg viewBox="0 0 100 100" className="aspect-square" style={{ height: "clamp(3.5rem, 12dvh, 6rem)" }} role="img" aria-label="CyberGuard vault dial">
                 <g className="lg-dial">
                   {MODULES.map((m, i) => (
                     <circle key={m.id} cx="50" cy="50" r="40" fill="none" stroke={m.color} strokeWidth="6" strokeLinecap="round" strokeDasharray="54 197.3" transform={`rotate(${i * 90 - 90} 50 50)`} opacity={i === active ? 1 : 0.5} />
@@ -168,12 +225,12 @@ export default function Login() {
                 <path d="M50 30l15 5v11c0 10-6 16-15 20-9-4-15-10-15-20V35z" fill="rgba(7,7,17,.9)" stroke={mod.color} strokeWidth="3" />
                 <path d="M43 48l5 5 9-11" fill="none" stroke={mod.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p className="cg-kicker mt-4">{"// CYBERGUARD"}</p>
-              <h1 className="cg-title mt-1">Four doors.<br />One agent.</h1>
-              <p className="mt-2 text-xs text-text-secondary font-hud">Sign in to resume your training.</p>
+              <p className="cg-kicker fit-hide-short mt-4">{"// CYBERGUARD"}</p>
+              <h1 className="cg-title fit-title mt-1">Four doors.<br />One agent.</h1>
+              <p className="fit-hide-short mt-2 text-xs text-text-secondary font-hud">Sign in to resume your training.</p>
             </div>
 
-            {/* the four missions: the active one is lit */}
+            {/* the four missions: the active one is lit. Button padding shrinks on short screens. */}
             <ul className="space-y-2">
               {MODULES.map((m, i) => (
                 <li key={m.id}>
@@ -181,8 +238,9 @@ export default function Login() {
                     type="button"
                     onClick={() => setActive(i)}
                     aria-pressed={i === active}
-                    className="flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-start transition active:scale-[0.99]"
+                    className="flex w-full items-center gap-3 rounded-xl border px-4 text-start transition active:scale-[0.99]"
                     style={{
+                      paddingBlock: "clamp(.4rem, 1.3dvh, .75rem)",
                       borderColor: i === active ? m.color : "rgba(255,255,255,.1)",
                       background: i === active ? `${m.color}14` : "transparent",
                       boxShadow: i === active ? `0 0 18px ${m.color}33` : "none",
@@ -200,10 +258,10 @@ export default function Login() {
             </ul>
           </aside>
 
-          {/* ======== RIGHT: the sign-in form ======== */}
-          <div className="space-y-6 p-8">
+          {/* ======== RIGHT: the sign-in form (the whole card on phones) ======== */}
+          <div className="fit-pad fit-stack flex flex-col justify-center">
             {/* terminal header dots */}
-            <div className="flex items-center gap-1.5" aria-hidden="true">
+            <div className="fit-hide-tiny flex items-center gap-1.5" aria-hidden="true">
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
               <span className="h-2.5 w-2.5 rounded-full bg-cyan" />
@@ -211,15 +269,15 @@ export default function Login() {
             </div>
 
             <div>
-              <p className="cg-kicker mb-1">{"// SECURE ACCESS TERMINAL"}</p>
-              <h2 className="cg-title text-2xl font-bold" style={{ color: mod.color }}>Welcome Back, Agent</h2>
+              <p className="cg-kicker fit-hide-short mb-1">{"// SECURE ACCESS TERMINAL"}</p>
+              <h2 className="cg-title fit-title font-bold" style={{ color: mod.color }}>Welcome Back, Agent</h2>
               {/* the active mission's promise, with a blinking cursor */}
               <p className="mt-1 min-h-[1.25rem] text-xs text-text-secondary font-hud">
                 {mod.line}<span className="lg-blink" style={{ color: mod.color }}>_</span>
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5" aria-busy={busy}>
+            <form onSubmit={handleLogin} className="fit-stack" aria-busy={busy}>
               <div>
                 <label htmlFor="lg-user" className="cg-label">Username</label>
                 <input
@@ -271,6 +329,12 @@ export default function Login() {
               <button type="submit" disabled={busy} className="cg-btn w-full font-hud uppercase font-bold tracking-wider disabled:cursor-wait disabled:opacity-60">
                 {busy ? "VERIFYING..." : "Sign In →"}
               </button>
+
+              <p className="text-center text-xs text-text-secondary font-hud">
+                <Link href="/forgot-password" className="font-semibold hover:underline" style={{ color: mod.color }}>
+                  Forgot your password?
+                </Link>
+              </p>
             </form>
 
             <p className="text-center text-xs text-text-secondary font-hud">

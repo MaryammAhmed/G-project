@@ -39,6 +39,21 @@
   --font-heading: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* ------------------------------------------------------------------
+   GLOBAL SIZE: everything in rem (Tailwind text-*, p-*, gap-*, max-w-*
+   and the cg- classes below) scales with this value.
+   100% = 16px (default). 112.5% = 18px. 125% = 20px.
+   It steps down on smaller screens so phones are not crowded.
+   ------------------------------------------------------------------ */
+html {
+  font-size: 112.5%;                 /* desktop: 18px */
+  -webkit-text-size-adjust: 100%;    /* stop phones from auto-inflating text */
+  text-size-adjust: 100%;
+}
+@media (max-width: 1024px) { html { font-size: 106.25%; } } /* tablets: 17px */
+@media (max-width: 640px)  { html { font-size: 100%; } }    /* phones: 16px */
+@media (max-width: 380px)  { html { font-size: 93.75%; } }  /* small phones: 15px */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -57,11 +72,49 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ------------------------------------------------------------------
+   MOBILE FIXES
+   ------------------------------------------------------------------ */
+
+/* Never scroll sideways. "clip" (not "hidden") so position: sticky keeps working. */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* h-screen / min-h-screen use 100vh, which is taller than the visible area on
+   phones because of the address bar. dvh is the real visible height.
+   (The first line is the fallback for older browsers.) */
+.h-screen     { height: 100vh;     height: 100dvh; }
+.min-h-screen { min-height: 100vh; min-height: 100dvh; }
+
+/* iOS Safari zooms into any input smaller than 16px */
+input, select, textarea {
+  font-size: max(16px, 1rem);
+}
+
+/* Comfortable tap targets for the main button and input styles */
+.cg-btn, .cg-input {
+  min-height: 2.75rem;
+}
+
+/* ------------------------------------------------------------------
+   TINY TEXT FIX: classes like text-[10px] use fixed pixels, so they
+   ignore the html font-size above. These overrides convert the common
+   ones to rem so they grow with the rest of the site.
+   (Unlayered CSS wins over Tailwind's layered utilities.)
+   ------------------------------------------------------------------ */
+.text-\[8px\]  { font-size: 0.75rem; }    /* ~13.5px at 112.5% */
+.text-\[9px\]  { font-size: 0.8125rem; }  /* ~14.6px */
+.text-\[10px\] { font-size: 0.875rem; }   /* ~15.8px */
+.text-\[11px\] { font-size: 0.9375rem; }  /* ~16.9px */
+
 @layer components {
   /* ---- page: obsidian + soft colour glow + faint grid ---- */
   .cg-page {
     position: relative;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
     color: var(--color-text-primary, #f5f3ff);
     font-family: var(--font-heading), system-ui, sans-serif;
@@ -104,7 +157,7 @@ body {
   /* ---- monospace details ---- */
   .cg-kicker {
     font-family: var(--font-hud);
-    font-size: 0.625rem;
+    font-size: 0.75rem;            /* was 0.625rem */
     font-weight: 700;
     letter-spacing: 0.3em;
     text-transform: uppercase;
@@ -112,7 +165,7 @@ body {
   }
   .cg-title {
     font-family: var(--font-heading);
-    font-size: 1.75rem;
+    font-size: 2rem;               /* was 1.75rem */
     font-weight: 700;
     line-height: 1.15;
   }
@@ -120,7 +173,7 @@ body {
     display: block;
     margin-bottom: 0.35rem;
     font-family: var(--font-hud);
-    font-size: 0.6875rem;
+    font-size: 0.8125rem;          /* was 0.6875rem */
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--color-text-secondary, #b8b5c9);
@@ -135,6 +188,7 @@ body {
     padding: 0.75rem 1rem;
     color: var(--color-text-primary, #f5f3ff);
     font-family: var(--font-hud);
+    font-size: 1rem;               /* new: explicit input text size */
     outline: none;
   }
   .cg-input:focus {
@@ -143,10 +197,10 @@ body {
   }
   .cg-btn {
     border-radius: 0.75rem;
-    padding: 0.75rem 1.5rem;
+    padding: 0.85rem 1.5rem;
     background: var(--c, #4cc9ff);
     color: var(--color-space, #070711);
-    font-size: 0.875rem;
+    font-size: 1rem;               /* was 0.875rem */
     font-weight: 600;
     letter-spacing: 0.04em;
     transition: filter 0.15s ease, transform 0.15s ease;

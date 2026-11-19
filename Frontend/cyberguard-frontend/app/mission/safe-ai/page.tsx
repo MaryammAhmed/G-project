@@ -1,10 +1,14 @@
-// app/mission/safe-ai/page.tsx
-import MissionPlayer from "@/components/mission/MissionPlayer";
+import LevelPath from "@/components/mission/LevelPath";
 import { safeAIMission } from "@/lib/mission/OverShared";
-import { missionFontClass } from "@/lib/mission/fonts";
 
-export const metadata = { title: "The Oracle | CyberGuard" };
+export const metadata = { title: "Overshared | CyberGuard" };
 
-export default function SafeAIPage() {
-  return <MissionPlayer mission={safeAIMission} fontClass={missionFontClass} />;
+export default function SafeAIPathPage() {
+  return (
+    <LevelPath
+      mission={safeAIMission}
+      hrefBase="/mission/safe-ai"
+      blurb="Follow NOVA from a study prompt to a school-wide data exposure. Learn what to share, how clues combine, how to verify AI, and why access must be limited."
+    />
+  );
 }

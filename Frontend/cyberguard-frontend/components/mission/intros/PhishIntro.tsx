@@ -24,7 +24,7 @@ const AMBER = "#fbbf24";
 
 type Visual = "light" | "mail" | "clock" | "jaws" | "title";
 const SHOTS: { visual: Visual; ms: number; kicker?: string; line: string }[] = [
-  { visual: "light", ms: 4200, kicker: "METROPOLITAN HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
+  { visual: "light", ms: 4200, kicker: "NORTH HIGH  |  THURSDAY  |  8:14 A.M.", line: "It looks exactly like your school." },
   { visual: "mail", ms: 3800, line: "It sounds like someone you trust." },
   { visual: "clock", ms: 3800, line: "And it's always in a hurry." },
   { visual: "jaws", ms: 4600, line: "But it's mostly a TRAP." },

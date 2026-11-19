@@ -1,29 +1,14 @@
-// app/mission/vault/page.tsx
-// Route: /mission/vault. Loads the fonts and hands the Vault mission to the engine.
-// No TierGate yet, so you can preview it with any account. Add it before shipping.
-
-import { Chakra_Petch, IBM_Plex_Mono } from "next/font/google";
-import MissionPlayer from "@/components/mission/MissionPlayer";
+import LevelPath from "@/components/mission/LevelPath";
 import { vault } from "@/lib/mission/LockedOut";
 
-const display = Chakra_Petch({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-display",
-});
-const mono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-});
+export const metadata = { title: "Locked Out | CyberGuard" };
 
-export const metadata = { title: "The Vault | CyberGuard" };
-
-export default function VaultPage() {
+export default function VaultPathPage() {
   return (
-    <MissionPlayer
+    <LevelPath
       mission={vault}
-      fontClass={`${display.variable} ${mono.variable}`}
+      hrefBase="/mission/vault"
+      blurb="Five short levels. Each one ends with a hands-on task about passwords, reuse, and sign-in prompts."
     />
   );
 }

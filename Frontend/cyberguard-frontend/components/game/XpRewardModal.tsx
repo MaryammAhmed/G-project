@@ -123,7 +123,7 @@ export default function XpRewardModal({
           href={homeHref}
           className="rounded-xl border border-white/20 px-6 py-2.5 text-sm text-[#f5f3ff] hover:border-white/50 transition"
         >
-          Back home
+          Back to map
         </Link>
       </div>
     </div>
