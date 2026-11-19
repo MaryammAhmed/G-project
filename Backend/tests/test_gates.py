@@ -182,7 +182,295 @@ def test_admin_can_open_a_later_realm(client, monkeypatch):
     app.dependency_overrides[get_current_user] = admin
     response = client.get("/api/progress", headers={"Authorization": "Bearer test"})
     assert response.status_code == 200
+def test_chat_endpoint_returns_reply_and_source(client, monkeypatch):
+    async def fake_user():
+        return SimpleNamespace(id=1, username="agent1")
+    app.dependency_overrides[get_current_user] = fake_user
+
+    class FakeMessage:
+        content = "Use passphrases of at least 15 characters."
+
+    class FakeChoice:
+        message = FakeMessage()
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            return SimpleNamespace(choices=[FakeChoice()])
+
+    class FakeGroq:
+        chat = SimpleNamespace(completions=FakeCompletions())
+
+    monkeypatch.setattr(main, "groq_client", FakeGroq())
+
+    response = client.post(
+        "/api/chat",
+        json={"message": "What is a recovery code?", "module": 1, "history": [{"role": "user", "content": "hi"}]},
+        headers={"Authorization": "Bearer test"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "reply" in data
+    assert "source" in data
+    assert "NIST" in data["source"]
+
+
+def test_chat_endpoint_graceful_fallback_on_groq_error(client, monkeypatch):
+    async def fake_user():
+        return SimpleNamespace(id=1, username="agent1")
+    app.dependency_overrides[get_current_user] = fake_user
+
+    class BrokenGroq:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    raise RuntimeError("Groq offline")
+
+    monkeypatch.setattr(main, "groq_client", BrokenGroq())
+
+    response = client.post(
+        "/api/chat",
+        json={"message": "What is 2FA?", "module": 1},
+        headers={"Authorization": "Bearer test"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "reply" in data
+    assert "trouble connecting" in data["reply"]
+    assert "source" in data
+
+
+# =============================================================
+# PASSWORD RESET (forgot password / reset password flow)
+# =============================================================
+
+from datetime import datetime as _dt, timedelta as _td
+
+
+def _make_reset_user(email="student@example.com", otp_code="123456"):
+    from main import pwd_context
+    user = SimpleNamespace(
+        id=1,
+        username="testuser",
+        email=email,
+        hashed_password=pwd_context.hash("OldPassw0rd!"),
+        otp_code_hash=None,
+        otp_expires_at=None,
+        otp_attempts=0,
+        is_admin=False,
+        reset_otp_code_hash=pwd_context.hash(otp_code),
+        reset_otp_expires_at=_dt.utcnow() + _td(minutes=10),
+    )
+    return user
+
+
+def _override_db_with_user(monkeypatch, user):
+    async def fake_db():
+        db = SimpleNamespace()
+        async def fake_scalar(q):
+            return user
+        async def fake_commit():
+            return None
+        db.scalar = fake_scalar
+        db.commit = fake_commit
+        yield db
+    app.dependency_overrides[get_db] = fake_db
+
+
+def test_database_url_preserves_strict_ssl_modes():
+    import database
+    cases = [
+        ("postgres://u:p@host/db?sslmode=verify-full", "ssl=verify-full"),
+        ("postgres://u:p@host/db?sslmode=verify-ca", "ssl=verify-ca"),
+        ("postgres://u:p@host/db?sslmode=require", "ssl=require"),
+    ]
+    for url, want in cases:
+        got = database.to_async_url(url)
+        assert want in got, got
+    # disable and missing sslmode must not force ssl on
+    assert "ssl=" not in database.to_async_url("postgres://u:p@host/db?sslmode=disable")
+    assert "ssl=" not in database.to_async_url("postgres://u:p@host/db")
+    # channel_binding is a libpq concept asyncpg does not take
+    assert "channel_binding" not in database.to_async_url(
+        "postgres://u:p@host/db?sslmode=require&channel_binding=require"
+    )
+
+
+def test_otp_resend_does_not_reset_failed_guess_budget(client, monkeypatch):
+    user = _make_reset_user()
+    from main import pwd_context as _pwd
+    user.otp_code_hash = _pwd.hash("111111")
+    user.otp_expires_at = _dt.utcnow() + _td(minutes=5)
+    user.otp_attempts = 4  # one wrong guess away from lockout
+
+    async def fake_db():
+        db = SimpleNamespace()
+        async def fake_scalar(q):
+            return user
+        async def fake_commit():
+            return None
+        db.scalar = fake_scalar
+        db.commit = fake_commit
+        yield db
+
+    app.dependency_overrides[get_db] = fake_db
+    monkeypatch.setattr(main, "send_otp_email", lambda *a, **k: None)
+
+    response = client.post("/api/resend-otp", json={"username": "testuser"})
+    assert response.status_code == 200
+    # The failed-guess budget must survive a resend, or an attacker gets 5 fresh
+    # guesses per code forever.
+    assert user.otp_attempts == 4
+
+
+def test_verify_otp_serializes_attempts_with_a_row_lock(client, monkeypatch):
+    user = _make_reset_user()
+    from main import pwd_context as _pwd
+    user.otp_code_hash = _pwd.hash("123456")
+    user.otp_expires_at = _dt.utcnow() + _td(minutes=5)
+
+    captured = {}
+
+    async def fake_db():
+        db = SimpleNamespace()
+        async def fake_scalar(q):
+            captured["sql"] = str(q)
+            return user
+        async def fake_commit():
+            return None
+        db.scalar = fake_scalar
+        db.commit = fake_commit
+        yield db
+
+    app.dependency_overrides[get_db] = fake_db
+
+    client.post("/api/verify-otp", json={"username": "testuser", "code": "123456"})
+    assert "FOR UPDATE" in captured["sql"].upper(), captured["sql"]
+
+
+def test_reset_password_serializes_verification_with_a_row_lock(client, monkeypatch):
+    user = _make_reset_user(otp_code="123456")
+
+    captured = {}
+
+    async def fake_db():
+        db = SimpleNamespace()
+        async def fake_scalar(q):
+            captured["sql"] = str(q)
+            return user
+        async def fake_commit():
+            return None
+        db.scalar = fake_scalar
+        db.commit = fake_commit
+        yield db
+
+    app.dependency_overrides[get_db] = fake_db
+
+    client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "123456", "new_password": "NewStr0ng!Pass"},
+    )
+    assert "FOR UPDATE" in captured["sql"].upper(), captured["sql"]
+
+
+def test_forgot_password_sends_otp_for_existing_email(client, monkeypatch):
+    user = _make_reset_user()
+    sent = {}
+
+    async def fake_generate_reset_otp(u, db):
+        sent["email"] = u.email
+        sent["called"] = True
+
+    _override_db_with_user(monkeypatch, user)
+    monkeypatch.setattr(main, "generate_and_send_reset_otp", fake_generate_reset_otp)
+
+    response = client.post("/api/auth/forgot-password", json={"email": "student@example.com"})
+    assert response.status_code == 200
     body = response.json()
-    assert body["unlocked"] == [1, 2, 3, 4]
-    assert all(level["unlocked"] for level in body["levels"])
-    assert not any(module["completed"] for module in body["modules"])
+    assert body["message"] == "If that account exists, a reset code has been sent"
+    assert sent.get("called") is True
+
+
+def test_forgot_password_same_message_for_unknown_email(client, monkeypatch):
+    async def fake_generate_reset_otp(u, db):
+        raise AssertionError("should not be called")
+
+    _override_db_with_user(monkeypatch, None)
+    monkeypatch.setattr(main, "generate_and_send_reset_otp", fake_generate_reset_otp)
+
+    response = client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"})
+    assert response.status_code == 200
+    assert response.json()["message"] == "If that account exists, a reset code has been sent"
+
+
+def test_reset_password_succeeds_with_valid_otp(client, monkeypatch):
+    user = _make_reset_user(otp_code="654321")
+
+    _override_db_with_user(monkeypatch, user)
+
+    response = client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "654321", "new_password": "NewStr0ng!Pass"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert "Password reset successful" in body["message"]
+    # The OTP fields should be cleared after a successful reset
+    assert user.reset_otp_code_hash is None
+    assert user.reset_otp_expires_at is None
+
+
+def test_reset_password_rejects_wrong_otp(client, monkeypatch):
+    user = _make_reset_user(otp_code="111111")
+
+    _override_db_with_user(monkeypatch, user)
+
+    response = client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "999999", "new_password": "NewStr0ng!Pass"},
+    )
+    assert response.status_code == 400
+    assert "Incorrect reset code" in response.json()["detail"]
+
+
+def test_reset_password_rejects_expired_otp(client, monkeypatch):
+    user = _make_reset_user(otp_code="123456")
+    user.reset_otp_expires_at = _dt.utcnow() - _td(minutes=1)
+
+    _override_db_with_user(monkeypatch, user)
+
+    response = client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "123456", "new_password": "NewStr0ng!Pass"},
+    )
+    assert response.status_code == 400
+    assert "expired" in response.json()["detail"].lower()
+
+
+def test_reset_password_rejects_weak_new_password(client, monkeypatch):
+    user = _make_reset_user(otp_code="123456")
+
+    _override_db_with_user(monkeypatch, user)
+
+    response = client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "123456", "new_password": "weak"},
+    )
+    assert response.status_code == 400
+    assert "Password must be" in response.json()["detail"]
+
+
+def test_reset_password_rejects_when_no_pending_reset(client, monkeypatch):
+    user = _make_reset_user()
+    user.reset_otp_code_hash = None
+    user.reset_otp_expires_at = None
+
+    _override_db_with_user(monkeypatch, user)
+
+    response = client.post(
+        "/api/auth/reset-password",
+        json={"email": "student@example.com", "otp_code": "123456", "new_password": "NewStr0ng!Pass"},
+    )
+    assert response.status_code == 400
+    assert "No reset code pending" in response.json()["detail"]
