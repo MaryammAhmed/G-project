@@ -310,13 +310,41 @@ function isUnlocked(realm: Realm) {
   return realm.status !== "locked";
 }
 
-function ProfileButton({ xp }: { xp: number | null }) {
+function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean }) {
   return (
     <div className="flex items-center gap-2">
       {xp !== null && (
         <span className="hidden rounded-full border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold tracking-[0.15em] text-amber-200 sm:inline" style={MONO}>
           &#9733; {xp} XP
         </span>
+      )}
+      <Link
+        href="/chat"
+        aria-label="Ask Cipher, the AI mentor"
+        className="group flex items-center gap-2 rounded-full border border-violet-300/40 bg-gradient-to-r from-violet-300/15 to-fuchsia-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-violet-100 transition hover:border-violet-200 hover:shadow-[0_0_16px_rgba(196,132,252,.45)] active:scale-95"
+        style={MONO}
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-full border border-violet-300/60 bg-[#14061c] transition group-hover:scale-110">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c4b5fd" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" />
+          </svg>
+        </span>
+        ASK CIPHER
+      </Link>
+      {isAdmin && (
+        <Link
+          href="/admin"
+          aria-label="Open the admin console"
+          className="group flex items-center gap-2 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-300/15 to-orange-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-amber-100 transition hover:border-amber-200 hover:shadow-[0_0_16px_rgba(251,191,36,.45)] active:scale-95"
+          style={MONO}
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full border border-amber-300/60 bg-[#1c1406] transition group-hover:scale-110">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6l-8-3Z" />
+            </svg>
+          </span>
+          ADMIN
+        </Link>
       )}
       <Link
         href="/profile"
@@ -564,7 +592,7 @@ export default function MissionMapPage() {
             title="cyberguard/mission-map"
             status="ONLINE"
             clearance="TIER 1"
-            right={<ProfileButton xp={snap ? snap.total_score : null} />}
+            right={<ProfileButton xp={snap ? snap.total_score : null} isAdmin={Boolean(snap && snap.is_admin)} />}
           />
 
           {/* seaRef = the box we measure to decide between contain mode and pan mode */}
