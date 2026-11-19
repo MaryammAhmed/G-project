@@ -1,4 +1,4 @@
-"""
+﻿"""
 FILE: database.py
 PURPOSE: 
 This file acts as the permanent bridge between our Python backend and the 
@@ -18,21 +18,31 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 
 def to_async_url(url: str) -> str:
-    """Use the asyncpg driver. Neon URLs often arrive as plain postgresql:// with params asyncpg rejects."""
+    """Use the asyncpg driver. Neon URLs often arrive as plain postgresql:// with params asyncpg rejects.
+
+    SSL hardening: the configured sslmode is PRESERVED (mapped onto asyncpg's `ssl` parameter),
+    so verify-full / verify-ca keep their certificate and hostname checks. The old version
+    silently replaced them with ssl=require, which would have downgraded a strict deployment.
+    """
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
     if url.startswith("postgresql://"):
         url = "postgresql+asyncpg://" + url[len("postgresql://"):]
     parts = urlsplit(url)
     query = []
-    needs_ssl = False
+    ssl_mode = None
     for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        if key in {"channel_binding", "sslmode"}:
-            needs_ssl = needs_ssl or value in {"require", "verify-full", "verify-ca"}
+        if key == "channel_binding":
+            # Not an asyncpg parameter (libpq concept); drop it.
+            continue
+        if key == "sslmode":
+            ssl_mode = value
             continue
         query.append((key, value))
-    if needs_ssl and not any(key == "ssl" for key, _ in query):
-        query.append(("ssl", "require"))
+    if ssl_mode and ssl_mode.lower() != "disable" and not any(key == "ssl" for key, _ in query):
+        # asyncpg accepts the libpq SSL modes through the `ssl` parameter,
+        # so verify-full / verify-ca keep certificate + hostname verification.
+        query.append(("ssl", ssl_mode.lower()))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
