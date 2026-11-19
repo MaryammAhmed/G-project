@@ -123,7 +123,7 @@ export default function ProfilePage() {
   if (!progress) return (
     <CyberShell variant="app" accent="cyan">
       <div className="grid h-screen place-items-center text-cyan-300 font-mono tracking-widest animate-pulse">
-        DECRYPTING AGENT DOSSIER...
+        DECRYPTING AGENT FILE...
       </div>
     </CyberShell>
   );
