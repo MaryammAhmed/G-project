@@ -329,6 +329,12 @@ export default function Login() {
               <button type="submit" disabled={busy} className="cg-btn w-full font-hud uppercase font-bold tracking-wider disabled:cursor-wait disabled:opacity-60">
                 {busy ? "VERIFYING..." : "Sign In →"}
               </button>
+
+              <p className="text-center text-xs text-text-secondary font-hud">
+                <Link href="/forgot-password" className="font-semibold hover:underline" style={{ color: mod.color }}>
+                  Forgot your password?
+                </Link>
+              </p>
             </form>
 
             <p className="text-center text-xs text-text-secondary font-hud">
