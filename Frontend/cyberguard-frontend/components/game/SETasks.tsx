@@ -824,7 +824,7 @@ const SCENARIOS: Scenario[] = [
     se: false, why: "Known sender, normal channel, no request for secrets or action under pressure. Genuine." },
   { channel: "\u{1F4F1} DM", text: "'SnapGram Support' DMs you: 'Your account will be deleted in 24h. Log in here to appeal.'",
     se: true, tactic: "fear", why: "Real support doesn't DM you threats with login links. Threat + deadline = pressure." },
-  { channel: "\u{1F68F} Bus stop", text: "A friendly stranger: 'You go to Metropolitan, right? My kid's applying. Can I see your student ID to check the name of the school?'",
+  { channel: "\u{1F68F} Bus stop", text: "A friendly stranger: 'You go to North High, right? My kid's applying. Can I see your student ID to check the name of the school?'",
     se: true, tactic: "rapport", why: "Friendliness is the tool here; the ask (your ID) is the goal." },
   { channel: "\u{1F4F1} Text", text: "A text from the counselor's office number already saved in your student file: 'Appointment moved to 2:30. Reply YES to confirm.'",
     se: false, why: "A pre-verified number and a harmless request (no secrets, no links). Genuine." },
