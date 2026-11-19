@@ -32,6 +32,9 @@ class User(Base):
     # Wrong login-code tries. Wiped when a new code is sent, and the code is thrown away at 5.
     otp_attempts = Column(Integer, nullable=False, default=0, server_default=text("0"))
     is_admin = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # Password-reset OTP (separate from login OTP so the two flows never collide)
+    reset_otp_code_hash = Column(String, nullable=True)
+    reset_otp_expires_at = Column(DateTime, nullable=True)
 
 
 
