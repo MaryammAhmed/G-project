@@ -23,7 +23,7 @@ const G = "#34D399";
 
 type Visual = "keys" | "form" | "copies" | "door" | "title";
 const SHOTS: { visual: Visual; ms: number; kicker?: string; line: string }[] = [
-  { visual: "keys", ms: 4200, kicker: "METROPOLITAN  |  MONDAY  |  6:52 A.M.", line: "Every account you own is a locked door, but you only use one key to open them all." },
+  { visual: "keys", ms: 4200, kicker: "NORTH HIGH  |  MONDAY  |  6:52 A.M.", line: "Every account you own is a locked door, but you only use one key to open them all." },
   { visual: "form", ms: 3800, line: "Most people cut every one of them the same way." },
   { visual: "copies", ms: 4600, line: "One leak. One copy. Every door opens." },
   { visual: "door", ms: 3800, line: "Today you learn to build a door nobody can open." },
