@@ -47,6 +47,7 @@ export interface ProgressSnapshot {
   unlocked: number[];
   total_score: number;
   finale?: { unlocked: boolean; completed: boolean };
+  is_admin?: boolean;
 }
 
 /** The Takeover opens when all four realms are finished (or the server says so for admins). */
