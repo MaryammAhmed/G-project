@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { drawFinaleRound, type FinaleQuestion } from "@/lib/mission/finaleBank";
 import { saveCompletion } from "@/lib/progress";
+import { sfx } from "@/lib/mission/audio";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const MAX_SHIELDS = 3;
@@ -76,7 +77,8 @@ export default function TakeoverBattle({
     setNote(question.why);
 
     if (ok) {
-      showFlash("SAFE MOVE", "#34D399");
+      sfx("good");
+      showFlash("SHIELD STRIKE!", "#34D399");
       setStrike("player");
       const nextAi = Math.max(0, aiHp - 1);
       setAiHp(nextAi);
@@ -84,6 +86,7 @@ export default function TakeoverBattle({
         setStrike(null);
         if (nextAi <= 0 || index + 1 >= deck.length) {
           setPhase("win");
+          sfx("win");
           saveCompletion(token, 5, "takeover", 40, 1).catch(() => undefined);
         } else {
           setIndex((i) => i + 1);
@@ -94,7 +97,8 @@ export default function TakeoverBattle({
       return;
     }
 
-    showFlash("SHIELD LOST", "#fb4b5b");
+    sfx("bad");
+    showFlash("LASER SPLASH - HEART LOST", "#fb4b5b");
     glitch();
     setStrike("ai");
     const nextShields = Math.max(0, shields - 1);
@@ -103,11 +107,17 @@ export default function TakeoverBattle({
       setStrike(null);
       if (nextShields <= 0) {
         setPhase("lose");
+        sfx("laugh");
         return;
       }
       if (index + 1 >= deck.length) {
         setPhase(nextShields > 0 ? "win" : "lose");
-        if (nextShields > 0) saveCompletion(token, 5, "takeover", 20, 1).catch(() => undefined);
+        if (nextShields > 0) {
+          sfx("win");
+          saveCompletion(token, 5, "takeover", 20, 1).catch(() => undefined);
+        } else {
+          sfx("laugh");
+        }
         return;
       }
       setIndex((i) => i + 1);
@@ -122,12 +132,15 @@ export default function TakeoverBattle({
     <div className="tb-root relative min-h-dvh overflow-hidden bg-[#070711] text-[#f5f3ff]">
       <style>{`
         .tb-glitch { animation: tbShake .4s ease-in-out; }
-        .tb-red { position: fixed; inset: 0; background: rgba(251,75,91,.25); pointer-events: none; z-index: 80; }
-        @keyframes tbShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-6px,2px)} 75%{transform:translate(6px,-2px)} }
-        @keyframes tbPop { from{opacity:0;transform:scale(.92)} to{opacity:1;transform:scale(1)} }
+        .tb-red { position: fixed; inset: 0; background: radial-gradient(circle, rgba(251,75,91,0.35) 0%, rgba(251,75,91,0.65) 100%); pointer-events: none; z-index: 80; mix-blend-mode: screen; animation: tbRedPulse .45s ease-out; }
+        @keyframes tbRedPulse { 0% { opacity: 0; transform: scale(1.1); } 50% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes tbShake { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-8px, 4px)} 30%{transform:translate(8px, -4px)} 45%{transform:translate(-6px, 2px)} 60%{transform:translate(6px, -2px)} 75%{transform:translate(-3px, 1px)} }
+        @keyframes tbPop { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
         @keyframes tbBolt { 0%{opacity:0;transform:translateX(0) scaleX(.2)} 40%{opacity:1} 100%{opacity:0;transform:translateX(var(--dx)) scaleX(1)} }
+        @keyframes laserSplash { 0% { opacity: 0; transform: scale(0.5); filter: blur(4px); } 40% { opacity: 1; transform: scale(1.2); filter: blur(0px); } 100% { opacity: 0; transform: scale(1.8); } }
         .tb-attack { animation: tbBolt .55s ease-out both; }
         .tb-hit { animation: tbShake .35s ease-in-out; }
+        .laser-splash-anim { animation: laserSplash .6s ease-out forwards; }
       `}</style>
 
       {flash && (
@@ -138,37 +151,64 @@ export default function TakeoverBattle({
         </div>
       )}
 
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4">
+      {/* Cyber background grid accents */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f3815_1px,transparent_1px),linear-gradient(to_bottom,#1f1f3815_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
+
+      <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4">
         <div>
-          <p className="text-[10px] tracking-[0.35em] text-[#fb4b5b]" style={MONO}>CYBERGUARD // FINALE</p>
-          <h1 className="text-2xl font-bold">The Takeover</h1>
+          <p className="text-[10px] tracking-[0.35em] text-[#fb4b5b]" style={MONO}>CYBERGUARD // FINALE ARENA</p>
+          <h1 className="text-2xl font-black tracking-tight text-white">The Takeover Battle</h1>
         </div>
-        <Link href="/map" className="rounded-lg border border-white/20 px-3 py-2 text-xs tracking-widest" style={MONO}>MAP</Link>
+        <Link href="/map" className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-xs tracking-widest backdrop-blur-sm transition hover:bg-white/10" style={MONO}>MAP</Link>
       </header>
 
-      <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 pb-8 lg:grid-cols-[1fr_1.2fr_1fr]">
+      {/* Arena Stage */}
+      <div className="relative z-10 mx-auto grid w-full max-w-5xl gap-4 px-4 pb-6 lg:grid-cols-[1fr_1.4fr_1fr] items-center">
         <Fighter
-          label="YOU"
+          label="DEFENDER SHIELD"
           color="#34D399"
           hp={shields}
           max={MAX_SHIELDS}
           hit={strike === "ai"}
           side="left"
+          laserActive={strike === "ai"}
         />
-        <div className="relative flex min-h-28 items-center justify-center">
-          {strike === "player" && <span className="tb-attack absolute h-1 w-2/3 rounded-full bg-[#34D399]" style={{ ["--dx" as string]: "40%" }} />}
-          {strike === "ai" && <span className="tb-attack absolute h-1 w-2/3 rounded-full bg-[#fb4b5b]" style={{ ["--dx" as string]: "-40%" }} />}
-          <p className="text-center text-xs tracking-[0.3em] text-[#9a97ad]" style={MONO}>
-            {phase === "fight" ? `QUESTION ${Math.min(index + 1, 12)} / 12` : phase === "win" ? "NETWORK SECURED" : "NETWORK LOST"}
-          </p>
+
+        <div className="relative flex flex-col items-center justify-center min-h-32 py-2">
+          {strike === "player" && (
+            <div className="absolute inset-x-0 flex items-center justify-center z-20 pointer-events-none">
+              <span className="tb-attack h-2 w-full max-w-[280px] rounded-full bg-gradient-to-r from-[#34D399] via-emerald-300 to-[#34D399] shadow-[0_0_20px_#34D399]" style={{ ["--dx" as string]: "60px" }} />
+              <span className="absolute text-xl font-bold text-[#34D399] animate-bounce" style={MONO}>SHIELD SLAM! ➔</span>
+            </div>
+          )}
+
+          {strike === "ai" && (
+            <div className="absolute inset-x-0 flex items-center justify-center z-20 pointer-events-none">
+              <span className="tb-attack h-3 w-full max-w-[280px] rounded-full bg-gradient-to-r from-[#fb4b5b] via-red-400 to-[#fb4b5b] shadow-[0_0_30px_#fb4b5b]" style={{ ["--dx" as string]: "-60px" }} />
+              <div className="laser-splash-anim absolute inset-0 rounded-full bg-red-500/30 flex items-center justify-center">
+                <span className="text-xl font-black text-[#fb4b5b] tracking-wider" style={MONO}>⚡ LASER SPLASH! ⚡</span>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-white/10 bg-[#0c0e18]/80 px-6 py-3 backdrop-blur-md shadow-xl text-center w-full">
+            <p className="text-[10px] tracking-[0.3em] text-[#9a97ad]" style={MONO}>
+              {phase === "fight" ? `WAVE ${Math.min(index + 1, 12)} / 12` : phase === "win" ? "VICTORY" : "DEFEAT"}
+            </p>
+            <p className="text-lg font-black tracking-wider text-white mt-0.5" style={MONO}>
+              {phase === "fight" ? "BOSS SHOWDOWN" : phase === "win" ? "AI NEUTRALIZED" : "SYSTEM OVERRUN"}
+            </p>
+          </div>
         </div>
+
         <Fighter
-          label="ROGUE AI"
+          label="ROGUE AI CORE"
           color="#fb4b5b"
           hp={aiHp}
           max={AI_MAX}
           hit={strike === "player"}
           side="right"
+          laserActive={false}
         />
       </div>
 
@@ -247,6 +287,7 @@ function Fighter({
   max,
   hit,
   side,
+  laserActive,
 }: {
   label: string;
   color: string;
@@ -254,6 +295,7 @@ function Fighter({
   max: number;
   hit: boolean;
   side: "left" | "right";
+  laserActive?: boolean;
 }) {
   const pct = Math.max(0, Math.round((hp / max) * 100));
   return (
