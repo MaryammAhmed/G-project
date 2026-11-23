@@ -759,11 +759,21 @@ function CodeTask({
 
     sentRef.current = true;
 
-    send();
+    async function doSend() {
+      if (!onSendCode) {
+        setStatus("ready");
+        return;
+      }
+      setStatus("sending");
+      try {
+        setStatus((await onSendCode()) ? "ready" : "error");
+      } catch {
+        setStatus("error");
+      }
+    }
+    void doSend();
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  }, []);
+  }, [onSendCode]);
 
 
 

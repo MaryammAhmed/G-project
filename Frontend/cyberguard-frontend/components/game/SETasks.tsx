@@ -391,7 +391,7 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
       ...(node.sms ? [{ from: "sms" as const, text: node.sms }] : []),
       ...(node.sys ? [{ from: "sys" as const, text: node.sys }] : []),
     ];
-    setPhase("typing");
+    const restart = setTimeout(() => setPhase("typing"));
     const timers = items.map((m, k) =>
       window.setTimeout(() => {
         setLog((l) => [...l, m]);
@@ -399,7 +399,10 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
         if (k === items.length - 1) setPhase(node.ending ? "end" : "choose");
       }, reduce ? 0 : (k + 1) * 900)
     );
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    return () => {
+      clearTimeout(restart);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, [nodeId]);
 
   /* keep the newest message in view */

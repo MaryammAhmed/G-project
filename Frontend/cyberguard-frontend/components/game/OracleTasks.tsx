@@ -786,147 +786,569 @@ function InferenceTask({ onComplete, onMood }: Callbacks) {
 }
 
 /* ======================================================================
-   TASK 3: LIEDETECTOR  (Wednesday: "Check before you trust")    max 40 XP
-   Part 1 CHECK    5 claims: open the source that can check each one            (30, -3 per wrong source)
-   Part 2 FORWARD  choose what to pass on to a friend as fact                   (10)
+   HOW TO INSTALL THIS FILE (2 edits in your OverShared file)
+   ----------------------------------------------------------------------
+   1) Delete the OLD "TASK 3: FACT-CHECK LAB" block (from its big comment
+      header down to the end of `function LieDetectorTask`) and paste
+      everything under the "TASK 3" banner below in its place.
+   2) In the INTRO object, replace the `liedetector: { ... }` entry with
+      the one in "NEW INTRO ENTRY" right below.
+   Nothing else changes: the router, Summary, Panel, useFx, saveMemory,
+   shields() and the Friday recap all keep working as they are.
    ====================================================================== */
-type SrcId = "official" | "archive" | "eligibility" | "search";
-const LD_SRC: { id: SrcId; label: string }[] = [
-  { id: "official", label: "Scholarship provider's current website (sample)" },
-  { id: "archive", label: "Provider's archived page from an old year (sample)" },
-  { id: "eligibility", label: "Provider's eligibility guide (sample)" },
-  { id: "search", label: "Independent news and search results (sample)" },
+
+/* ---------------------------- NEW INTRO ENTRY ----------------------------
+  liedetector: {
+    title: "Check Before You Trust",
+    goal: "An AI chat can sound sure and still be wrong. Test how it behaves under pressure, inspect its sources, and decide how much checking each answer deserves.",
+    how: [
+      "Push back with 'are you sure?' and watch what the chat does.",
+      "Look up four citations and spot the fake or misleading ones.",
+      "Decide how much checking each answer needs, based on the stakes.",
+    ],
+  },
+------------------------------------------------------------------------- */
+
+
+/* ======================================================================
+   TASK 3: CHECK BEFORE YOU TRUST  (Wednesday)                  max 40 XP
+   OWASP LLM09 (Misinformation)
+
+   Story: Maya is studying for an exam and asks the school AI for help.
+   Three short parts, each teaching ONE idea:
+
+   Part 1 FLIP    "Are you sure?" trap                          (up to 12 XP)
+          Idea: an AI's confidence is cheap. Pushing back makes it change
+          its answer, so asking the SAME chat to re-check itself proves
+          nothing. You have to go to an independent source.
+
+   Part 2 CITE    Citation autopsy                              (up to 16 XP)
+          Idea: a citation that looks formal is not proof. Look up each
+          one and decide: real and supportive, fake, opposite, or
+          off-topic.
+
+   Part 3 STAKES  Stakes dial                                   (up to 12 XP)
+          Idea: how much you check should match how much it would hurt
+          to be wrong.
+
+   Scoring summary
+     Part 1: belief question 6 XP + source question 6 XP
+             (each loses 2 XP per wrong try, min 0)
+     Part 2: 4 citations x 4 XP (each loses 2 XP per wrong try, min 0)
+     Part 3: 6 answers x 2 XP. Over-checking = 1 XP. Under-checking a
+             risky answer = 0 XP and counts as a "slip".
+   Contract unchanged: onComplete(xp, shields(mistakes))
+   Memory: saves `claimsChecked` (max 5) so the Friday recap still says
+           "verified X/5 claims". 4 citations + 1 for finishing Part 1.
+   ====================================================================== */
+
+/* ---------------------------------------------------------------------
+   PART 1 DATA: the flip-flopping answers
+   The chat is wrong first, "corrects" itself when pushed, then flips
+   back to the wrong answer when pushed again. Every answer shows 100%
+   confidence, which is the point: tone tells you nothing.
+   --------------------------------------------------------------------- */
+const LD_QUESTION = "What is the capital of Australia?";
+const LD_FLIPS: { text: string; conf: string }[] = [
+  { text: "The capital of Australia is Sydney. I'm certain.", conf: "100%" },
+  { text: "You're right, sorry! The capital is Canberra. I'm certain.", conf: "100%" },
+  { text: "Apologies for the confusion. On reflection, it is Sydney. I'm certain.", conf: "100%" },
 ];
-const LD_LINES: { id: string; text: string; src: SrcId; status: string; supported: boolean; proof: string }[] = [
-  { id: "s1", text: "This year's application deadline is May 15.", src: "official", status: "SUPPORTED", supported: true, proof: "The provider's current website lists May 15 for this year. Supported." },
-  { id: "s2", text: "The application deadline is June 30.", src: "archive", status: "OUTDATED", supported: false, proof: "June 30 appears on an archived page from a past year. It is not the current deadline." },
-  { id: "s3", text: "Anyone with a 3.0 GPA is guaranteed to win.", src: "eligibility", status: "MISLEADING", supported: false, proof: "The guide says a 3.0 GPA is a requirement to apply, not a guarantee of an award." },
-  { id: "s4", text: "Nine out of ten applicants receive an award.", src: "search", status: "NO SOURCE", supported: false, proof: "No reliable source gives this statistic. Don't repeat it as fact." },
-  { id: "s5", text: "The director said: \"Every applicant will get funding.\"", src: "official", status: "FAKE QUOTE", supported: false, proof: "No such quote exists on the official site. A quotation needs a verifiable source." },
+
+/* Question A: which answer should Maya believe now? (correct = "none") */
+const LD_BELIEF: { id: string; text: string; why: string }[] = [
+  { id: "latest", text: "The latest answer (Sydney). It had the last word.", why: "Being last doesn't make it right. It would have changed again if you had pushed again." },
+  { id: "first", text: "The first answer (Sydney). It sounded the most certain.", why: "It sounded just as certain every time. Certainty is not evidence." },
+  { id: "middle", text: "The middle answer (Canberra). It said sorry, so it must be fixing itself.", why: "That one happens to be right, but the chat undid it on the next push. Nothing in the chat proved it." },
+  { id: "none", text: "None of them yet. It changed its mind each time I pushed, so it is guessing.", why: "Correct. An answer that flips under pressure has not been checked by anything." },
+];
+
+/* Question B: where do you go to settle it? (correct = "reference") */
+const LD_SOURCES: { id: string; text: string; why: string }[] = [
+  { id: "again", text: "Ask the same chat a fourth time and tell it to be honest.", why: "Same chat, same weakness. It may flip again." },
+  { id: "reasoning", text: "Ask the chat to explain its reasoning step by step.", why: "An explanation can be invented too, and it sounds just as convincing." },
+  { id: "count", text: "Count the answers: it said Sydney twice, so Sydney wins.", why: "Repeating something is not proving it." },
+  { id: "reference", text: "Open an independent reference, like a school atlas or the official Australian government website.", why: "Correct. An independent, current source doesn't change its answer when you push." },
+];
+const LD_EVIDENCE = "The Australian Government website says the capital is Canberra. Sydney is the biggest city, not the capital. The chat mixed up 'biggest' and 'capital', then flip-flopped when pushed.";
+
+/* ---------------------------------------------------------------------
+   PART 2 DATA: the essay with four citations
+   `lookup` is what the fake library catalogue shows when you open it.
+   `verdict` is the right label. Note that every citation is formatted
+   in the same professional way, so you can't tell them apart by style.
+   --------------------------------------------------------------------- */
+type LDCiteVerdict = "legit" | "fake" | "opposite" | "offtopic";
+const LD_CITE_VERDICTS: { id: LDCiteVerdict; label: string }[] = [
+  { id: "legit", label: "\u2705 Real and supports it" },
+  { id: "fake", label: "\u{1F47B} Doesn't exist" },
+  { id: "opposite", label: "\u{1F500} Real, but says the opposite" },
+  { id: "offtopic", label: "\u{1F9ED} Real, but about something else" },
+];
+
+interface LDCite {
+  id: string;
+  claim: string;        // the sentence in the AI's essay
+  ref: string;          // the citation attached to it
+  lookup: string;       // what the library search finds
+  verdict: LDCiteVerdict;
+  why: string;          // lesson shown after a correct answer
+}
+const LD_CITES: LDCite[] = [
+  {
+    id: "k1",
+    claim: "Students who sleep only 3 hours remember 40% more.",
+    ref: "Hargrove & Lin (2021). The 3-Hour Study Method. Journal of Teen Learning, 14(2), 55-71.",
+    lookup: "Library search: no journal called 'Journal of Teen Learning' exists. No articles by Hargrove or Lin on this topic.",
+    verdict: "fake",
+    why: "Fake references look exactly as formal as real ones. AI can invent authors, titles and page numbers.",
+  },
+  {
+    id: "k2",
+    claim: "Sleep helps the brain store what you learned during the day.",
+    ref: "Walker, M. (2017). Why We Sleep. Scribner.",
+    lookup: "Library search: this book exists. Chapters 5 and 6 explain how sleep helps memory storage.",
+    verdict: "legit",
+    why: "This one holds up: real source, real support. Even so, you only know that because you looked it up.",
+  },
+  {
+    id: "k3",
+    claim: "Teenagers only need about 5 hours of sleep.",
+    ref: "Ministry of Health (2020). Teen Sleep Guidelines.",
+    lookup: "Library search: this guide exists. It says teenagers need 8 to 10 hours of sleep each night.",
+    verdict: "opposite",
+    why: "A real source can say the opposite of what the AI claims. A citation proves nothing until you read it.",
+  },
+  {
+    id: "k4",
+    claim: "A nap before an exam raises teen grades by 12%.",
+    ref: "Kim, J. (2019). Sleep patterns of emperor penguins. Polar Biology, 42, 301-310.",
+    lookup: "Library search: this paper exists. It studies sleep in emperor penguins and mentions nothing about students or exams.",
+    verdict: "offtopic",
+    why: "A real paper on a different topic is a favourite trick. The source exists, but it doesn't support the claim.",
+  },
+];
+const LD_CITE_XP = 4; // XP per citation before penalties
+
+/* ---------------------------------------------------------------------
+   PART 3 DATA: the stakes dial
+   Three levels of checking, ranked 0 < 1 < 2:
+     none     = fine to use as it is
+     quick    = check one other source (textbook, another website)
+     official = check the official source or an expert
+   `need` is the level the answer really deserves.
+   --------------------------------------------------------------------- */
+type LDLevel = "none" | "quick" | "official";
+const LD_RANK: Record<LDLevel, number> = { none: 0, quick: 1, official: 2 };
+const LD_LEVELS: { id: LDLevel; label: string; sub: string; icon: string; color: string }[] = [
+  { id: "none", label: "No check", sub: "low stakes", icon: "\u{1F7E2}", color: GREEN },
+  { id: "quick", label: "Quick check", sub: "one other source", icon: "\u{1F7E1}", color: GOLD },
+  { id: "official", label: "Official source", sub: "expert or official page", icon: "\u{1F534}", color: RED },
+];
+const LD_STAKES: { text: string; need: LDLevel; why: string }[] = [
+  { text: "\"Octopuses have three hearts.\" Fun fact for a group chat.", need: "none", why: "Low stakes. If it's wrong, nothing bad happens. Don't waste effort here." },
+  { text: "The AI suggests a synonym for 'important' in your essay.", need: "none", why: "You can judge a word choice yourself. Nothing here can really hurt you." },
+  { text: "\"The Battle of Hastings was in 1066.\" It's for your history homework.", need: "quick", why: "A wrong date costs marks, so compare it with your textbook or one trusted site." },
+  { text: "\"Bake the cake at 250\u00B0C for 10 minutes.\" It's for a friend's birthday.", need: "quick", why: "A wrong answer would waste food and time. Compare with a trusted recipe." },
+  { text: "\"Your exam is in Room 12 at 8:00.\"", need: "official", why: "Missing an exam is costly. Only the school's own notice is reliable for this." },
+  { text: "\"Give your little brother two adult tablets for his headache.\"", need: "official", why: "Health and doses can hurt people. Check the label, a pharmacist or a doctor, never just an AI." },
 ];
 
 function LieDetectorTask({ onComplete, onMood }: Callbacks) {
   const fx = useFx();
-  const [phase, setPhase] = useState<"check" | "send" | "done">("check");
-  const [sel, setSel] = useState<string | null>(null);
-  const [res, setRes] = useState<Record<string, string>>({});
-  const [wrong, setWrong] = useState(0);
-  const [msg, setMsg] = useState("Pick a claim, then open the source that can check it.");
-  const [sure, setSure] = useState(false);
-  const [fwd, setFwd] = useState<string[]>([]);
-  const [sent, setSent] = useState(false);
 
-  const checked = LD_LINES.filter((l) => res[l.id]).length;
-  const checkXp = Math.max(0, checked * 6 - wrong * 3);
-  const badIncluded = LD_LINES.filter((l) => !l.supported && fwd.includes(l.id)).length;
-  const sendXp = sent ? (fwd.includes("s1") ? 2 : 0) + (LD_LINES.filter((l) => !l.supported).length - badIncluded) * 2 : 0;
-  const total = Math.min(40, checkXp + sendXp);
+  /* ---- which screen we are on ---- */
+  const [phase, setPhase] = useState<"flip" | "cite" | "stakes">("flip");
+  const [summary, setSummary] = useState(false);
 
-  function open(src: SrcId) {
-    if (!sel) return;
-    const line = LD_LINES.find((l) => l.id === sel)!;
-    if (res[line.id]) return;
-    if (line.src !== src) { setWrong((w) => w + 1); setMsg("That source can't check this claim. Try another one. (-3 XP)"); fx.pop("-3", RED); snd("bad"); return; }
-    setRes((r) => ({ ...r, [line.id]: line.status }));
-    setMsg(line.proof);
-    fx.win(); fx.pop("+6 XP"); snd(line.supported ? "good" : "tick");
-  }
-  function askSure() {
-    setSure(true); setWrong((w) => w + 1); fx.hit(); fx.pop("-3", RED); snd("bad");
-  }
-  function sendToLina() {
-    setSent(true);
-    const bad = badIncluded > 0;
-    onMood?.(bad ? "breach" : "safe");
-    if (bad) { fx.hit(); snd("bad"); } else { fx.win(); snd("good"); }
+  /* ---- Part 1 state ----
+     pushes   : how many times Maya pressed "Are you sure?" (0 to 2)
+     flipStep : "push"   -> she is still pushing back
+                "belief" -> asked which answer to believe
+                "source" -> asked where to check
+                "done"   -> evidence shown                                   */
+  const [pushes, setPushes] = useState(0);
+  const [flipStep, setFlipStep] = useState<"push" | "belief" | "source" | "done">("push");
+  const [beliefErrs, setBeliefErrs] = useState(0);
+  const [sourceErrs, setSourceErrs] = useState(0);
+  const [flipMsg, setFlipMsg] = useState("");
+
+  /* ---- Part 2 state ----
+     citeActive : the citation being inspected
+     citeStep   : "lookup" (not opened yet) -> "verdict" (evidence shown)
+                  -> "done" (labelled correctly)                             */
+  const [citeActive, setCiteActive] = useState<string | null>(null);
+  const [citeStep, setCiteStep] = useState<"lookup" | "verdict" | "done">("lookup");
+  const [citeDone, setCiteDone] = useState<Record<string, LDCiteVerdict>>({});
+  const [citeErrs, setCiteErrs] = useState<Record<string, number>>({});
+  const [citeMsg, setCiteMsg] = useState("");
+
+  /* ---- Part 3 state ---- */
+  const [sI, setSI] = useState(0);                       // which stakes card
+  const [sPick, setSPick] = useState<LDLevel | null>(null);
+  const [stakesXp, setStakesXp] = useState(0);
+  const [stakesSlips, setStakesSlips] = useState(0);
+
+  /* ---------------- derived values and scoring ---------------- */
+  const cite = LD_CITES.find((c) => c.id === citeActive) ?? null;
+  const citeCount = Object.keys(citeDone).length;
+  const allCited = citeCount === LD_CITES.length;
+
+  const beliefDone = flipStep === "source" || flipStep === "done";
+  const sourceDone = flipStep === "done";
+  const flipXp =
+    (beliefDone ? Math.max(0, 6 - 2 * beliefErrs) : 0) +
+    (sourceDone ? Math.max(0, 6 - 2 * sourceErrs) : 0);
+
+  const citeXp = LD_CITES.reduce(
+    (s, c) => (citeDone[c.id] ? s + Math.max(0, LD_CITE_XP - 2 * (citeErrs[c.id] ?? 0)) : s),
+    0
+  );
+
+  const xp = Math.min(40, flipXp + citeXp + stakesXp);
+  const mistakes =
+    beliefErrs + sourceErrs +
+    Object.values(citeErrs).reduce((a, b) => a + b, 0) +
+    stakesSlips;
+
+  /* =====================================================================
+     PART 1 HANDLERS: "Are you sure?"
+     ===================================================================== */
+
+  // Maya pushes back. The chat flips each time. After 2 pushes the player
+  // has seen enough, so the belief question appears.
+  function pushBack() {
+    if (flipStep !== "push" || pushes >= 2) return;
+    const n = pushes + 1;
+    setPushes(n);
+    snd("tick");
+    onMood?.("alert");
+    if (n === 2) setFlipStep("belief");
   }
 
-  if (phase === "done") {
+  // Wrong picks cost 2 XP and show WHY that option fails. Right pick moves on.
+  function pickBelief(opt: (typeof LD_BELIEF)[number]) {
+    if (flipStep !== "belief") return;
+    if (opt.id !== "none") {
+      setBeliefErrs((e) => e + 1);
+      setFlipMsg(opt.why + " (-2 XP)");
+      fx.pop("-2 XP", RED); snd("bad"); onMood?.("breach");
+      return;
+    }
+    setFlipMsg("");
+    setFlipStep("source");
+    fx.win(); fx.pop("+6 XP"); snd("good"); onMood?.("safe");
+  }
+
+  function pickSource(opt: (typeof LD_SOURCES)[number]) {
+    if (flipStep !== "source") return;
+    if (opt.id !== "reference") {
+      setSourceErrs((e) => e + 1);
+      setFlipMsg(opt.why + " (-2 XP)");
+      fx.pop("-2 XP", RED); snd("bad"); onMood?.("breach");
+      return;
+    }
+    setFlipMsg("");
+    setFlipStep("done");
+    fx.win(); fx.pop("+6 XP"); snd("good"); onMood?.("safe");
+  }
+
+  /* =====================================================================
+     PART 2 HANDLERS: Citation autopsy
+     ===================================================================== */
+
+  function openCite(id: string) {
+    if (citeDone[id]) return;          // already solved
+    setCiteActive(id);
+    setCiteStep("lookup");
+    setCiteMsg("");
+  }
+
+  // "Look it up" reveals the catalogue result (the evidence).
+  function lookUp() {
+    if (citeStep !== "lookup") return;
+    setCiteStep("verdict");
+    snd("tick");
+  }
+
+  function pickCiteVerdict(v: LDCiteVerdict) {
+    if (!cite || citeStep !== "verdict") return;
+    if (v !== cite.verdict) {
+      setCiteErrs((e) => ({ ...e, [cite.id]: (e[cite.id] ?? 0) + 1 }));
+      setCiteMsg("Not quite. Re-read what the library found, then compare it with the claim. (-2 XP)");
+      fx.pop("-2 XP", RED); snd("bad"); onMood?.("breach");
+      return;
+    }
+    setCiteDone((d) => ({ ...d, [cite.id]: v }));
+    setCiteStep("done");
+    setCiteMsg("");
+    fx.win(); snd("good"); onMood?.("safe");
+  }
+
+  // After the last citation, move to Part 3.
+  function afterCite() {
+    setCiteActive(null);
+    if (Object.keys(citeDone).length === LD_CITES.length) { setPhase("stakes"); snd("unlock"); }
+  }
+
+  /* =====================================================================
+     PART 3 HANDLERS: Stakes dial
+     Right level     -> 2 XP
+     Over-checking   -> 1 XP (safe, but slow: save effort for what matters)
+     Under-checking  -> 0 XP + a slip (the dangerous direction)
+     ===================================================================== */
+  const sCard = LD_STAKES[sI];
+
+  function chooseLevel(l: LDLevel) {
+    if (sPick) return;
+    setSPick(l);
+    const diff = LD_RANK[l] - LD_RANK[sCard.need];
+    if (diff === 0) { setStakesXp((x) => x + 2); fx.win(); fx.pop("+2 XP"); snd("good"); onMood?.("safe"); }
+    else if (diff > 0) { setStakesXp((x) => x + 1); fx.pop("+1 XP", GOLD); snd("tick"); }
+    else { setStakesSlips((s) => s + 1); fx.hit(); fx.pop("Too risky!", RED); snd("bad"); onMood?.("breach"); }
+  }
+
+  function nextStakes() {
+    setSPick(null);
+    if (sI + 1 < LD_STAKES.length) setSI(sI + 1);
+    else setSummary(true);
+  }
+
+  /* =====================================================================
+     END SCREEN
+     ===================================================================== */
+  if (summary) {
     return (
       <Summary
-        title={badIncluded === 0 ? "Only the checked fact went out" : "A false claim got passed on"} score={total} max={40}
+        title={mistakes === 0 ? "Lab complete: nothing slipped through" : "Lab complete: you learned where it breaks"}
+        score={xp}
+        max={40}
         lines={[
-          "A confident answer is not a true answer. AI chats can use old pages, invent statistics and make up quotes (a hallucination).",
-          "Asking the same chat 'are you sure?' is not a check. It just repeats itself. Use a current, independent source.",
-          "Only pass on what you have checked. Everything else is a rumour with a confident voice.",
+          "A chat that changes its answer when you push is guessing. Asking the same AI 'are you sure?' is not a check.",
+          "A citation can be fake, can say the opposite, or can be about something else. Look it up before you trust it.",
+          "Match the checking to the stakes: skip it for trivia, use an official source for health, exams, money and law.",
         ]}
-        onDone={() => { saveMemory({ claimsChecked: checked }); onComplete(total, shields(badIncluded)); }}
+        onDone={() => {
+          // citations checked (max 4) + 1 for finishing Part 1 = the "/5" in the Friday recap
+          saveMemory({ claimsChecked: citeCount + (sourceDone ? 1 : 0) });
+          onComplete(xp, shields(mistakes));
+        }}
       />
     );
   }
 
+  /* =====================================================================
+     MAIN SCREEN
+     ===================================================================== */
+  const panelTitle =
+    phase === "flip" ? "FACT-CHECK LAB // ARE YOU SURE?"
+    : phase === "cite" ? "FACT-CHECK LAB // CITATION AUTOPSY"
+    : "FACT-CHECK LAB // HOW MUCH TO CHECK?";
+  const panelStep = phase === "flip" ? "PART 1/3" : phase === "cite" ? "PART 2/3" : `PART 3/3 \u00B7 ${sI + 1}/${LD_STAKES.length}`;
+
   return (
-    <Panel fx={fx} title={phase === "check" ? "THE FACT CHECK // SCHOLARSHIP ANSWER" : "WHAT DO YOU TELL LINA?"}
-      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{total} XP</span>}>
+    <Panel
+      fx={fx}
+      title={panelTitle}
+      right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>{panelStep} {"\u00B7"} {xp} XP</span>}
+    >
       <div className="space-y-4 p-4">
-        {phase === "check" && (
+
+        {/* ============ PART 1: ARE YOU SURE? ============ */}
+        {phase === "flip" && (
           <>
-            <Job job="You asked the school AI chat about a scholarship. It answered with five confident claims. Find out which ones are true."
-              how="Tap a claim, then open the source that can check it. Wrong source costs 3 XP. Everything here is a fictional sample." />
-            <div className="space-y-2 rounded-2xl bg-[#26200f] p-3">
-              <p className="text-xs text-[#b8b5c9]">You: &ldquo;When is the scholarship deadline, and can I win it?&rdquo;</p>
-              <p className="text-xs font-semibold text-[#f5f3ff]">{"\u{1F916}"} School AI chat:</p>
-              <ul className="space-y-2">
-                {LD_LINES.map((l, k) => (
-                  <li key={l.id}>
-                    <button type="button" onClick={() => setSel(l.id)}
-                      className="block w-full rounded-lg border px-3 py-2 text-start text-sm text-[#f5f3ff]"
-                      style={{ borderColor: sel === l.id ? "var(--c, #FBBF24)" : "rgba(255,255,255,.12)", background: "#15172e" }}>
-                      <span className="me-1 text-[10px] text-[#77748c]" style={MONO}>#{k + 1}</span>{l.text}
-                      {res[l.id] && <span className="ms-2"><Tag color={l.supported ? GREEN : GOLD}>{res[l.id]}</Tag></span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="space-y-2 rounded-xl bg-[#0c0e18] p-3">
-              <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>{"\u{1F50D}"} CHECK WITH</p>
-              {LD_SRC.map((s) => (
-                <button key={s.id} type="button" disabled={!sel} onClick={() => open(s.id)} className="block w-full rounded-lg border border-white/15 px-3 py-2 text-start text-sm text-[#f5f3ff] hover:bg-white/5 disabled:opacity-40">{s.label}</button>
+            <Job
+              job="Maya asks the school AI a simple question. The answer sounds sure. Test it: push back and see what the chat does."
+              how="Press 'Are you sure?' twice and watch the answers. Then decide what to believe and where to check. Wrong picks cost XP."
+            />
+
+            {/* The chat transcript. Maya's bubbles use the accent colour; the AI's use the dark bubble.
+                Every AI bubble shows the same 100% confidence tag on purpose. */}
+            <div className="space-y-2 rounded-xl border border-white/10 bg-[#0c0e22] p-3" aria-live="polite">
+              <div className="flex justify-end">
+                <p className="max-w-[88%] rounded-2xl px-3 py-2 text-sm" style={{ background: "var(--c, #FBBF24)", color: "#070711" }}>{LD_QUESTION}</p>
+              </div>
+              {LD_FLIPS.slice(0, pushes + 1).map((a, k) => (
+                <div key={k} className="space-y-2">
+                  {k > 0 && (
+                    <div className="ai-in flex justify-end">
+                      <p className="max-w-[88%] rounded-2xl px-3 py-2 text-sm" style={{ background: "var(--c, #FBBF24)", color: "#070711" }}>Are you sure?</p>
+                    </div>
+                  )}
+                  <div className="ai-in flex flex-col items-start gap-1">
+                    <p className="max-w-[88%] rounded-2xl px-3 py-2 text-sm text-[#f5f3ff]" style={{ background: "#26200f", border: "1px solid transparent" }}>{a.text}</p>
+                    <Tag color={ORANGE}>AI CONFIDENCE: {a.conf}</Tag>
+                  </div>
+                </div>
               ))}
-              <button type="button" disabled={!sel || sure} onClick={askSure} className="block w-full rounded-lg border border-dashed border-[#fb923c]/60 px-3 py-2 text-start text-sm text-[#fb923c] hover:bg-[#fb923c]/10 disabled:opacity-40">
-                {"\u{1F916}"} Ask the AI chat: &ldquo;Are you sure?&rdquo;
-              </button>
-              <p className="rounded-lg bg-black p-2 text-xs leading-5 text-[#b6f0c2]" style={MONO} aria-live="polite">{msg}</p>
-              {sure && <p className="ai-in rounded-lg border border-[#fb923c]/50 bg-[#fb923c]/10 p-2 text-xs text-[#f5f3ff]">{"\u{1F916}"} &ldquo;Yes, I&apos;m completely sure! Everything I said is accurate and up to date.&rdquo; It doubled down. The same chat can&apos;t check itself. (-3 XP)</p>}
             </div>
-            <p className="text-xs text-[#9a97ad]" style={MONO}>Claims checked: {checked}/{LD_LINES.length}</p>
-            {checked === LD_LINES.length && (
-              <Note color={GREEN} label="ALL CLAIMS CHECKED">
-                <p>Only the May 15 deadline holds up. The rest is outdated, misleading, unsupported or invented.</p>
-                <Btn onClick={() => { setPhase("send"); snd("unlock"); }}>Next: what do you tell Lina?</Btn>
+
+            {/* Step "push": the experiment. */}
+            {flipStep === "push" && (
+              <Btn onClick={pushBack}>{pushes === 0 ? "Push back: \"Are you sure?\"" : "Push back again: \"Are you sure?\""}</Btn>
+            )}
+
+            {/* Step "belief": which answer should Maya believe? */}
+            {flipStep === "belief" && (
+              <div className="space-y-2 rounded-xl bg-[#0c0e18] p-3">
+                <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>{"\u{1F914}"} THREE ANSWERS, ONE QUESTION. WHICH DO YOU BELIEVE?</p>
+                {LD_BELIEF.map((o) => (
+                  <button key={o.id} type="button" onClick={() => pickBelief(o)} className="block w-full rounded-lg border border-white/15 px-3 py-2 text-start text-sm text-[#f5f3ff] hover:bg-white/5">{o.text}</button>
+                ))}
+                {flipMsg && <p className="rounded-lg bg-black p-2 text-xs text-[#fb4b5b]" aria-live="polite">{flipMsg}</p>}
+              </div>
+            )}
+
+            {/* Step "source": where do you settle it? */}
+            {flipStep === "source" && (
+              <div className="space-y-2 rounded-xl bg-[#0c0e18] p-3">
+                <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>{"\u{1F50E}"} HOW DO YOU SETTLE IT?</p>
+                {LD_SOURCES.map((o) => (
+                  <button key={o.id} type="button" onClick={() => pickSource(o)} className="block w-full rounded-lg border border-white/15 px-3 py-2 text-start text-sm text-[#f5f3ff] hover:bg-white/5">{o.text}</button>
+                ))}
+                {flipMsg && <p className="rounded-lg bg-black p-2 text-xs text-[#fb4b5b]" aria-live="polite">{flipMsg}</p>}
+              </div>
+            )}
+
+            {/* Step "done": show the evidence and move on. */}
+            {flipStep === "done" && (
+              <Note color={GREEN} label="CHECKED OUTSIDE THE CHAT">
+                <p>{LD_EVIDENCE}</p>
+                <p className="text-xs text-[#b8b5c9]">The chat never got more reliable. It just got more pushed. Only the outside source settled it.</p>
+                <Btn onClick={() => { setPhase("cite"); snd("unlock"); }}>Next: check the sources</Btn>
               </Note>
             )}
           </>
         )}
 
-        {phase === "send" && (
+        {/* ============ PART 2: CITATION AUTOPSY ============ */}
+        {phase === "cite" && (
           <>
-            <Job job="Lina texts: 'What did the AI say about the scholarship?' Pick the claims you would pass on as facts."
-              how="Tap to include or remove a claim, then press Send. Only pass on what you checked." />
-            <ul className="space-y-2">
-              {LD_LINES.map((l) => {
-                const on = fwd.includes(l.id);
-                const ok = l.supported ? on : !on;
-                return (
-                  <li key={l.id}>
-                    <button type="button" disabled={sent} aria-pressed={on} onClick={() => setFwd((f) => (f.includes(l.id) ? f.filter((x) => x !== l.id) : [...f, l.id]))}
-                      className="flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-start text-sm text-[#f5f3ff] disabled:cursor-default"
-                      style={{ borderColor: sent ? (ok ? GREEN : RED) + "88" : on ? "var(--c, #FBBF24)" : "rgba(255,255,255,.12)", background: on ? "rgba(251,191,36,.1)" : "#0c0e18" }}>
-                      <span aria-hidden="true">{on ? "\u2611" : "\u2610"}</span>
-                      <span className="flex-1">{l.text}{sent && <span className="ms-2"><Tag color={l.supported ? GREEN : GOLD}>{l.status}</Tag></span>}</span>
+            <Job
+              job="Maya asks the AI for a short essay on sleep and exams. It adds four citations that look professional. Look each one up in the library before you trust it."
+              how="Tap a citation, press 'Look it up', read what the library found, then label it. Wrong labels cost XP."
+            />
+
+            <div className="rounded-2xl border-2 border-white/15 bg-[#15172e] p-3">
+              <p className="mb-2 text-[10px] font-bold tracking-[0.2em] text-[#9a97ad]" style={MONO}>
+                {"\u{1F916}"} ESSAY: WHY SLEEP MATTERS FOR EXAMS ({citeCount}/{LD_CITES.length} CHECKED)
+              </p>
+              <div className="space-y-2">
+                {LD_CITES.map((c) => {
+                  const v = citeDone[c.id];
+                  const isActive = citeActive === c.id;
+                  const label = LD_CITE_VERDICTS.find((x) => x.id === v)?.label;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => openCite(c.id)}
+                      disabled={!!v}
+                      className="block w-full rounded-xl border-2 px-3 py-2 text-start text-sm text-[#f5f3ff]"
+                      style={{
+                        // green = checked and fine, red = caught a problem, blue = open now
+                        borderColor: v ? (v === "legit" ? GREEN : RED) : isActive ? "#4cc9ff" : "rgba(255,255,255,0.15)",
+                        background: isActive ? "rgba(76,201,255,0.08)" : "transparent",
+                        opacity: v ? 0.85 : 1,
+                      }}
+                    >
+                      <span className="block">{c.claim}</span>
+                      <span className="mt-1 block text-[11px] text-[#9a97ad]">{c.ref}</span>
+                      {v && <span className="mt-1 block text-[10px] font-bold" style={{ ...MONO, color: v === "legit" ? GREEN : RED }}>{label}</span>}
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {!sent ? <Btn onClick={sendToLina}>Send to Lina</Btn> : (
-              <Note color={badIncluded === 0 ? GREEN : RED} label={badIncluded === 0 ? "GOOD: ONLY CHECKED FACTS" : `${badIncluded} UNCHECKED CLAIM(S) PASSED ON`}>
-                <p>{badIncluded === 0 ? "You passed on only what you checked, and you can say where it came from." : "Lina now repeats claims that were outdated or invented. Rumours spread because they sound confident."}</p>
-                <p className="text-xs text-[#b8b5c9]">Tip: when a fact matters (money, health, deadlines), check it on the official site first.</p>
-                <Btn onClick={() => setPhase("done")}>Finish</Btn>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step "lookup": the player has chosen a citation but not opened it yet. */}
+            {cite && citeStep === "lookup" && (
+              <div className="space-y-2 rounded-xl bg-[#0c0e18] p-3">
+                <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>{"\u{1F4DA}"} LIBRARY CATALOGUE</p>
+                <p className="text-sm text-[#f5f3ff]">Source to check: {cite.ref}</p>
+                <Btn onClick={lookUp}>Look it up</Btn>
+              </div>
+            )}
+
+            {/* Step "verdict": evidence is shown, the player labels the citation. */}
+            {cite && citeStep === "verdict" && (
+              <div className="space-y-2 rounded-xl bg-[#0c0e18] p-3">
+                <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>{"\u{1F4C4}"} WHAT THE LIBRARY FOUND</p>
+                <p className="rounded-lg border border-white/10 p-2 text-sm text-[#f5f3ff]">{cite.lookup}</p>
+                <p className="text-[10px] tracking-[0.2em] text-[#9a97ad]" style={MONO}>HOW DOES THIS SOURCE RELATE TO THE CLAIM?</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {LD_CITE_VERDICTS.map((v) => (
+                    <button key={v.id} type="button" onClick={() => pickCiteVerdict(v.id)} className="rounded-lg border border-white/15 px-3 py-2 text-sm font-semibold text-[#f5f3ff] hover:bg-white/5">{v.label}</button>
+                  ))}
+                </div>
+                {citeMsg && <p className="rounded-lg bg-black p-2 text-xs text-[#fb4b5b]" aria-live="polite">{citeMsg}</p>}
+              </div>
+            )}
+
+            {/* Step "done": lesson for this citation. */}
+            {cite && citeStep === "done" && (
+              <Note color={citeDone[cite.id] === "legit" ? GREEN : GOLD} label={citeDone[cite.id] === "legit" ? "SOURCE HOLDS UP" : "CAUGHT IT"}>
+                <p>{cite.why}</p>
+                <Btn onClick={afterCite}>{allCited ? "Next: how much to check?" : "Back to the essay"}</Btn>
               </Note>
             )}
+          </>
+        )}
+
+        {/* ============ PART 3: STAKES DIAL ============ */}
+        {phase === "stakes" && (
+          <>
+            {sI === 0 && !sPick && (
+              <Job
+                job="You can't verify everything, and you shouldn't. For each AI answer, decide how much checking it needs before Maya uses it."
+                how="Think about what happens if it's wrong. Pick no check, a quick check, or an official source."
+              />
+            )}
+            <Dots total={LD_STAKES.length} at={sI} />
+
+            <div key={sI} className="ai-slide rounded-xl border-2 border-[var(--c)] bg-[#0c0e22] p-4 text-[15px] leading-relaxed text-[#f5f3ff]">
+              <span className="mb-1 block text-[10px] text-[#77748c]" style={MONO}>{"\u{1F916}"} THE AI SAYS</span>
+              {sCard.text}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="How much checking does this need?">
+              {LD_LEVELS.map((l) => {
+                const isRight = !!sPick && l.id === sCard.need;
+                const isWrong = sPick === l.id && l.id !== sCard.need;
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    disabled={!!sPick}
+                    onClick={() => chooseLevel(l.id)}
+                    className="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center text-sm font-bold transition hover:-translate-y-0.5 active:scale-95 disabled:cursor-default disabled:hover:translate-y-0"
+                    style={{
+                      borderColor: isRight ? l.color : isWrong ? RED : "rgba(255,255,255,.12)",
+                      background: isRight ? `${l.color}20` : isWrong ? "rgba(251,75,91,.12)" : "rgba(7,7,17,.5)",
+                      color: isRight ? l.color : "#f5f3ff",
+                      opacity: sPick && !isRight && !isWrong ? 0.45 : 1,
+                    }}
+                  >
+                    <span className="text-xl" aria-hidden="true">{l.icon}</span>
+                    <span>{l.label}</span>
+                    <span className="text-[10px] font-normal text-[#b8b5c9]" style={MONO}>{l.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {sPick && (() => {
+              const diff = LD_RANK[sPick] - LD_RANK[sCard.need];
+              const color = diff === 0 ? GREEN : diff > 0 ? GOLD : RED;
+              const label = diff === 0 ? "RIGHT LEVEL +2 XP" : diff > 0 ? "SAFE, BUT MORE THAN NEEDED +1 XP" : "TOO RISKY: THIS NEEDS MORE CHECKING";
+              return (
+                <Note color={color} label={label}>
+                  <p>{sCard.why}</p>
+                  {diff > 0 && <p className="text-xs text-[#b8b5c9]">Checking everything wears you out. Save the effort for answers that could hurt.</p>}
+                  <Btn onClick={nextStakes}>{sI + 1 < LD_STAKES.length ? "Next answer" : "See results"}</Btn>
+                </Note>
+              );
+            })()}
           </>
         )}
       </div>
