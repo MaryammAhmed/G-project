@@ -7,6 +7,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 // Defines the shape/contract of the authentication state and functions available throughout the app.
 type AuthContextType = {
   token: string | null;       // JWT authentication token (null if logged out)
+  // STUDY NOTE: the 2FA practice no longer needs the browser to send this address (the backend emails the signed-in user itself), but it is still useful for showing the address on screen.
   email: string | null;       // User's verified email address (used in scenario labs/2FA practice)
   isLoggedIn: boolean;        // Convenience boolean indicating active authentication status
   isLoading: boolean;         // Prevents premature rendering while reading state from localStorage on startup
@@ -27,6 +28,8 @@ const AuthContext = createContext<AuthContextType>({
 // Wrapper component that stores authentication state and provides it to all child components.
 export function AuthProvider({ children }: { children: ReactNode }) {
   // State variables for in-memory session data
+  // Initialize to null; we read localStorage inside useEffect (client-only) to avoid
+  // "ReferenceError: localStorage is not defined" during Next.js server-side rendering.
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   
@@ -35,12 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Runs once on initial browser load to rehydrate state from persisted browser storage (localStorage)
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedEmail = localStorage.getItem("email");
-
-    if (storedToken) setToken(storedToken);
-    if (storedEmail) setEmail(storedEmail);
-
+    setToken(localStorage.getItem("token"));
+    setEmail(localStorage.getItem("email"));
     setIsLoading(false); // Session check completed
   }, []);
 
@@ -51,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEmail(newEmail);
 
     // 2. Persist to localStorage so sessions survive page refreshes
+    // STUDY NOTE: a JWT in localStorage is simple and fine for a coursework project, but JavaScript injected into the page (XSS) could read it. Larger apps often use httpOnly cookies instead.
     localStorage.setItem("token", newToken);
     localStorage.setItem("email", newEmail);
   };
