@@ -211,7 +211,7 @@ function ChatScene({ mood }: { mood: Mood }) {
       <rect x="98" y="78" width="96" height="20" rx="9" fill="#1d2042" />
       <text x="106" y="91" fontSize="7" fill="#f5f3ff">omg are u there??</text>
       <rect x="98" y="104" width="112" height="20" rx="9" fill="#1d2042" />
-      <text x="106" y="117" fontSize="7" fill="#f5f3ff">i'm locked out of everything</text>
+      <text x="106" y="117" fontSize="7" fill="#f5f3ff">i&apos;m locked out of everything</text>
       <rect x="150" y="130" width="74" height="18" rx="9" fill="#A855F7" />
       <text x="158" y="142" fontSize="7" fill="#0b0b18">what happened?</text>
       {/* typing dots */}

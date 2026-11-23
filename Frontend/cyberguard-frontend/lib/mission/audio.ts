@@ -16,7 +16,7 @@
 /* One music track per scene (the same names the visuals use). */
 export type SceneKey = "room" | "network" | "arena" | "lab" | "phone" | "sealed";
 
-let ctx: AudioContext | null = null;
+let ctx: AudioContext | null = null;  // the one shared audio engine; created on first use
 
 /* Creates the audio system on first use and wakes it up if the browser paused it. */
 export function ensureAudio(): AudioContext | null {
@@ -50,7 +50,9 @@ function tone(
 ) {
   const c = ensureAudio();
   if (!c) return;
+  // oscillator = the sound generator (a repeating wave: sine, square, sawtooth or triangle)
   const osc = c.createOscillator();
+  // gain = a volume knob; we move it up and down over time to fade the note in and out
   const gain = c.createGain();
   osc.type = type;
   osc.frequency.value = freq;
@@ -58,6 +60,7 @@ function tone(
   gain.gain.setValueAtTime(0.0001, t0);
   gain.gain.linearRampToValueAtTime(vol, t0 + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); // fade out = no clicking
+  // Wiring: oscillator -> volume knob -> speakers.
   osc.connect(gain);
   gain.connect(dest ?? c.destination);
   osc.start(t0);
@@ -71,6 +74,7 @@ function noise(at: number, dur: number, vol = 0.08) {
   const size = Math.floor(c.sampleRate * dur);
   const buffer = c.createBuffer(1, size, c.sampleRate);
   const data = buffer.getChannelData(0);
+  // Fill the buffer with random values that fade out: a short burst of static.
   for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / size);
   const src = c.createBufferSource();
   const gain = c.createGain();
@@ -127,8 +131,10 @@ function ha(at: number, base: number, dur = 0.14) {
 /* ------------------------------------------------------------------
    SOUND EFFECTS
    ------------------------------------------------------------------ */
+// Names of the sound effects the game can play: sfx("good"), sfx("bad"), ...
 export type SfxKind = "good" | "bad" | "tick" | "unlock" | "win" | "laugh" | "zap" | "buzz";
 
+// Plays one sound effect. Each case combines tone() / sweep() / noise() / ha() calls placed at different start times.
 export function sfx(kind: SfxKind) {
   if (!ensureAudio()) return;
   switch (kind) {
@@ -174,8 +180,10 @@ export function sfx(kind: SfxKind) {
    Each track = a chord progression (pad), an optional bass and an arpeggio.
    Chords are written as "semitones away from A4 (440 Hz)".
    ------------------------------------------------------------------ */
+// Converts "semitones away from A4" into a frequency in Hz (each semitone multiplies the pitch by 2^(1/12)).
 const hz = (semi: number) => 440 * Math.pow(2, semi / 12);
 
+// Description of one music track: speed (bpm), wave shape, the chords (one per bar), bass style, arpeggio on/off, loudness.
 interface Track {
   bpm: number;
   wave: OscillatorType;
@@ -185,6 +193,7 @@ interface Track {
   vol: number;
 }
 
+// One track per scene. Which scene plays is chosen by the game screen that calls startMusic(scene).
 const TRACKS: Record<SceneKey, Track> = {
   // Maya's room: calm and a bit lonely, like lo-fi. Am - F - C - G
   room: { bpm: 72, wave: "triangle", chords: [[-12, -9, -5], [-16, -12, -9], [-9, -5, -2], [-14, -10, -7]], bass: "slow", arp: true, vol: 0.9 },
@@ -200,6 +209,7 @@ const TRACKS: Record<SceneKey, Track> = {
   sealed: { bpm: 88, wave: "triangle", chords: [[-9, -5, -2], [-14, -10, -7], [-12, -9, -5], [-16, -12, -9]], bass: "slow", arp: true, vol: 1 },
 };
 
+// musicGain = the master volume of the current track; musicTimer = the clock that keeps adding notes.
 let musicGain: GainNode | null = null;
 let musicTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -223,6 +233,7 @@ export function startMusic(scene: SceneKey) {
   stopMusic();
   const c = ensureAudio();
   if (!c) return;
+  // Look up the track settings for this scene.
   const track = TRACKS[scene];
 
   if (!track) {
@@ -231,6 +242,7 @@ export function startMusic(scene: SceneKey) {
     return;
   }
 
+  // Master volume for this track: fades in over 1.2 s.
   const master = c.createGain();
   master.gain.setValueAtTime(0.0001, c.currentTime);
   master.gain.linearRampToValueAtTime(0.5 * track.vol, c.currentTime + 1.2);
@@ -238,10 +250,13 @@ export function startMusic(scene: SceneKey) {
   musicGain = master;
   // ...rest unchanged
 
+  // One step = an eighth note. 60 / bpm = seconds per beat; half of that = one eighth note.
   const stepSec = 60 / track.bpm / 2; // one step = an eighth note
   let step = 0;
 
+  // play() runs once per step and adds the notes that belong to that step (pad, bass, arpeggio).
   const play = () => {
+    // Which bar are we in? 8 steps per bar; the chord list repeats (the % wraps around).
     const bar = Math.floor(step / 8) % track.chords.length;
     const chord = track.chords[bar];
     const inBar = step % 8;
@@ -262,5 +277,6 @@ export function startMusic(scene: SceneKey) {
   };
 
   play();
+  // Call play() again every step, forever, until stopMusic() clears the timer.
   musicTimer = setInterval(play, stepSec * 1000);
 }

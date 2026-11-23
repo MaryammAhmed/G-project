@@ -28,7 +28,6 @@ import type { ReactNode } from "react";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import type { Mood, PWTaskId } from "@/lib/mission/types";
-// @ts-ignore
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
@@ -507,10 +506,11 @@ function PromptsTask({ onComplete, onMood }: TaskCallbacks) {
   /* each new alert: buzz, vibrate, reset the timer */
   useEffect(() => {
     if (finished) return;
-    setLeft(ALERT_MS);
+    const restart = setTimeout(() => setLeft(ALERT_MS));
     setDx(0);
     snd("buzz");
     try { navigator.vibrate?.([200, 80, 200]); } catch {}
+    return () => clearTimeout(restart);
   }, [i, finished]);
 
   /* countdown in 100 ms steps */
@@ -744,7 +744,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
                   }`}
                   style={!hasError ? { boxShadow: "0 0 15px rgba(76,201,255,0.1)" } : {}}
                 >
-                  <p className="text-sm text-[#f5f3ff] font-medium text-center">"{item.text}"</p>
+                  <p className="text-sm text-[#f5f3ff] font-medium text-center">&quot;{item.text}&quot;</p>
                 </div>
               );
             })}

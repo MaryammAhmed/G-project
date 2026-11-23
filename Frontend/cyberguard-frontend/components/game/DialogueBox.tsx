@@ -40,7 +40,7 @@ function useTypewriter(fullText: string, speed = 16) {
   const chars = Array.from(fullText);
 
   useEffect(() => {
-    setCount(0); // restart whenever the text changes
+    const restart = setTimeout(() => setCount(0));
     const total = Array.from(fullText).length;
     const id = setInterval(() => {
       setCount((c) => {
@@ -51,7 +51,10 @@ function useTypewriter(fullText: string, speed = 16) {
         return c + 1;
       });
     }, speed);
-    return () => clearInterval(id); // cleanup if the text changes or component unmounts
+    return () => {
+      clearTimeout(restart);
+      clearInterval(id);
+    }; // cleanup if the text changes or component unmounts
   }, [fullText, speed]);
 
   return {

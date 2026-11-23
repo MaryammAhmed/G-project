@@ -6,7 +6,6 @@ import type { Mood } from "@/lib/mission/types";
 export default function CompanionSkeleton({ mood, text }: { mood: Mood; text?: string }) {
   // Determine the eye and mouth shapes based on the game state
   const isHappy = mood === "safe";
-  const isAlert = mood === "alert";
   const isBreach = mood === "breach";
 
   return (

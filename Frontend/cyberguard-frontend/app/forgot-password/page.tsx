@@ -12,14 +12,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import CyberShell from "@/components/layout/CyberShell";
 import { API_BASE_URL } from "@/lib/api";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

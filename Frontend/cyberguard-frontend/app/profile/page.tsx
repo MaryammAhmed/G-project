@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CyberShell from "@/components/layout/CyberShell";
@@ -49,6 +48,9 @@ export default function ProfilePage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("username") : null;
+    if (saved) setUsername(saved);
+
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
@@ -70,8 +72,6 @@ export default function ProfilePage() {
       .then(setProgress)
       .catch((e) => setError(String(e)));
 
-    const stored = localStorage.getItem("username");
-    if (stored) setUsername(stored);
   }, [router]);
 
   const handleLogout = () => {

@@ -22,7 +22,6 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
 import { AUTH_CSS, AuthRain, MODULES, ModIcon } from "@/components/ui/moduleMarks";
@@ -82,7 +81,6 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login } = useAuth();
 
   const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);

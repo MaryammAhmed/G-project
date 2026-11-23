@@ -11,10 +11,10 @@
 export type ModId = "vault" | "mirage" | "whisper" | "oracle";
 
 export const MODULES: { id: ModId; name: string; color: string; topic: string; badge: string }[] = [
-  { id: "vault", name: "THE VAULT", color: "#34D399", topic: "Passwords", badge: "VAULT BREAKER" },
-  { id: "mirage", name: "THE MIRAGE", color: "#22D3EE", topic: "Phishing", badge: "PHISH-SPOTTER" },
-  { id: "whisper", name: "THE WHISPER", color: "#A855F7", topic: "Social engineering", badge: "WHISPER BREAKER" },
-  { id: "oracle", name: "THE ORACLE", color: "#FBBF24", topic: "Safe AI use", badge: "ORACLE'S APPRENTICE" },
+  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "Passwords", badge: "LOCKEDOUT BREAKER" },
+  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "Phishing", badge: "PHISH-SPOTTER" },
+  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "Social engineering", badge: "MANIPULATED BREAKER" },
+  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "Safe AI use", badge: "OVERSHARED APPRENTICE" },
 ];
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };

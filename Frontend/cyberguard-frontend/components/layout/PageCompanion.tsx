@@ -15,24 +15,39 @@ import { useEffect, useState } from "react";
 import CompanionSkeleton from "@/components/mission/CompanionSkeleton";
 import type { Mood } from "@/lib/mission/types";
 
-const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
-
-export default function PageCompanion({ message, mood = "calm" }: { message: string; mood?: Mood }) {
+export default function PageCompanion({
+  message,
+  mood = "calm",
+}: {
+  message: string;
+  mood?: Mood;
+}) {
   /* typewriter: restarts whenever the message changes */
-  const [n, setN] = useState(0);
+  const [, setN] = useState(0);
+
   useEffect(() => {
-    setN(0);
+    const restart = window.setTimeout(() => setN(0), 0);
     const id = window.setInterval(() => {
       setN((c) => {
-        if (c >= message.length) { window.clearInterval(id); return c; }
+        if (c >= message.length) {
+          window.clearInterval(id);
+          return c;
+        }
         return c + 1;
       });
     }, 18);
-    return () => window.clearInterval(id);
+
+    return () => {
+      window.clearTimeout(restart);
+      window.clearInterval(id);
+    };
   }, [message]);
 
-    return (
-    <div className="pointer-events-none fixed bottom-0 right-0 z-40 h-[190px] w-[190px] origin-bottom-right scale-[.62] sm:scale-100" aria-live="polite">
+  return (
+    <div
+      className="pointer-events-none fixed bottom-0 right-0 z-40 h-[190px] w-[190px] origin-bottom-right scale-[.62] sm:scale-100"
+      aria-live="polite"
+    >
       {/* The speech bubble is completely removed */}
       {/* the skeleton itself */}
       <CompanionSkeleton mood={mood} />
