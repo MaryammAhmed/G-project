@@ -361,7 +361,13 @@ async function getFeedback(
     const data = await res.json();
     const text = typeof data.feedback === "string" ? data.feedback.trim() : "";
     if (!text) throw new Error("empty feedback");
-    return { text, source: "ai" };
+    // Respect the backend's flag: true when Groq generated feedback, false when we
+    // used the authored fallback. The UI uses source to label the mentor feedback.
+    const source = data.from_ai === true ? "ai" : "fallback";
+    // When the AI is offline, explain the PLAYER's specific choice (why it was right
+    // or wrong), not the correct-answer lesson — that keeps "Shield Lost" honest.
+    const finalText = source === "ai" ? text : (choice.fallback || text);
+    return { text: finalText, source };
   } catch {
     return { text: choice.fallback, source: "fallback" };
   } finally {

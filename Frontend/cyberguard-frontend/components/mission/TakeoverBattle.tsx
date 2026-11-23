@@ -287,7 +287,7 @@ function Fighter({
   max,
   hit,
   side,
-  laserActive,
+  laserActive = false,
 }: {
   label: string;
   color: string;

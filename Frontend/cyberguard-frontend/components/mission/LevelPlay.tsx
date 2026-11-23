@@ -31,8 +31,8 @@ export default function LevelPlay({
 
   useEffect(() => {
     if (!Number.isInteger(level) || level < 1 || level > mission.levels.length) {
-      setGate("missing");
-      return;
+      const restart = setTimeout(() => setGate("missing"));
+      return () => clearTimeout(restart);
     }
     fetchProgress(token).then((snap) => {
       setGate(levelUnlocked(mission.module, level, snap) ? "ok" : "locked");
