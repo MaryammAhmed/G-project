@@ -43,11 +43,14 @@ const MODULE_META: Record<number, { icon: string; title: string; color: string }
 export default function ProfilePage() {
   const router = useRouter();
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
-  const [username, setUsername] = useState<string>(() => localStorage.getItem("username") ?? "Agent");
+  const [username, setUsername] = useState<string>("Agent");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("username") : null;
+    if (saved) setUsername(saved);
+
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
