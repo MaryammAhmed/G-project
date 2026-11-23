@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CyberShell from "@/components/layout/CyberShell";
@@ -44,7 +43,7 @@ const MODULE_META: Record<number, { icon: string; title: string; color: string }
 export default function ProfilePage() {
   const router = useRouter();
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
-  const [username, setUsername] = useState<string>("Agent");
+  const [username, setUsername] = useState<string>(() => localStorage.getItem("username") ?? "Agent");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -70,8 +69,6 @@ export default function ProfilePage() {
       .then(setProgress)
       .catch((e) => setError(String(e)));
 
-    const stored = localStorage.getItem("username");
-    if (stored) setUsername(stored);
   }, [router]);
 
   const handleLogout = () => {

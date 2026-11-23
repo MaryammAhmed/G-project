@@ -7,10 +7,10 @@
 
   The card's accent colour slowly cycles through the four mission colours, so the login screen
   feels like the front door of the whole game:
-      THE VAULT   emerald  #34D399   passwords
-      THE MIRAGE  cyan     #22D3EE   phishing
-      THE WHISPER purple   #A855F7   social engineering
-      THE ORACLE  gold     #FBBF24   safe AI use
+      LOCKEDOUT   emerald  #34D399   passwords
+      PHISHED     cyan     #22D3EE   phishing
+      MANIPULATED purple   #A855F7   social engineering
+      OVERSHARED  gold     #FBBF24   safe AI use
   The cycle pauses the moment the player starts typing, so nothing distracts them while they sign in.
 
   LOGIC IS UNCHANGED: same /api/login call, same OTP redirect, same login(token, email).
