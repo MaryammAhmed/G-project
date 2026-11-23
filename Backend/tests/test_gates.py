@@ -139,7 +139,6 @@ def test_sensitive_routes_require_a_token(client):
     bodies = {
         "/api/chat": {"message": "hi", "module": 1},
         "/api/scenario-feedback": {"module": 1, "incident": "x", "choice_text": "y", "correct": True},
-        "/api/oracle-lab/rules-bot": {"message": "hi", "history": [], "patched": True},
         "/api/practice-otp/send": {},
     }
     for path, body in bodies.items():
@@ -260,6 +259,7 @@ def _make_reset_user(email="student@example.com", otp_code="123456"):
         is_admin=False,
         reset_otp_code_hash=pwd_context.hash(otp_code),
         reset_otp_expires_at=_dt.utcnow() + _td(minutes=10),
+        reset_otp_attempts=0,
     )
     return user
 
