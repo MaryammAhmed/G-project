@@ -145,7 +145,8 @@
       "OFFLINE": "OFFLINE",
       "ALERT": "ALERT",
       "SECURE": "SECURE"
-    }
+    },
+    "defaultClearance": "AGENT"
   },
   "home": {
     "privacy": "Privacy",
@@ -292,5 +293,19 @@
     "complete": "COMPLETE",
     "levelsDone": "{done}/5 levels",
     "totalScore": "Total score: {score} XP"
+  },
+  "rain": {
+    "urgent": "URGENT",
+    "hello": "HELLO?",
+    "prompt": "PROMPT",
+    "verify": "VERIFY",
+    "secret": "SECRET",
+    "sure": "100% SURE",
+    "access": "ACCESS",
+    "passphrase": "PASSPHRASE",
+    "tier1": "TIER 1",
+    "code": "CODE?",
+    "enter": "ENTER",
+    "key": "KEY"
   }
 }

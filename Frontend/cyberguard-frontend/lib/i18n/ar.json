@@ -145,7 +145,8 @@
       "OFFLINE": "غير متصل",
       "ALERT": "تنبيه",
       "SECURE": "آمن"
-    }
+    },
+    "defaultClearance": "عميل"
   },
   "home": {
     "privacy": "الخصوصية",
@@ -292,5 +293,19 @@
     "complete": "مكتمل",
     "levelsDone": "{done}/5 مستويات",
     "totalScore": "مجموع النقاط: {score} نقطة خبرة"
+  },
+  "rain": {
+    "urgent": "عاجل",
+    "hello": "مرحبًا؟",
+    "prompt": "موجّه",
+    "verify": "تحقّق",
+    "secret": "سرّي",
+    "sure": "متأكد 100%",
+    "access": "دخول",
+    "passphrase": "عبارة مرور",
+    "tier1": "المستوى 1",
+    "code": "الرمز؟",
+    "enter": "أدخِل",
+    "key": "مفتاح"
   }
 }

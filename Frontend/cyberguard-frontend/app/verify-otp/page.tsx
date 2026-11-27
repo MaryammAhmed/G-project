@@ -193,7 +193,7 @@ function VerifyOtpInner() {
       <div className="ax-root fit-root contents">
         <style>{AUTH_CSS}</style>
         <style>{FIT_CSS}</style>
-        <AuthRain words={["123456", "CODE?", "VERIFY", "2FA", "ENTER", "KEY", "SECRET", "5:00"]} />
+        <AuthRain words={["123456", t("rain.code"), t("rain.verify"), "2FA", t("rain.enter"), t("rain.key"), t("rain.secret"), "5:00"]} />
         <PageCompanion
           mood={ok ? "safe" : error ? "breach" : "calm"}
           message={

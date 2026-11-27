@@ -199,7 +199,7 @@ export default function Login() {
 
         {/* ---- Backdrop: glyph rain in the four mission colours ---- */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-          {["123456", "URGENT", "HELLO?", "PROMPT", "letmein", "VERIFY", "SECRET", "100% SURE"].map((w, i) => (
+          {["123456", t("rain.urgent"), t("rain.hello"), t("rain.prompt"), "letmein", t("rain.verify"), t("rain.secret"), t("rain.sure")].map((w, i) => (
             <span
               key={w}
               className="lg-rain absolute text-[11px] font-bold tracking-[0.3em]"

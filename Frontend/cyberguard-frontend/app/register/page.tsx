@@ -150,7 +150,7 @@ export default function Register() {
       <div className="ax-root fit-root contents">
         <style>{AUTH_CSS}</style>
         <style>{FIT_CSS}</style>
-        <AuthRain words={["letmein", "ACCESS", "HELLO?", "2FA", "PASSPHRASE", "VERIFY", "SECRET", "TIER 1"]} />
+        <AuthRain words={["letmein", t("rain.access"), t("rain.hello"), "2FA", t("rain.passphrase"), t("rain.verify"), t("rain.secret"), t("rain.tier1")]} />
         <PageCompanion
           mood={status?.kind === "err" ? "breach" : status?.kind === "ok" ? "safe" : passed === 5 ? "safe" : "calm"}
           message={

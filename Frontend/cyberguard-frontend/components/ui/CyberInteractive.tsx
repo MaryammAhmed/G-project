@@ -256,7 +256,7 @@ const STATUS_COLOR: Record<NonNullable<TerminalHeaderProps["status"]>, string> =
 export function TerminalHeader({
   title = "cyberguard@realm:~",
   status = "ONLINE",
-  clearance = "AGENT", // was "TIER 1"; the platform now has one audience
+  clearance,
   accent = "cyan",
   right,
   className = "",
@@ -300,7 +300,7 @@ export function TerminalHeader({
 
       {/* CLEARANCE chip */}
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f6c453]">
-        {t("terminal.clearance", { clearance })}
+        {t("terminal.clearance", { clearance: clearance ?? t("terminal.defaultClearance") })}
       </p>
 
       {right}
