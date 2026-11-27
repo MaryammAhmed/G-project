@@ -4,5 +4,137 @@
     "english": "English",
     "arabic": "Arabic",
     "switchTo": "Switch language to {language}"
+  },
+  "common": {
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "show": "SHOW",
+    "hide": "HIDE",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "capsLock": "▲ CAPS LOCK IS ON",
+    "open": "OPEN",
+    "locked": "LOCKED",
+    "signIn": "Sign in",
+    "loading": "Loading…",
+    "rememberedIt": "Remembered it?",
+    "somethingWrong": "Something went wrong."
+  },
+  "modules": {
+    "vault": {
+      "topic": "Passwords",
+      "line": "Lock every account.",
+      "badge": "LOCKEDOUT BREAKER"
+    },
+    "mirage": {
+      "topic": "Phishing",
+      "line": "Cut the line before it bites.",
+      "badge": "PHISH-SPOTTER"
+    },
+    "whisper": {
+      "topic": "Social engineering",
+      "line": "Verify the voice.",
+      "badge": "MANIPULATED BREAKER"
+    },
+    "oracle": {
+      "topic": "Safe AI use",
+      "line": "Guard what you type.",
+      "badge": "OVERSHARED APPRENTICE"
+    }
+  },
+  "passwordRules": {
+    "minLength": "At least 8 characters",
+    "upper": "An uppercase letter",
+    "lower": "A lowercase letter",
+    "number": "A number"
+  },
+  "login": {
+    "missionsLabel": "CyberGuard missions",
+    "dialLabel": "CyberGuard vault dial",
+    "titleLine1": "Four doors.",
+    "titleLine2": "One agent.",
+    "subtitle": "Sign in to resume your training.",
+    "terminalKicker": "// SECURE ACCESS TERMINAL",
+    "welcome": "Welcome Back, Agent",
+    "usernamePlaceholder": "Your username",
+    "verifying": "VERIFYING...",
+    "submit": "Sign In →",
+    "forgot": "Forgot your password?",
+    "newToGame": "New to the game?",
+    "createAccount": "Create an account",
+    "failed": "Login failed",
+    "welcomeAlert": "Welcome back, Agent {username}.",
+    "companionDenied": "Access denied. Check your details.",
+    "companionVerifying": "Verifying your clearance..."
+  },
+  "register": {
+    "desk": "RECRUIT DESK",
+    "kicker": "// AGENT REGISTRATION",
+    "title": "Create Account",
+    "subtitle": "Choose your training identity to begin",
+    "usernamePlaceholder": "e.g. Layla_H",
+    "creating": "CREATING...",
+    "submit": "Create Account",
+    "signInNow": "Sign in now →",
+    "haveAccount": "Already have an account?",
+    "signInHere": "Sign in here",
+    "cardLabel": "Your agent card",
+    "idTitle": "CYBERGUARD AGENT ID",
+    "unnamed": "UNNAMED AGENT",
+    "clearance": "CLEARANCE: TIER 1 | HIGH SCHOOL 16-18",
+    "badgesTitle": "BADGES TO EARN",
+    "scenarios": "Scenarios: school exam portals, gaming accounts, social media.",
+    "genericError": "Check your details and try again.",
+    "serverError": "Could not reach the Python server. Is Uvicorn running?",
+    "companionFailed": "Registration failed. Read the message and try again.",
+    "companionOk": "Welcome aboard, agent. Now sign in to start training.",
+    "companionStrong": "That password meets every rule. Nice.",
+    "companionIdle": "Welcome, recruit. Fill in your ID card."
+  },
+  "otp": {
+    "companionOk": "Access granted. Setting sail...",
+    "companionError": "That code didn't work. Check your email and try again.",
+    "companionExpired": "This code has expired. Request a new one.",
+    "companionIdle": "Check your email, agent. Never share this code with anyone.",
+    "desk": "2-STEP CHECK",
+    "dialLabel": "{count} of {total} digits entered",
+    "kicker": "// VERIFY YOUR IDENTITY",
+    "title": "Enter the code sent to your email",
+    "expiresIn": "Code expires in",
+    "expired": "Code expired. Request a new one.",
+    "enterAll": "Enter all {count} digits.",
+    "invalid": "Invalid code",
+    "serverDown": "Could not reach the server. Is it running?",
+    "newCodeSent": "A new code is on its way.",
+    "resendFailed": "Could not request a new code.",
+    "inputLabel": "{count}-digit code",
+    "granted": "ACCESS GRANTED",
+    "verifying": "VERIFYING...",
+    "verify": "Verify",
+    "resendIn": "Resend code in {seconds}s",
+    "resend": "Resend code"
+  },
+  "forgot": {
+    "kicker": "// PASSWORD RECOVERY",
+    "title": "Forgot your password?",
+    "body": "Enter the email you used to sign up. We will send you a one-time code to reset your password.",
+    "sending": "Sending...",
+    "send": "Send reset code",
+    "sentTitle": "If that email is registered, a reset code is on its way.",
+    "sentBody": "Check your inbox, then go to the reset page.",
+    "goToReset": "Go to reset page →",
+    "failed": "Could not send the reset code. Try again."
+  },
+  "reset": {
+    "kicker": "// RESET PASSWORD",
+    "title": "Set a new password",
+    "body": "Enter the email, the 6-digit code we sent you, and your new password.",
+    "codeLabel": "Reset code",
+    "codePlaceholder": "6-digit code",
+    "newPassword": "New password",
+    "resetting": "Resetting...",
+    "submit": "Reset password",
+    "failed": "Could not reset the password. Try again."
   }
 }

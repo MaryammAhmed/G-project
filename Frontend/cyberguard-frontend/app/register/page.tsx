@@ -26,15 +26,17 @@ import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
 import { AUTH_CSS, AuthRain, MODULES, ModIcon } from "@/components/ui/moduleMarks";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 
 const FIXED_AGE_GROUP = "A";
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-const RULES: { test: (p: string) => boolean; text: string }[] = [
-  { test: (p) => p.length >= 8, text: "At least 8 characters" },
-  { test: (p) => /[A-Z]/.test(p), text: "An uppercase letter" },
-  { test: (p) => /[a-z]/.test(p), text: "A lowercase letter" },
-  { test: (p) => /\d/.test(p), text: "A number" },
+const RULES: { test: (p: string) => boolean; text: TranslationKey }[] = [
+  { test: (p) => p.length >= 8, text: "passwordRules.minLength" },
+  { test: (p) => /[A-Z]/.test(p), text: "passwordRules.upper" },
+  { test: (p) => /[a-z]/.test(p), text: "passwordRules.lower" },
+  { test: (p) => /\d/.test(p), text: "passwordRules.number" },
 ];
 const STRENGTH = ["#fb4b5b", "#fb4b5b", "#fb923c", "#FBBF24", "#22D3EE", "#34D399"];
 
@@ -78,6 +80,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
 export default function Register() {
   const router = useRouter();
+  const t = useT();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -111,7 +114,7 @@ export default function Register() {
 
   const passed = RULES.filter((r) => r.test(password)).length;
   const accent = STRENGTH[passed];
-  const agent = username.trim() || "UNNAMED AGENT";
+  const agent = username.trim() || t("register.unnamed");
   const maskedEmail = email ? email.replace(/^(.{2}).*(@.*)$/, "$1•••$2") : "••••@••••";
   const agentId = `CG-${((username.length * 7919 + email.length * 104729 + 13) % 46656).toString(36).toUpperCase().padStart(3, "0")}`;
 
@@ -132,10 +135,10 @@ export default function Register() {
         // Show the success message briefly, then go to the login page
         redirectTimer.current = setTimeout(() => router.push("/login"), 1500);
       } else {
-        setStatus({ kind: "err", text: typeof data.detail === "string" ? data.detail : "Check your details and try again." });
+        setStatus({ kind: "err", text: typeof data.detail === "string" ? data.detail : t("register.genericError") });
       }
     } catch {
-      setStatus({ kind: "err", text: "Could not reach the Python server. Is Uvicorn running?" });
+      setStatus({ kind: "err", text: t("register.serverError") });
     } finally {
       setBusy(false);
     }
@@ -151,10 +154,10 @@ export default function Register() {
         <PageCompanion
           mood={status?.kind === "err" ? "breach" : status?.kind === "ok" ? "safe" : passed === 5 ? "safe" : "calm"}
           message={
-            status?.kind === "err" ? "Registration failed. Read the message and try again."
-            : status?.kind === "ok" ? "Welcome aboard, agent. Now sign in to start training."
-            : passed === 5 ? "That password meets every rule. Nice."
-            : "Welcome, recruit. Fill in your ID card."
+            status?.kind === "err" ? t("register.companionFailed")
+            : status?.kind === "ok" ? t("register.companionOk")
+            : passed === 5 ? t("register.companionStrong")
+            : t("register.companionIdle")
           }
         />
 
@@ -166,30 +169,30 @@ export default function Register() {
               <span className="h-2.5 w-2.5 rounded-full bg-brick" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              <span className="ms-auto text-[10px] tracking-[0.2em]" style={{ ...MONO, color: accent }}>RECRUIT DESK</span>
+              <span className="ms-auto text-[10px] tracking-[0.2em]" style={{ ...MONO, color: accent }}>{t("register.desk")}</span>
             </div>
 
             <div>
-              <p className="cg-kicker fit-hide-short mb-1">{"// AGENT REGISTRATION"}</p>
-              <h2 className="cg-title fit-title font-bold" style={{ color: accent }}>Create Account</h2>
-              <p className="fit-hide-short mt-1 text-xs text-text-secondary font-hud">Choose your training identity to begin<span className="ax-blink" style={{ color: accent }}>_</span></p>
+              <p className="cg-kicker fit-hide-short mb-1">{t("register.kicker")}</p>
+              <h2 className="cg-title fit-title font-bold" style={{ color: accent }}>{t("register.title")}</h2>
+              <p className="fit-hide-short mt-1 text-xs text-text-secondary font-hud">{t("register.subtitle")}<span className="ax-blink" style={{ color: accent }}>_</span></p>
             </div>
 
             <form onSubmit={handleRegister} className="fit-stack" aria-busy={busy}>
               <div>
-                <label htmlFor="rg-user" className="cg-label">Username</label>
-                <input id="rg-user" type="text" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} className="cg-input" placeholder="e.g. Layla_H" />
+                <label htmlFor="rg-user" className="cg-label">{t("common.username")}</label>
+                <input id="rg-user" type="text" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} className="cg-input" placeholder={t("register.usernamePlaceholder")} />
               </div>
               <div>
-                <label htmlFor="rg-mail" className="cg-label">Email</label>
-                <input id="rg-mail" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="cg-input" placeholder="you@example.com" />
+                <label htmlFor="rg-mail" className="cg-label">{t("common.email")}</label>
+                <input id="rg-mail" type="email" dir="ltr" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="cg-input" placeholder="you@example.com" />
               </div>
               <div>
-                <label htmlFor="rg-pass" className="cg-label">Password</label>
+                <label htmlFor="rg-pass" className="cg-label">{t("common.password")}</label>
                 <div className="relative">
                   <input id="rg-pass" type={showPw ? "text" : "password"} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="cg-input pe-16" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowPw((s) => !s)} aria-label={showPw ? "Hide password" : "Show password"} className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-text-secondary hover:text-white" style={MONO}>
-                    {showPw ? "HIDE" : "SHOW"}
+                  <button type="button" onClick={() => setShowPw((s) => !s)} aria-label={showPw ? t("common.hidePassword") : t("common.showPassword")} className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-text-secondary hover:text-white" style={MONO}>
+                    {showPw ? t("common.hide") : t("common.show")}
                   </button>
                 </div>
 
@@ -199,7 +202,7 @@ export default function Register() {
                     const ok = r.test(password);
                     return (
                       <li key={r.text} className="text-[10px] leading-tight" style={{ ...MONO, color: ok ? "#34D399" : "#77748c" }}>
-                        {ok ? "\u2713" : "\u25CB"} {r.text}
+                        {ok ? "\u2713" : "\u25CB"} {t(r.text)}
                       </li>
                     );
                   })}
@@ -209,36 +212,36 @@ export default function Register() {
               {status && (
                 <p className={`ax-in rounded-lg border px-3 py-2 text-xs ${status.kind === "ok" ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" : "border-brick/50 bg-brick/10 text-brick"}`} style={MONO} role={status.kind === "ok" ? "status" : "alert"}>
                   {status.kind === "ok" ? "\u2713" : "\u2715"} {status.text}
-                  {status.kind === "ok" && (<> <Link href="/login" className="font-bold underline">Sign in now &rarr;</Link></>)}
+                  {status.kind === "ok" && (<> <Link href="/login" className="font-bold underline">{t("register.signInNow")}</Link></>)}
                 </p>
               )}
 
               <button type="submit" disabled={busy} className="cg-btn w-full font-hud uppercase font-bold tracking-wider disabled:cursor-wait disabled:opacity-60">
-                {busy ? "CREATING..." : "Create Account"}
+                {busy ? t("register.creating") : t("register.submit")}
               </button>
             </form>
 
             <p className="text-center text-xs text-text-secondary font-hud">
-              Already have an account?{" "}
-              <Link href="/login" className="font-semibold hover:underline" style={{ color: accent }}>Sign in here</Link>
+              {t("register.haveAccount")}{" "}
+              <Link href="/login" className="font-semibold hover:underline" style={{ color: accent }}>{t("register.signInHere")}</Link>
             </p>
           </div>
 
           {/* ======== RIGHT: the live agent ID card + badges (hidden on phones) ======== */}
-          <aside className="fit-pad fit-stack hidden flex-col justify-center overflow-hidden border-s border-white/10 bg-black/20 md:flex" aria-label="Your agent card">
+          <aside className="fit-pad fit-stack hidden flex-col justify-center overflow-hidden border-s border-white/10 bg-black/20 md:flex" aria-label={t("register.cardLabel")}>
             <div className="relative overflow-hidden rounded-2xl border p-4" style={{ borderColor: `${accent}99`, background: "rgba(7,7,17,.75)", boxShadow: `0 0 24px ${accent}33` }}>
-              <p className="text-[10px] font-bold tracking-[0.3em]" style={{ ...MONO, color: accent }}>CYBERGUARD AGENT ID</p>
+              <p className="text-[10px] font-bold tracking-[0.3em]" style={{ ...MONO, color: accent }}>{t("register.idTitle")}</p>
               <div className="mt-2 flex items-center gap-3">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 text-xl font-black" style={{ borderColor: accent, color: accent, background: `${accent}14` }} aria-hidden="true">
                   {agent[0].toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{agent.toUpperCase()}</p>
-                  <p className="truncate text-[10px] text-text-secondary" style={MONO}>{maskedEmail}</p>
-                  <p className="text-[9px] tracking-widest text-text-secondary" style={MONO}>{agentId}</p>
+                  <p className="truncate text-[10px] text-text-secondary" style={MONO}><span dir="ltr">{maskedEmail}</span></p>
+                  <p className="text-[9px] tracking-widest text-text-secondary" style={MONO}><span dir="ltr">{agentId}</span></p>
                 </div>
               </div>
-              <p className="mt-2 text-[9px] tracking-[0.2em] text-text-secondary" style={MONO}>CLEARANCE: TIER 1 | HIGH SCHOOL 16-18</p>
+              <p className="mt-2 text-[9px] tracking-[0.2em] text-text-secondary" style={MONO}>{t("register.clearance")}</p>
 
               <div className="mt-1.5 flex gap-1" aria-hidden="true">
                 {RULES.map((_, i) => <span key={i} className="h-1.5 flex-1 rounded-full transition-all duration-500" style={{ background: i < passed ? accent : "rgba(255,255,255,.12)" }} />)}
@@ -247,14 +250,14 @@ export default function Register() {
 
             {/* badges: hidden on short screens to keep everything in view */}
             <div className="fit-hide-short">
-              <p className="mb-1.5 text-[10px] font-bold tracking-[0.25em] text-text-secondary" style={MONO}>BADGES TO EARN</p>
+              <p className="mb-1.5 text-[10px] font-bold tracking-[0.25em] text-text-secondary" style={MONO}>{t("register.badgesTitle")}</p>
               <ul className="grid grid-cols-2 gap-2">
                 {MODULES.map((m) => (
                   <li key={m.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-2 py-1.5 opacity-80">
                     <ModIcon id={m.id} color={m.color} />
                     <span className="min-w-0">
-                      <span className="block truncate text-[9px] font-bold tracking-[0.12em]" style={{ ...MONO, color: m.color }}>{m.badge}</span>
-                      <span className="block text-[8px] text-text-secondary" style={MONO}>LOCKED</span>
+                      <span className="block truncate text-[9px] font-bold tracking-[0.12em]" style={{ ...MONO, color: m.color }}>{t(m.badge)}</span>
+                      <span className="block text-[8px] text-text-secondary" style={MONO}>{t("common.locked")}</span>
                     </span>
                   </li>
                 ))}
@@ -262,7 +265,7 @@ export default function Register() {
             </div>
 
             <p className="fit-hide-short text-[10px] leading-relaxed text-text-secondary">
-              Scenarios: school exam portals, gaming accounts, social media.
+              {t("register.scenarios")}
             </p>
           </aside>
         </div>

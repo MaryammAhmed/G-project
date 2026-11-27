@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CyberShell from "@/components/layout/CyberShell";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
@@ -26,6 +27,7 @@ const RULES = [
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -47,11 +49,11 @@ export default function ResetPasswordPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.detail || "Could not reset the password. Try again.");
+        throw new Error(data.detail || t("reset.failed"));
       }
       router.push("/login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : t("common.somethingWrong"));
     } finally {
       setBusy(false);
     }
@@ -62,19 +64,20 @@ export default function ResetPasswordPage() {
       <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0c0e22] p-6 shadow-2xl">
           <p className="text-[10px] font-bold tracking-[0.3em] text-emerald-400" style={MONO}>
-            {"// RESET PASSWORD"}
+            {t("reset.kicker")}
           </p>
-          <h1 className="mt-2 text-xl font-bold text-white">Set a new password</h1>
+          <h1 className="mt-2 text-xl font-bold text-white">{t("reset.title")}</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Enter the email, the 6-digit code we sent you, and your new password.
+            {t("reset.body")}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             <div>
-              <label htmlFor="rp-email" className="block text-xs font-bold text-slate-300">Email</label>
+              <label htmlFor="rp-email" className="block text-xs font-bold text-slate-300">{t("common.email")}</label>
               <input
                 id="rp-email"
                 type="email"
+                dir="ltr"
                 required
                 autoComplete="email"
                 value={email}
@@ -85,22 +88,23 @@ export default function ResetPasswordPage() {
             </div>
 
             <div>
-              <label htmlFor="rp-otp" className="block text-xs font-bold text-slate-300">Reset code</label>
+              <label htmlFor="rp-otp" className="block text-xs font-bold text-slate-300">{t("reset.codeLabel")}</label>
               <input
                 id="rp-otp"
                 type="text"
                 required
                 inputMode="numeric"
+                dir="ltr"
                 maxLength={6}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
-                placeholder="6-digit code"
+                placeholder={t("reset.codePlaceholder")}
               />
             </div>
 
             <div>
-              <label htmlFor="rp-pass" className="block text-xs font-bold text-slate-300">New password</label>
+              <label htmlFor="rp-pass" className="block text-xs font-bold text-slate-300">{t("reset.newPassword")}</label>
               <div className="relative mt-1">
                 <input
                   id="rp-pass"
@@ -110,16 +114,16 @@ export default function ResetPasswordPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 pr-14 text-sm text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
-                  placeholder="New password"
+                  placeholder={t("reset.newPassword")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((s) => !s)}
-                  aria-label={showPw ? "Hide password" : "Show password"}
+                  aria-label={showPw ? t("common.hidePassword") : t("common.showPassword")}
                   className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-slate-400 hover:text-white"
                   style={MONO}
                 >
-                  {showPw ? "HIDE" : "SHOW"}
+                  {showPw ? t("common.hide") : t("common.show")}
                 </button>
               </div>
               <div className="mt-1.5 flex gap-1" aria-hidden="true">
@@ -144,14 +148,14 @@ export default function ResetPasswordPage() {
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
             >
-              {busy ? "Resetting..." : "Reset password"}
+              {busy ? t("reset.resetting") : t("reset.submit")}
             </button>
           </form>
 
           <p className="mt-4 text-center text-xs text-slate-400">
-            Remembered it?{" "}
+            {t("common.rememberedIt")}{" "}
             <Link href="/login" className="font-semibold text-emerald-400 hover:underline">
-              Sign in
+              {t("common.signIn")}
             </Link>
           </p>
         </div>

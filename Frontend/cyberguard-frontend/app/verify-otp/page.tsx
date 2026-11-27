@@ -27,6 +27,7 @@ import CyberShell from "@/components/layout/CyberShell";
 import PageCompanion from "@/components/layout/PageCompanion";
 import { AUTH_CSS, AuthRain } from "@/components/ui/moduleMarks";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 const CODE_LEN = 6;
@@ -103,6 +104,7 @@ function VerifyOtpInner() {
 
   // Your AuthContext exposes "login": it stores the token and email centrally.
   const { login } = useAuth();
+  const t = useT();
 
   /* LAYOUT: lock the page itself so the browser never shows a page-level scrollbar.
      The old overflow values are put back when the user leaves this page. */
@@ -134,7 +136,7 @@ function VerifyOtpInner() {
 
   const submit = async () => {
     if (busy || ok) return;
-    if (code.length < CODE_LEN) { setError(`Enter all ${CODE_LEN} digits.`); return; }
+    if (code.length < CODE_LEN) { setError(t("otp.enterAll", { count: CODE_LEN })); return; }
     setError("");
     setBusy(true);
     try {
@@ -155,10 +157,10 @@ function VerifyOtpInner() {
         window.setTimeout(() => router.push("/map"), 900); // short success animation, then into the app
       } else {
         // Wrong/expired code: show whatever message the backend gave us
-        setError(typeof data.detail === "string" ? data.detail : "Invalid code");
+        setError(typeof data.detail === "string" ? data.detail : t("otp.invalid"));
       }
     } catch {
-      setError("Could not reach the server. Is it running?");
+      setError(t("otp.serverDown"));
     } finally {
       setBusy(false);
     }
@@ -175,13 +177,13 @@ function VerifyOtpInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),
       });
-      setInfo("A new code is on its way.");
+      setInfo(t("otp.newCodeSent"));
       setCode("");
       setLeft(300);
       setCool(30);
       inputRef.current?.focus();
     } catch {
-      setError("Could not request a new code.");
+      setError(t("otp.resendFailed"));
     }
   };
 
@@ -195,10 +197,10 @@ function VerifyOtpInner() {
         <PageCompanion
           mood={ok ? "safe" : error ? "breach" : "calm"}
           message={
-            ok ? "Access granted. Setting sail..."
-            : error ? "That code didn't work. Check your email and try again."
-            : left === 0 ? "This code has expired. Request a new one."
-            : "Check your email, agent. Never share this code with anyone."
+            ok ? t("otp.companionOk")
+            : error ? t("otp.companionError")
+            : left === 0 ? t("otp.companionExpired")
+            : t("otp.companionIdle")
           }
         />
 
@@ -208,13 +210,13 @@ function VerifyOtpInner() {
             <span className="h-2.5 w-2.5 rounded-full bg-brick" />
             <span className="h-2.5 w-2.5 rounded-full bg-warning" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            <span className="ms-auto text-[10px] tracking-[0.2em]" style={{ ...MONO, color }}>2-STEP CHECK</span>
+            <span className="ms-auto text-[10px] tracking-[0.2em]" style={{ ...MONO, color }}>{t("otp.desk")}</span>
           </div>
 
           {/* the dial: six tumblers light up as digits are typed.
               Its size follows the screen height (smaller on short screens, hidden on tiny ones). */}
           <div key={error} className={`fit-hide-tiny mx-auto aspect-square ${error ? "ax-shake" : ""}`} style={{ height: "clamp(6rem, 22dvh, 12rem)" }}>
-            <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label={`${code.length} of ${CODE_LEN} digits entered`}>
+            <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label={t("otp.dialLabel", { count: code.length, total: CODE_LEN })}>
               <circle cx="60" cy="60" r="56" fill="none" stroke={color} strokeOpacity=".2" strokeDasharray="2 6" />
               {Array.from({ length: CODE_LEN }).map((_, i) => (
                 <circle key={i} cx="60" cy="60" r={R} fill="none" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${CIRC / CODE_LEN - 8} ${CIRC}`} transform={`rotate(${i * 60 - 87} 60 60)`} style={{ stroke: i < code.length || ok ? color : "rgba(255,255,255,.12)", transition: "stroke .25s" }} />
@@ -228,16 +230,16 @@ function VerifyOtpInner() {
           </div>
 
           <div>
-            <p className="cg-kicker fit-hide-short mb-1">{"// VERIFY YOUR IDENTITY"}</p>
-            <h1 className="cg-title fit-title font-bold" style={{ color }}>Enter the code sent to your email</h1>
+            <p className="cg-kicker fit-hide-short mb-1">{t("otp.kicker")}</p>
+            <h1 className="cg-title fit-title font-bold" style={{ color }}>{t("otp.title")}</h1>
             <p className="mt-1 text-xs text-text-secondary font-hud">
-              {left > 0 ? <>Code expires in <span style={{ color }}>{mm}:{ss}</span></> : <span className="text-brick">Code expired. Request a new one.</span>}
+              {left > 0 ? <>{t("otp.expiresIn")} <span dir="ltr" style={{ color }}>{mm}:{ss}</span></> : <span className="text-brick">{t("otp.expired")}</span>}
             </p>
           </div>
 
           {/* six digit boxes; one invisible real input sits on top, so typing, pasting and mobile keyboards all work.
               otp-col gives the row the SAME width as the button below, so everything lines up. */}
-          <div className="otp-col relative flex" style={{ gap: "clamp(.25rem, 1.8vw, .5rem)" }} onClick={() => inputRef.current?.focus()}>
+          <div dir="ltr" className="otp-col relative flex" style={{ gap: "clamp(.25rem, 1.8vw, .5rem)" }} onClick={() => inputRef.current?.focus()}>
             {Array.from({ length: CODE_LEN }).map((_, i) => {
               const filled = i < code.length;
               const active = i === code.length && !ok;
@@ -267,7 +269,7 @@ function VerifyOtpInner() {
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
-              aria-label={`${CODE_LEN}-digit code`}
+              aria-label={t("otp.inputLabel", { count: CODE_LEN })}
               className="absolute inset-0 h-full w-full cursor-text opacity-0"
             />
           </div>
@@ -278,12 +280,12 @@ function VerifyOtpInner() {
           {/* the Verify button: same width as the digit row (otp-col), centred label, a bit taller (ax-verify) */}
           <div className="otp-col">
             <button onClick={submit} disabled={busy || ok} className="cg-btn ax-verify font-hud uppercase font-bold tracking-wider disabled:cursor-wait disabled:opacity-60">
-              {ok ? "ACCESS GRANTED" : busy ? "VERIFYING..." : "Verify"}
+              {ok ? t("otp.granted") : busy ? t("otp.verifying") : t("otp.verify")}
             </button>
           </div>
 
           <button onClick={resend} disabled={cool > 0} className="text-xs text-text-secondary underline disabled:no-underline disabled:opacity-60" style={MONO}>
-            {cool > 0 ? `Resend code in ${cool}s` : "Resend code"}
+            {cool > 0 ? t("otp.resendIn", { seconds: cool }) : t("otp.resend")}
           </button>
         </div>
       </div>
@@ -292,10 +294,11 @@ function VerifyOtpInner() {
 }
 
 export default function VerifyOtpPage() {
+  const t = useT();
   return (
     <Suspense fallback={
       <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        Loading…
+        {t("common.loading")}
       </main>
     }>
       <VerifyOtpInner />

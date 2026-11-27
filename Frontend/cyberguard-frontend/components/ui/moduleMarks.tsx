@@ -8,13 +8,15 @@
   The login page keeps its own copy, so nothing there changes.
 */
 
+import type { TranslationKey } from "@/lib/i18n";
+
 export type ModId = "vault" | "mirage" | "whisper" | "oracle";
 
-export const MODULES: { id: ModId; name: string; color: string; topic: string; badge: string }[] = [
-  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "Passwords", badge: "LOCKEDOUT BREAKER" },
-  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "Phishing", badge: "PHISH-SPOTTER" },
-  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "Social engineering", badge: "MANIPULATED BREAKER" },
-  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "Safe AI use", badge: "OVERSHARED APPRENTICE" },
+export const MODULES: { id: ModId; name: string; color: string; topic: TranslationKey; badge: TranslationKey }[] = [
+  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "modules.vault.topic", badge: "modules.vault.badge" },
+  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "modules.mirage.topic", badge: "modules.mirage.badge" },
+  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "modules.whisper.topic", badge: "modules.whisper.badge" },
+  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "modules.oracle.topic", badge: "modules.oracle.badge" },
 ];
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };

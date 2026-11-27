@@ -31,16 +31,18 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import CyberShell from "@/components/layout/CyberShell";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 
 import PageCompanion from "@/components/layout/PageCompanion";
 
 /* ---------- the four missions (colour + a one-line promise each) ---------- */
 type ModId = "vault" | "mirage" | "whisper" | "oracle";
-const MODULES: { id: ModId; name: string; color: string; topic: string; line: string }[] = [
-  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "Passwords", line: "Lock every account." },
-  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "Phishing", line: "Cut the line before it bites." },
-  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "Social engineering", line: "Verify the voice." },
-  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "Safe AI use", line: "Guard what you type." },
+const MODULES: { id: ModId; name: string; color: string; topic: TranslationKey; line: TranslationKey }[] = [
+  { id: "vault", name: "LOCKEDOUT", color: "#34D399", topic: "modules.vault.topic", line: "modules.vault.line" },
+  { id: "mirage", name: "PHISHED", color: "#22D3EE", topic: "modules.mirage.topic", line: "modules.mirage.line" },
+  { id: "whisper", name: "MANIPULATED", color: "#A855F7", topic: "modules.whisper.topic", line: "modules.whisper.line" },
+  { id: "oracle", name: "OVERSHARED", color: "#FBBF24", topic: "modules.oracle.topic", line: "modules.oracle.line" },
 ];
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
@@ -123,6 +125,7 @@ export default function Login() {
 
   const { login } = useAuth();
   const router = useRouter();
+  const t = useT();
 
   const mod = MODULES[active];
   const typing = username.length > 0 || password.length > 0;
@@ -163,7 +166,7 @@ export default function Login() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || "Login failed");
+        throw new Error(errorData.detail || t("login.failed"));
       }
 
       const data = await res.json();
@@ -175,7 +178,7 @@ export default function Login() {
 
       // Updated: Removed age_group since tiers were dropped
       login(data.token, data.email);
-      alert(`Welcome back, Agent ${username}.`);
+      alert(t("login.welcomeAlert", { username }));
     } catch (err: any) {
       console.error("Login failed:", err);
       setError(err.message); // CHANGED: shown inside the card instead of alert()
@@ -191,7 +194,7 @@ export default function Login() {
 
         <PageCompanion
           mood={error ? "breach" : busy ? "alert" : "calm"}
-          message={error ? "Access denied. Check your details." : busy ? "Verifying your clearance..." : mod.line}
+          message={error ? t("login.companionDenied") : busy ? t("login.companionVerifying") : t(mod.line)}
         />
 
         {/* ---- Backdrop: glyph rain in the four mission colours ---- */}
@@ -213,10 +216,10 @@ export default function Login() {
           style={{ "--c": mod.color } as CSSProperties}
         >
           {/* ======== LEFT: the four doors (hidden on phones / small screens) ======== */}
-          <aside className="fit-pad fit-stack hidden flex-col justify-between overflow-hidden border-e border-white/10 bg-black/20 md:flex" aria-label="CyberGuard missions">
+          <aside className="fit-pad fit-stack hidden flex-col justify-between overflow-hidden border-e border-white/10 bg-black/20 md:flex" aria-label={t("login.missionsLabel")}>
             <div>
               {/* logo: a vault dial made of four mission-coloured arcs. Its size follows the screen height. */}
-              <svg viewBox="0 0 100 100" className="aspect-square" style={{ height: "clamp(3.5rem, 12dvh, 6rem)" }} role="img" aria-label="CyberGuard vault dial">
+              <svg viewBox="0 0 100 100" className="aspect-square" style={{ height: "clamp(3.5rem, 12dvh, 6rem)" }} role="img" aria-label={t("login.dialLabel")}>
                 <g className="lg-dial">
                   {MODULES.map((m, i) => (
                     <circle key={m.id} cx="50" cy="50" r="40" fill="none" stroke={m.color} strokeWidth="6" strokeLinecap="round" strokeDasharray="54 197.3" transform={`rotate(${i * 90 - 90} 50 50)`} opacity={i === active ? 1 : 0.5} />
@@ -226,8 +229,8 @@ export default function Login() {
                 <path d="M43 48l5 5 9-11" fill="none" stroke={mod.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <p className="cg-kicker fit-hide-short mt-4">{"// CYBERGUARD"}</p>
-              <h1 className="cg-title fit-title mt-1">Four doors.<br />One agent.</h1>
-              <p className="fit-hide-short mt-2 text-xs text-text-secondary font-hud">Sign in to resume your training.</p>
+              <h1 className="cg-title fit-title mt-1">{t("login.titleLine1")}<br />{t("login.titleLine2")}</h1>
+              <p className="fit-hide-short mt-2 text-xs text-text-secondary font-hud">{t("login.subtitle")}</p>
             </div>
 
             {/* the four missions: the active one is lit. Button padding shrinks on short screens. */}
@@ -249,9 +252,9 @@ export default function Login() {
                     <ModIcon id={m.id} color={m.color} />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[11px] font-bold tracking-[0.2em]" style={{ ...MONO, color: i === active ? m.color : "#f5f3ff" }}>{m.name}</span>
-                      <span className="block text-[11px] text-text-secondary">{m.topic}</span>
+                      <span className="block text-[11px] text-text-secondary">{t(m.topic)}</span>
                     </span>
-                    <span className="text-[10px]" style={{ ...MONO, color: i === active ? m.color : "#77748c" }}>{i === active ? "OPEN" : "LOCKED"}</span>
+                    <span className="text-[10px]" style={{ ...MONO, color: i === active ? m.color : "#77748c" }}>{i === active ? t("common.open") : t("common.locked")}</span>
                   </button>
                 </li>
               ))}
@@ -269,17 +272,17 @@ export default function Login() {
             </div>
 
             <div>
-              <p className="cg-kicker fit-hide-short mb-1">{"// SECURE ACCESS TERMINAL"}</p>
-              <h2 className="cg-title fit-title font-bold" style={{ color: mod.color }}>Welcome Back, Agent</h2>
+              <p className="cg-kicker fit-hide-short mb-1">{t("login.terminalKicker")}</p>
+              <h2 className="cg-title fit-title font-bold" style={{ color: mod.color }}>{t("login.welcome")}</h2>
               {/* the active mission's promise, with a blinking cursor */}
               <p className="mt-1 min-h-[1.25rem] text-xs text-text-secondary font-hud">
-                {mod.line}<span className="lg-blink" style={{ color: mod.color }}>_</span>
+                {t(mod.line)}<span className="lg-blink" style={{ color: mod.color }}>_</span>
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="fit-stack" aria-busy={busy}>
               <div>
-                <label htmlFor="lg-user" className="cg-label">Username</label>
+                <label htmlFor="lg-user" className="cg-label">{t("common.username")}</label>
                 <input
                   id="lg-user"
                   type="text"
@@ -288,12 +291,12 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="cg-input"
-                  placeholder="Your username"
+                  placeholder={t("login.usernamePlaceholder")}
                 />
               </div>
 
               <div>
-                <label htmlFor="lg-pass" className="cg-label">Password</label>
+                <label htmlFor="lg-pass" className="cg-label">{t("common.password")}</label>
                 <div className="relative">
                   <input
                     id="lg-pass"
@@ -309,14 +312,14 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPw((s) => !s)}
-                    aria-label={showPw ? "Hide password" : "Show password"}
+                    aria-label={showPw ? t("common.hidePassword") : t("common.showPassword")}
                     className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-text-secondary hover:text-white"
                     style={MONO}
                   >
-                    {showPw ? "HIDE" : "SHOW"}
+                    {showPw ? t("common.hide") : t("common.show")}
                   </button>
                 </div>
-                {caps && <p className="mt-1 text-[11px] text-warning" style={MONO} role="status">&#9650; CAPS LOCK IS ON</p>}
+                {caps && <p className="mt-1 text-[11px] text-warning" style={MONO} role="status">{t("common.capsLock")}</p>}
               </div>
 
               {/* inline error (replaces the old alert) */}
@@ -327,20 +330,20 @@ export default function Login() {
               )}
 
               <button type="submit" disabled={busy} className="cg-btn w-full font-hud uppercase font-bold tracking-wider disabled:cursor-wait disabled:opacity-60">
-                {busy ? "VERIFYING..." : "Sign In →"}
+                {busy ? t("login.verifying") : t("login.submit")}
               </button>
 
               <p className="text-center text-xs text-text-secondary font-hud">
                 <Link href="/forgot-password" className="font-semibold hover:underline" style={{ color: mod.color }}>
-                  Forgot your password?
+                  {t("login.forgot")}
                 </Link>
               </p>
             </form>
 
             <p className="text-center text-xs text-text-secondary font-hud">
-              New to the game?{" "}
+              {t("login.newToGame")}{" "}
               <Link href="/register" className="font-semibold hover:underline" style={{ color: mod.color }}>
-                Create an account
+                {t("login.createAccount")}
               </Link>
             </p>
           </div>
