@@ -79,7 +79,7 @@ function Stage({ scene, reveal, label }: { scene: Scene; reveal: boolean; label:
         <span className="h-2 w-2 rounded-full bg-[#fb4b5b]" />
         <span className="h-2 w-2 rounded-full bg-[#f6c453]" />
         <span className="h-2 w-2 rounded-full bg-[#34D399]" />
-        <span className="ml-2 text-[9px] tracking-widest text-gray-400" style={MONO}>
+        <span className="ms-2 text-[9px] tracking-widest text-gray-400" style={MONO}>
           {label}
         </span>
       </div>
@@ -108,7 +108,7 @@ function Stage({ scene, reveal, label }: { scene: Scene; reveal: boolean; label:
             <p className="mb-1 text-[10px] tracking-widest text-[#f6c453]" style={MONO}>
               {scene.from.toUpperCase()}
             </p>
-            <p className="inline-block max-w-full rounded-2xl rounded-tl-sm bg-[#1b1e3d] px-4 py-2">
+            <p className="inline-block max-w-full rounded-2xl rounded-ss-sm bg-[#1b1e3d] px-4 py-2">
               <Hl text={scene.text} hot={scene.hot} on={reveal} />
             </p>
           </div>
@@ -208,13 +208,13 @@ export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
   if (!hasDemo) {
     return (
       <section aria-label={`Practice round: ${brief.title}`} className="mx-auto max-w-xl space-y-4 rounded-2xl border border-[#f6c453]/40 bg-[#111329] p-5">
-        <p className="text-[10px] font-bold tracking-widest text-[#f6c453]" style={MONO}>▶ TRAINING SIM</p>
+        <p className="text-[10px] font-bold tracking-widest text-[#f6c453]" style={MONO}><span className="inline-block rtl:-scale-x-100">▶</span> TRAINING SIM</p>
         <h3 className="text-xl font-bold text-white">{brief.title}</h3>
         <p className="text-sm text-[#b8b5c9]">{brief.doing}</p>
         <p className="text-sm text-gray-200"><span className="font-bold text-white">Remember: </span>{brief.why}</p>
         <div className="flex justify-end">
           <button type="button" onClick={onStart} className="rounded-lg bg-[#34D399] px-5 py-3 text-sm font-bold text-[#06140d] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
-            Start the real task →
+            Start the real task <span className="inline-block rtl:-scale-x-100">→</span>
           </button>
         </div>
       </section>
@@ -232,7 +232,7 @@ export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
       className="mx-auto max-w-xl space-y-4 rounded-2xl border border-[#f6c453]/40 bg-[#111329] p-5"
     >
       <header>
-        <p className="text-[10px] font-bold tracking-widest text-[#f6c453]" style={MONO}>▶ TRAINING SIM</p>
+        <p className="text-[10px] font-bold tracking-widest text-[#f6c453]" style={MONO}><span className="inline-block rtl:-scale-x-100">▶</span> TRAINING SIM</p>
         <h3 className="text-xl font-bold text-white">{brief.title}</h3>
         <p className="mt-1 text-sm text-[#b8b5c9]">
           <span className="font-bold text-white">Mission: </span>
@@ -336,7 +336,7 @@ export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
             onClick={() => setPhase("try")}
             className="rounded-lg bg-[#f6c453] px-5 py-3 text-sm font-bold text-[#1a1304] hover:brightness-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            Got it. My turn →
+            Got it. My turn <span className="inline-block rtl:-scale-x-100">→</span>
           </button>
         )}
         {phase === "try" && (
@@ -348,7 +348,7 @@ export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
             onClick={onStart}
             className="rounded-lg bg-[#34D399] px-5 py-3 text-sm font-bold text-[#06140d] hover:brightness-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
-            Start the real task →
+            Start the real task <span className="inline-block rtl:-scale-x-100">→</span>
           </button>
         )}
       </div>

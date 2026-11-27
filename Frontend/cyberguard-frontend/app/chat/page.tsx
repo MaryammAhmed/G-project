@@ -165,7 +165,7 @@ export default function ChatPage() {
                     }
                     style={!mine ? { borderColor: active.color + "55", background: active.color + "14" } : undefined}
                   >
-                    {!mine && <span className="mr-1 font-bold" style={{ color: active.color }}>{t("chat.cipher")}</span>}
+                    {!mine && <span className="me-1 font-bold" style={{ color: active.color }}>{t("chat.cipher")}</span>}
                     {m.greeting ? t("chat.greeting") : m.text}
                   </p>
                   {/* which standard this answer is based on (only on real answers, not the greeting) */}

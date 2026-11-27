@@ -54,10 +54,10 @@ export default function LevelPath({
       {/* Ambient glow: mission colour + the home page pink */}
       <div className="pointer-events-none absolute inset-0">
         <div
-          className="absolute left-[5%] top-[-10%] h-[60%] w-[60%] rounded-full opacity-25 blur-[120px]"
+          className="absolute start-[5%] top-[-10%] h-[60%] w-[60%] rounded-full opacity-25 blur-[120px]"
           style={{ background: accent }}
         />
-        <div className="absolute bottom-[-15%] right-[5%] h-[55%] w-[55%] rounded-full bg-[#ec4899] opacity-20 blur-[130px]" />
+        <div className="absolute bottom-[-15%] end-[5%] h-[55%] w-[55%] rounded-full bg-[#ec4899] opacity-20 blur-[130px]" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 pb-40 pt-8 md:px-10">
@@ -68,7 +68,7 @@ export default function LevelPath({
             className="rounded-full border border-white/15 px-5 py-2 text-sm text-[#d8d4ea] transition hover:border-white/40 hover:text-white"
             style={MONO}
           >
-            ← Map
+            <span className="inline-block rtl:-scale-x-100">←</span> Map
           </Link>
           <Link
             href="/profile"
@@ -122,7 +122,7 @@ export default function LevelPath({
                       type="button"
                       disabled={!open}
                       onClick={() => open && router.push(`${hrefBase}/${level.level}`)}
-                      className="group flex w-full items-center gap-5 rounded-2xl border px-5 py-4 text-left backdrop-blur-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                      className="group flex w-full items-center gap-5 rounded-2xl border px-5 py-4 text-start backdrop-blur-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                       style={{
                         borderColor: done || isNext ? accent : "rgba(255,255,255,.14)",
                         background: done ? `${accent}1f` : "rgba(17,19,41,.62)",
@@ -252,7 +252,7 @@ export default function LevelPath({
       </div>
 
       {/* Waves pinned to the bottom of the screen (fixed), so no scrolling is needed to see them */}
-      <div className="pointer-events-none fixed bottom-0 left-0 z-0 w-full overflow-hidden leading-none">
+      <div className="pointer-events-none fixed bottom-0 start-0 z-0 w-full overflow-hidden leading-none">
         <style>{`
           @keyframes lp-wave-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
           .lp-wave-track { animation: lp-wave-scroll 16s linear infinite; width: 200%; display: flex; }

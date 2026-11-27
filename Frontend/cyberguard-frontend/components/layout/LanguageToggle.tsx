@@ -15,9 +15,12 @@ export default function LanguageToggle() {
     <div
       role="group"
       aria-label={t("language.groupLabel")}
-      dir="ltr"
-      className="fixed bottom-3 end-3 z-50 flex items-center rounded-full border border-cyan-400/40 bg-[#070711]/85 p-0.5 font-mono text-xs text-slate-300 shadow-[0_0_12px_rgba(34,211,238,0.25)] backdrop-blur"
+      className="fixed bottom-3 start-3 z-[110]"
     >
+      <div
+        dir="ltr"
+        className="flex items-center rounded-full border border-cyan-400/40 bg-[#070711]/85 p-0.5 font-mono text-xs text-slate-300 shadow-[0_0_12px_rgba(34,211,238,0.25)] backdrop-blur"
+      >
       {OPTIONS.map((option, i) => {
         const active = option.lang === lang;
         return (
@@ -38,6 +41,7 @@ export default function LanguageToggle() {
           </span>
         );
       })}
+      </div>
     </div>
   );
 }

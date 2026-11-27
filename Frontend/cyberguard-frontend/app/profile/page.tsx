@@ -175,7 +175,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="rounded-xl border border-cyan-300/30 bg-cyan-300/5 p-4 text-center">
                   <p className="text-[10px] tracking-widest text-cyan-300/70 mb-1" style={MONO}>{t("profile.modulesSecured")}</p>
-                  <p className="text-3xl font-black text-cyan-300" style={MONO}>{completedCount} / 4</p>
+                  <p className="text-3xl font-black text-cyan-300" style={MONO}><span dir="ltr">{completedCount} / 4</span></p>
                 </div>
                 <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/5 p-4 text-center">
                   <p className="text-[10px] tracking-widest text-emerald-300/70 mb-1" style={MONO}>{t("profile.totalAttempts")}</p>
@@ -279,7 +279,7 @@ export default function ProfilePage() {
             </div>
             
             {/* The skeleton companion sits in the bottom right of the main frame */}
-            <div className="pointer-events-none fixed bottom-4 right-4 z-50 origin-bottom-right scale-75 sm:scale-100">
+            <div className="pointer-events-none fixed bottom-4 end-4 z-50 origin-bottom-right rtl:origin-bottom-left scale-75 sm:scale-100">
               <CompanionSkeleton mood={skeletonMood} />
             </div>
 

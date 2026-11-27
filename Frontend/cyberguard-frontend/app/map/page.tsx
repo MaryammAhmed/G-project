@@ -28,7 +28,7 @@ import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import { useAuth } from "@/context/AuthContext";
-import { useT } from "@/context/LanguageContext";
+import { useLanguage, useT } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n";
 import { fetchProgress, finaleStatus, moduleStatus } from "@/lib/progress";
 import type { ProgressSnapshot } from "@/lib/progress";
@@ -186,7 +186,9 @@ function MirageArt({ hov, color }: { hov: boolean; color: string }) {
 }
 
 function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
-  const t = useT();
+  const { lang, t } = useLanguage();
+  // Arabic needs a wider bubble than the English label.
+  const bubble = lang === "ar" ? { x: -130, w: 124 } : { x: -110, w: 84 };
   return (
     <g>
       <Islet color={color} />
@@ -214,7 +216,7 @@ function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
         </g>
       </g>
       <g className="mp-bob">
-        <rect x="-110" y="-134" width="84" height="22" rx="8" fill="#0d0a1c" stroke={color} />
+        <rect x={bubble.x} y="-134" width={bubble.w} height="22" rx="8" fill="#0d0a1c" stroke={color} />
         <text x="-68" y="-119" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={color} style={MONO}>{t("map.fromIT")}</text>
       </g>
     </g>
@@ -611,6 +613,7 @@ export default function MissionMapPage() {
               /* ===== PAN MODE (portrait phones): map fills the height, swipe sideways ===== */
               <div
                 ref={scrollRef}
+                dir="ltr"
                 className="mp-scroll absolute inset-0 overflow-x-auto overflow-y-hidden"
                 style={{ touchAction: "pan-x" }}
                 onTouchStart={() => setSwiped(true)}
@@ -634,7 +637,7 @@ export default function MissionMapPage() {
             )}
 
             {/* mission counter: fades out on small screens while the intel card is open so they never overlap */}
-            <div className={`pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2 ${selected ? "opacity-0 sm:opacity-100" : ""}`} style={MONO}>
+            <div className={`pointer-events-none absolute start-3 top-3 z-20 flex flex-col gap-2 ${selected ? "opacity-0 sm:opacity-100" : ""}`} style={MONO}>
               <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">{t("map.counter", { done: unlockedCount, total: MISSIONS.length })}</span>
             </div>
 

@@ -644,7 +644,7 @@ function PromptsTask({ onComplete, onMood }: TaskCallbacks) {
             onPointerMove={move}
             onPointerUp={up}
             onPointerCancel={up}
-            className="w-[76%] cursor-grab touch-none select-none rounded-2xl border bg-white/10 p-4 text-left shadow-2xl backdrop-blur-md"
+            className="w-[76%] cursor-grab touch-none select-none rounded-2xl border bg-white/10 p-4 text-start shadow-2xl backdrop-blur-md"
             style={{
               transform: `translateX(${dx}px) rotate(${dx / 15}deg)`,
               transition: dragging ? "none" : "transform .2s",
@@ -845,7 +845,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
               <span className="text-xl">🛡️</span>
               <span className="text-xs font-bold text-[#34D399] tracking-widest" style={MONO}>SAFE</span>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2 pe-1">
               {safeBin.map((item) => (
                 <div key={item.id} className="text-xs bg-[#34D399]/20 border border-[#34D399]/40 text-[#f5f3ff] p-2 rounded pw-in">
                   {item.text}
@@ -864,7 +864,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
               <span className="text-xl">⚠️</span>
               <span className="text-xs font-bold text-[#fb4b5b] tracking-widest" style={MONO}>SUSPICIOUS</span>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2 pe-1">
               {trapBin.map((item) => (
                 <div key={item.id} className="text-xs bg-[#fb4b5b]/20 border border-[#fb4b5b]/40 text-[#f5f3ff] p-2 rounded pw-in">
                   {item.text}

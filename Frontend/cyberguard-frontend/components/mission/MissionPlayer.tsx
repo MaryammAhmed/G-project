@@ -65,7 +65,7 @@ function TackleBox({ onNext }: { onNext: () => void }) {
           <button
             key={i}
             onClick={() => setOpenCard(openCard === i ? null : i)}
-            className="rounded-xl border border-cyan-500/30 bg-[#16182c] p-4 text-left transition hover:border-cyan-400"
+            className="rounded-xl border border-cyan-500/30 bg-[#16182c] p-4 text-start transition hover:border-cyan-400"
           >
             <p className="text-xs font-bold text-cyan-300" style={{ fontFamily: "var(--font-mono), monospace" }}>{c.title}</p>
             <p className="mt-2 text-xs text-slate-300">{openCard === i ? c.desc : "Click to inspect clue..."}</p>
@@ -464,7 +464,7 @@ function DoxxPost({
             {items.map((it) => (
               <p key={it.id} className="flex justify-between items-start gap-4">
                 <span className="text-gray-500 shrink-0">{it.title}:</span>
-                <span className="text-[#34D399] font-bold text-right break-all">
+                <span className="text-[#34D399] font-bold text-end break-all">
                   {it.shown}
                 </span>
               </p>
@@ -675,7 +675,7 @@ function BeatView({
           />
           <span
             aria-hidden="true"
-            className="absolute right-[-9px] top-1/2 hidden h-4 w-4 -translate-y-1/2 rotate-45 border-r border-t border-white/10 bg-[#111329] sm:block"
+            className="absolute end-[-9px] top-1/2 hidden h-4 w-4 -translate-y-1/2 rotate-45 rtl:rotate-[225deg] border-r border-t border-white/10 bg-[#111329] sm:block"
           />
         </div>
         <div className="relative flex h-44 w-36 shrink-0 items-end justify-center sm:h-48 sm:w-40">
@@ -782,7 +782,7 @@ function BeatView({
                       <button
                         key={f.id}
                         onClick={() => setOpened(true)}
-                        className={`rounded-xl border p-4 text-left transition ${opened ? 'border-cyan-500/50 bg-[#1a1d36]' : 'border-white/10 bg-[#111329]'}`}
+                        className={`rounded-xl border p-4 text-start transition ${opened ? 'border-cyan-500/50 bg-[#1a1d36]' : 'border-white/10 bg-[#111329]'}`}
                       >
                         <span className="text-xl">{f.icon || '📄'}</span>
                         <p className="mt-2 text-xs font-bold text-white truncate">{f.name}</p>

@@ -320,7 +320,7 @@ function Intro({ task, onStart }: { task: AITaskId; onStart: () => void }) {
       <p className="text-[10px] font-bold tracking-[0.2em] text-[#9a97ad]" style={MONO}>HANDS-ON TASK</p>
       <h3 className="text-lg font-bold text-[#f5f3ff]">{b.title}</h3>
       <p className="text-sm text-[#d9d6e8]">{b.goal}</p>
-      <ol className="list-decimal space-y-1 pl-5 text-sm text-[#d9d6e8]">{b.how.map((h) => <li key={h}>{h}</li>)}</ol>
+      <ol className="list-decimal space-y-1 ps-5 text-sm text-[#d9d6e8]">{b.how.map((h) => <li key={h}>{h}</li>)}</ol>
       <div className="border-t border-white/10 pt-3">
         <p className="text-[10px] font-bold tracking-[0.15em] text-[#9a97ad]" style={MONO}>FRAMEWORK REFERENCES</p>
         <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
@@ -1921,7 +1921,7 @@ function SwitchboardTask({ onComplete, onMood }: Callbacks) {
           </div>
           <div className="rounded-lg bg-[#0c0e18] p-3">
             <p className="text-[10px] font-bold tracking-[0.15em] text-[#9a97ad]" style={MONO}>YOUR WEEK WITH THE AI CHAT</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-[#d9d6e8]">
+            <ul className="mt-2 list-disc space-y-1 ps-5 text-xs leading-5 text-[#d9d6e8]">
               <li>Monday, share less: sorted {memory.sorted}/6 messages correctly and closed {memory.routesClosed}/3 data routes</li>
               <li>Tuesday, small clues: pinned {memory.cluesPinned} useful clue(s) and locked down a page</li>
               <li>Wednesday, check first: verified {memory.claimsChecked}/5 claims with real sources</li>

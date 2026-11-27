@@ -373,7 +373,7 @@ export default function TakeoverBattle({
                     type="button"
                     disabled={picked !== null}
                     onClick={() => answer(i)}
-                    className="flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-default"
+                    className="flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-start text-sm transition disabled:cursor-default"
                     style={{
                       borderColor: show && right ? "#34D399" : show && mine ? "#fb4b5b" : "rgba(255,255,255,.15)",
                       background: show && right ? "rgba(52,211,153,.08)" : "#16182c",

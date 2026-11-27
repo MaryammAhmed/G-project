@@ -290,7 +290,7 @@ function CSIInvestigation({
                 ? "border-[#4ade80] bg-[#052e16]/40 shadow-[0_0_30px_rgba(74,222,128,0.15)]"
                 : "border-[#fb4b5b] bg-[#2a0d12]/40 shadow-[0_0_30px_rgba(251,75,91,0.15)]"
             }`}>
-              <div className={`absolute top-0 left-0 h-1 w-full animate-pulse ${
+              <div className={`absolute top-0 start-0 h-1 w-full animate-pulse ${
                 feedbackState.isCorrect ? "bg-[#4ade80]" : "bg-[#fb4b5b]"
               }`} />
 
@@ -898,19 +898,19 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
           {/* chat area (fixed min height so the layout doesn't jump) */}
           <div className="flex min-h-[250px] flex-col justify-start gap-2 p-3">
             {stage === "typing" && (
-              <div className="sm-in flex w-16 items-center justify-center gap-1 rounded-2xl rounded-bl-md bg-[#3a3a3c] px-3 py-3" aria-label="The sender is typing">
+              <div className="sm-in flex w-16 items-center justify-center gap-1 rounded-2xl rounded-es-md bg-[#3a3a3c] px-3 py-3" aria-label="The sender is typing">
                 {[0, 1, 2].map((d) => <span key={d} className="sm-dot h-2 w-2 rounded-full bg-white" style={{ animationDelay: `${d * 0.18}s` }} />)}
               </div>
             )}
             {stage !== "typing" && (
-              <div key={`msg${i}`} className="sm-in max-w-[88%] rounded-2xl rounded-bl-md bg-[#3a3a3c] px-3 py-2 text-[13px] leading-snug text-white" aria-live="polite">
+              <div key={`msg${i}`} className="sm-in max-w-[88%] rounded-2xl rounded-es-md bg-[#3a3a3c] px-3 py-2 text-[13px] leading-snug text-white" aria-live="polite">
                 {answered ? marked(m.text, m.flags) : m.text}
                 <p className="mt-1 text-[9px] text-[#9a98ab]">{m.time}</p>
               </div>
             )}
             {/* the player's reply bubble */}
             {answered && choice && (
-              <div className="sm-in ml-auto max-w-[80%] rounded-2xl rounded-br-md bg-[#06b6d4] px-3 py-2 text-[13px] font-semibold text-black">
+              <div className="sm-in ms-auto max-w-[80%] rounded-2xl rounded-ee-md bg-[#06b6d4] px-3 py-2 text-[13px] font-semibold text-black">
                 {choice === "smish" ? "Report as Smishing" : "Looks legit, keeping it"}
               </div>
             )}
@@ -1159,7 +1159,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
               <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>MISSION</p>
               <p className="text-sm text-[#f5f3ff]">Hover any link to preview its real destination, then click the detail that proves it's fake.</p>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <p className="text-[10px] font-bold tracking-[0.25em] text-[#22D3EE]" style={MONO}>TARGET</p>
               <p className="text-sm font-bold text-white">{round.who}</p>
             </div>
@@ -1199,7 +1199,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
                 fix: the giveaway is now visible through honest inspection,
                 not just found by process of elimination. */}
             {hovered === "button" && round.button.url && (
-              <div className="absolute bottom-0 left-0 right-0 border-t border-gray-300 bg-gray-800 px-3 py-1.5">
+              <div className="absolute bottom-0 inset-x-0 border-t border-gray-300 bg-gray-800 px-3 py-1.5">
                 <p className="truncate text-[11px] text-gray-300" style={MONO}>{round.button.url}</p>
               </div>
             )}
@@ -1314,7 +1314,7 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
 
         {/* THE HACKER'S ATTACK CARD */}
         <div className={`relative overflow-hidden rounded-xl border-2 border-[#fb4b5b] bg-[#2a0d12] p-5 text-center shadow-[0_0_20px_rgba(251,75,91,0.2)] ${shake ? "ph-shake" : ""}`}>
-          <div className="absolute top-0 left-0 h-1 w-full bg-[#fb4b5b] animate-pulse" />
+          <div className="absolute top-0 start-0 h-1 w-full bg-[#fb4b5b] animate-pulse" />
           <p className="text-[10px] font-bold tracking-[0.25em] text-[#fb4b5b] mb-2" style={MONO}>HACKER ATTACKS</p>
           <div className="text-4xl mb-2">{current.hackerIcon}</div>
           <p className="text-sm font-bold text-white leading-relaxed">{current.hackerText}</p>

@@ -45,7 +45,7 @@ export default function PageCompanion({
 
   return (
     <div
-      className="pointer-events-none fixed bottom-0 right-0 z-40 h-[190px] w-[190px] origin-bottom-right scale-[.62] sm:scale-100"
+      className="pointer-events-none fixed bottom-0 end-0 z-40 h-[190px] w-[190px] origin-bottom-right rtl:origin-bottom-left scale-[.62] sm:scale-100"
       aria-live="polite"
     >
       {/* The speech bubble is completely removed */}

@@ -19,9 +19,9 @@ export default function Home() {
       {/* absolute inset-0 = covers the whole page; pointer-events-none = clicks pass through it */}
       <div className="pointer-events-none absolute inset-0">
         {/* Purple blob, top-left. blur makes it a soft glow instead of a hard circle */}
-        <div className="absolute left-[10%] top-[-10%] h-[60%] w-[60%] rounded-full bg-[#9333ea] opacity-30 blur-[120px]" />
+        <div className="absolute start-[10%] top-[-10%] h-[60%] w-[60%] rounded-full bg-[#9333ea] opacity-30 blur-[120px]" />
         {/* Pink blob, bottom-right */}
-        <div className="absolute bottom-[-15%] right-[5%] h-[55%] w-[55%] rounded-full bg-[#ec4899] opacity-25 blur-[130px]" />
+        <div className="absolute bottom-[-15%] end-[5%] h-[55%] w-[55%] rounded-full bg-[#ec4899] opacity-25 blur-[130px]" />
       </div>
 
       {/* ===== WAVES (pinned to the bottom of the screen) ===== */}

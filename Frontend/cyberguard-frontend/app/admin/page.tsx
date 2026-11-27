@@ -241,7 +241,7 @@ export default function AdminPage() {
           // overflow-x-auto = FIX #3: on very narrow screens the table scrolls sideways
           // instead of squeezing the buttons. rounded + border keeps the card look.
           <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               {/* ----- Table header ----- */}
               <thead>
                 <tr className="bg-white/5 text-[10px] uppercase tracking-[0.2em] text-slate-400" style={MONO}>
@@ -249,7 +249,7 @@ export default function AdminPage() {
                   <th className="whitespace-nowrap px-3 py-2">{t("admin.colAgent")}</th>
                   <th className="whitespace-nowrap px-3 py-2">{t("admin.colEmail")}</th>
                   <th className="whitespace-nowrap px-3 py-2">{t("admin.colRealms")}</th>
-                  <th className="whitespace-nowrap px-3 py-2 text-right">{t("admin.colActions")}</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-end">{t("admin.colActions")}</th>
                 </tr>
               </thead>
 
@@ -263,7 +263,7 @@ export default function AdminPage() {
                       <td className="px-3 py-2 font-bold text-white">
                         {u.username}
                         {u.is_admin && (
-                          <span className="ml-2 rounded bg-amber-300/20 px-1 text-[9px] text-amber-200" style={MONO}>
+                          <span className="ms-2 rounded bg-amber-300/20 px-1 text-[9px] text-amber-200" style={MONO}>
                             {t("admin.adminBadge")}
                           </span>
                         )}
@@ -277,7 +277,7 @@ export default function AdminPage() {
                       where there is enough room to show the email on one line. */}
                       <td className="break-all px-3 py-2 text-slate-400 sm:break-normal" dir="ltr">{u.email || "—"}</td>
                       {/* How many realms (modules) the user completed, out of 4 */}
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-300">{u.modules_completed} / 4</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-300"><span dir="ltr">{u.modules_completed} / 4</span></td>
 
                       {/* ACTIONS CELL
                           whitespace-nowrap = text inside can never wrap to a new line.

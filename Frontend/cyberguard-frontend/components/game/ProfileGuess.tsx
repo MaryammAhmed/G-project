@@ -89,7 +89,7 @@ export default function ProfileGuess({
       <article className="overflow-hidden rounded-2xl bg-white text-[#1b1d2a] shadow-lg shadow-black/40">
         {/* Cover */}
         <div className="relative h-20 sm:h-24" style={{ background: "linear-gradient(120deg, #ff9a8b 0%, #ff6a88 45%, #8f6bff 100%)" }}>
-          <span className="absolute right-3 top-2 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#5b5470]" style={MONO}>
+          <span className="absolute end-3 top-2 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#5b5470]" style={MONO}>
             PUBLIC · FICTIONAL
           </span>
         </div>

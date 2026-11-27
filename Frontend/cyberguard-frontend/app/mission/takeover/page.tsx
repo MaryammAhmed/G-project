@@ -327,7 +327,7 @@ function Shell({
               }}
             />
           </div>
-          <span className="w-9 text-right text-[10px] font-bold tabular-nums" style={{ color: powerColor }}>{power}%</span>
+          <span className="w-9 text-end text-[10px] font-bold tabular-nums" style={{ color: powerColor }}>{power}%</span>
         </div>
       </header>
 

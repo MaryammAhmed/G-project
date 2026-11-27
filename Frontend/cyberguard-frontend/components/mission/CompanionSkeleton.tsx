@@ -9,13 +9,13 @@ export default function CompanionSkeleton({ mood, text }: { mood: Mood; text?: s
   const isBreach = mood === "breach";
 
   return (
-    <div className="flex items-end gap-3 pointer-events-none absolute bottom-6 right-6 z-50">
+    <div className="flex items-end gap-3 pointer-events-none absolute bottom-6 end-6 z-50">
       
       {/* Speech Bubble that appears if there is text */}
       {text && (
         <div className="relative max-w-sm rounded-2xl border border-fuchsia-500/30 bg-[#111329]/95 p-4 shadow-[0_0_30px_rgba(192,38,211,0.2)] backdrop-blur-md">
           {/* The little triangle pointing to the skeleton */}
-          <div className="absolute -right-2 bottom-8 h-4 w-4 rotate-45 border-r border-t border-fuchsia-500/30 bg-[#111329]" />
+          <div className="absolute -end-2 bottom-8 h-4 w-4 rotate-45 rtl:rotate-[225deg] border-r border-t border-fuchsia-500/30 bg-[#111329]" />
           <p className="text-sm leading-relaxed text-fuchsia-100">{text}</p>
         </div>
       )}

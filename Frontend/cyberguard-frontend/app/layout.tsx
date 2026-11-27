@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -24,6 +24,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Geist has no Arabic glyphs; browsers fall back to this font for Arabic text only.
+const notoArabic = Noto_Sans_Arabic({
+  variable: "--font-arabic",
+  subsets: ["arabic"],
+  preload: false,
+});
+
 export const metadata: Metadata = {
   title: "CyberGuard",
   description: "Cybersecurity awareness and AI risk training",
@@ -37,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${notoArabic.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* AuthProvider wraps the whole app here so that EVERY page,
