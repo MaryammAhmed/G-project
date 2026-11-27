@@ -4,6 +4,7 @@ import { useState } from "react";
 
 /* ---------- Types (the data file imports `Brief` from here) ---------- */
 
+// Scene = the little fake app window used for an example: an email, a chat message, a browser address, a card, a file or some switches.
 export type Scene =
   | { kind: "email"; from: string; subject: string; body: string; hot?: string[] }
   | { kind: "chat"; from: string; text: string; hot?: string[] }
@@ -12,6 +13,7 @@ export type Scene =
   | { kind: "file"; name: string; warning: string; hot?: string[] }
   | { kind: "switches"; rows: { label: string; on: boolean; solvedOn?: boolean }[] };
 
+// Brief = the data of one practice round (see lib/mission/briefs.ts for the real content).
 export interface Brief {
   title: string;
   doing: string; // one line: what the real task asks
@@ -31,20 +33,26 @@ export interface Brief {
   why: string; // the one rule to remember
 }
 
+// Props: the brief to show and onStart (called when the player skips or finishes the practice).
 interface TaskBriefProps {
   brief: Brief;
   onStart: () => void; // <-- rename if your parent uses a different prop
 }
 
+// The three phases: watch (the game demonstrates) -> try (the player decides) -> done.
 type Phase = "watch" | "try" | "done";
 
+// Plain monospace stack (this file does not use the --font-mono variable).
 const MONO = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" };
+// Escapes special characters so clue words can be used safely inside a regular expression.
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /* ---------- Highlights the clue words once they are revealed ---------- */
 
+// Hl (highlight): wraps the clue words in a red <mark> once they are revealed.
 function Hl({ text, hot, on }: { text: string; hot?: string[]; on: boolean }) {
   if (!on || !hot?.length) return <>{text}</>;
+  // One regular expression that matches any of the clue words (case-insensitive). Splitting on it keeps the matches.
   const re = new RegExp(`(${hot.map(esc).join("|")})`, "i");
   return (
     <>
@@ -63,6 +71,7 @@ function Hl({ text, hot, on }: { text: string; hot?: string[]; on: boolean }) {
 
 /* ---------- The fake app window ---------- */
 
+// Stage: draws the scene inside a fake window bar; `reveal` decides whether the clue words are highlighted.
 function Stage({ scene, reveal, label }: { scene: Scene; reveal: boolean; label: string }) {
   return (
     <div className="overflow-hidden rounded-xl border border-white/15 bg-[#0b0d1e]">
@@ -167,17 +176,23 @@ function Stage({ scene, reveal, label }: { scene: Scene; reveal: boolean; label:
 
 /* ---------- The brief itself ---------- */
 
+// Labels of the three-step progress bar.
 const STEPS = ["WATCH", "YOUR TURN", "GO"];
 
+// TaskBrief: practice round = WATCH (game plays one move) -> YOUR TURN (player decides a different example) -> GO (start the real task).
 export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
   const [phase, setPhase] = useState<Phase>("watch");
   const [picked, setPicked] = useState<number | null>(null);
   const [hint, setHint] = useState<string | null>(null);
 
+  // Unpack the parts of the brief.
   const { actions, watch, tryIt } = brief;
+  // A brief with no actions / watch / tryIt falls back to a simple mission card.
   const hasDemo = !!(actions && watch && tryIt);
+  // Index of the current step (0, 1, 2) for the step bar.
   const step = phase === "watch" ? 0 : phase === "try" ? 1 : 2;
 
+  // Player picks an action in the "try" phase: the right one moves to "done", a wrong one shows the hint and lets them try again.
   function choose(i: number) {
     if (!tryIt || phase !== "try") return;
     if (i === tryIt.correct) {
@@ -206,7 +221,9 @@ export default function TaskBrief({ brief, onStart }: TaskBriefProps) {
     );
   }
 
+  // Which example to draw: the demo during "watch", the player's own example afterwards.
   const scene = phase === "watch" ? watch!.scene : tryIt!.scene;
+  // Highlight the clue words during the demo and after the player got it right.
   const reveal = phase === "watch" || phase === "done";
 
   return (

@@ -20,6 +20,21 @@
   PRIVACY: nothing typed here is sent or saved; the Crack Lab wipes its input when the player finishes.
 */
 
+// STUDY NOTES (the header comment above is partly out of date):
+//   1. "guess" is no longer the Crack Lab: it renders ProfileGuess (components/game/ProfileGuess.tsx).
+//   2. "siege" is no longer the boss fight with laser waves: it is the drag-and-drop THREAT SORT further down.
+//   3. Each sign-in alert gets ALERT_MS = 10000 ms (10 seconds), not 5 as one comment says.
+//   4. The Summary card says Continue is the ONLY place a task calls onComplete. Siege is the exception: it calls onComplete itself.
+//
+// CONSISTENCY FIXES IN THIS VERSION (nothing else changed):
+//   a. DOMINO_APPS now matches the Level 2 story (the password is on SnapGram, school email and Discord).
+//   b. Policy Doctor: the "force a change" rule says 30 days, to match the Level 3 story.
+//   c. Threat Sort: item 1 and item 5 rewritten so they agree with Level 5 (a code you did not ask for is a warning).
+//      Bins renamed SAFE / SUSPICIOUS. Cards also have Safe / Suspicious buttons, because drag and drop does not work on most phones.
+//      onComplete is guarded with a ref so XP cannot be awarded twice.
+//
+// MAP OF THIS FILE: Panel/Btn/Summary (shared UI) -> DominoTask (level 2) -> PolicyTask (level 3) -> PromptsTask (level 4)
+// -> SiegeTask (level 5) -> PWTask (the router at the bottom).
 import { useEffect, useRef, useState } from "react";
 import TaskBrief from "@/components/game/TaskBrief";
 import ProfileGuess from "@/components/game/ProfileGuess";
@@ -34,6 +49,9 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 /* XP each task can award. MissionPlayer reads this to size the "security" meter. */
 export const PW_TASK_MAX_XP: Record<PWTaskId, number> = { guess: 50, domino: 60, policy: 48, prompts: 60, siege: 48 };
 
+// Every task receives the same two callbacks:
+//   onComplete(xp, mistakes)  called once when the task ends. xp is added to the score; mistakes (max 2) are shields lost.
+//   onMood(mood)              changes the scene mood (safe / alert / breach / calm) as the player does well or badly.
 interface TaskCallbacks {
   onComplete: (xp: number, mistakes: number) => void;
   onMood?: (mood: Mood) => void;
@@ -45,6 +63,7 @@ function snd(kind: SfxKind) {
 }
 
 /* ---------- CSS for this file's animations ---------- */
+// CSS classes and keyframes used only by this file (they start with pw-).
 const PW_CSS = `
 @keyframes pwIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes pwShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-5deg); } 50% { transform: translateX(5px) rotate(5deg); } 75% { transform: translateX(-5px) rotate(-5deg); } }
@@ -62,6 +81,7 @@ const PW_CSS = `
 /* ======================================================================
    SHARED UI (unchanged look from your version)
    ====================================================================== */
+// Panel: the common bordered card with a coloured title bar. The colour comes from the realm accent (var(--c)).
 function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
     <section className="pw-in overflow-hidden rounded-2xl border bg-[#111329]/85 backdrop-blur" style={{ borderColor: "color-mix(in srgb, var(--c) 40%, transparent)", boxShadow: "0 0 28px color-mix(in srgb, var(--c) 16%, transparent)" }}>
@@ -74,6 +94,7 @@ function Panel({ title, right, children }: { title: string; right?: ReactNode; c
   );
 }
 
+// Btn: the standard solid button in the realm colour.
 function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} className="rounded-xl px-6 py-3 text-sm font-semibold tracking-wide text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30" style={{ background: "var(--c)" }}>
@@ -115,28 +136,35 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
     loss: string; // what the hacker can do if this app falls
   }
   
+  // The pretend stolen password (training data only).
   const LEAKED_KEY = "summer-trip";
   
+  // Six fake apps. Four reuse the leaked password (reused: true), matching the Level 2 story: GameHub, SnapGram, school email and Discord.
+  // School portal and Streaming each have their own password (reused: false), so the key will not work there.
   const DOMINO_APPS: DominoApp[] = [
     { id: "hub", name: "GameHub", icon: "🎮", password: LEAKED_KEY, reused: true, loss: "Where the leak started" },
     { id: "snap", name: "SnapGram", icon: "📸", password: LEAKED_KEY, reused: true, loss: "Posts embarrassing stuff as you" },
     { id: "mail", name: "School email", icon: "✉️", password: LEAKED_KEY, reused: true, loss: "Resets all your other passwords" },
-    { id: "school", name: "School portal", icon: "🏫", password: LEAKED_KEY, reused: true, loss: "Reads your grades and ID details" },
-    { id: "chat", name: "Group chat", icon: "💬", password: LEAKED_KEY, reused: true, loss: "Scams your friends from your name" },
+    { id: "chat", name: "Discord", icon: "💬", password: LEAKED_KEY, reused: true, loss: "Scams your friends from your name" },
+    { id: "school", name: "School portal", icon: "🏫", password: "its-own-phrase-2", reused: false, loss: "Nothing. Different password." },
     { id: "stream", name: "Streaming", icon: "🎬", password: "its-own-phrase", reused: false, loss: "Nothing. Different password." },
   ];
   
   type DominoStatus = "hacked" | "safe";
   
+  // DominoTask (Vault level 2, "domino"): try the stolen password on every app. A reused password makes the app fall and shows the damage; a unique one bounces off.
   function DominoTask({ onComplete, onMood }: TaskCallbacks) {
     // GameHub is already breached when the task starts (the story's starting point).
+    // app id -> "hacked" | "safe". GameHub starts as hacked because the leak began there.
     const [tested, setTested] = useState<Record<string, DominoStatus>>({ hub: "hacked" });
     const [keyHeld, setKeyHeld] = useState(false); // key "picked up" by tap/click
     const [dragging, setDragging] = useState(false); // desktop drag in progress
     const [dragOver, setDragOver] = useState<string | null>(null);
     const [status, setStatus] = useState("GameHub leaked your password. See what else it opens.");
+    // A ref (does not cause a re-render) so the "all tested" sound plays only once.
     const finishedSound = useRef(false);
   
+    // Counters for the progress text and the damage meter.
     const total = DOMINO_APPS.length;
     const testedCount = Object.keys(tested).length;
     const hackedCount = Object.values(tested).filter((v) => v === "hacked").length;
@@ -144,6 +172,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
     const hasTriedAny = testedCount > 1; // more than the pre-hacked GameHub
     const score = PW_TASK_MAX_XP.domino; // learning task: no penalties
   
+    // tryKey(): runs when the key is tapped or dropped on an app. Reused password -> app falls (bad sound, breach mood). Unique -> stays locked (safe mood).
     function tryKey(app: DominoApp) {
       if (tested[app.id]) return; // already tried this app
       setKeyHeld(false);
@@ -163,6 +192,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
       }
     }
   
+    // When every app has been tested, play the success sound (once).
     useEffect(() => {
       if (allTested && !finishedSound.current) {
         finishedSound.current = true;
@@ -170,6 +200,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
       }
     }, [allTested]);
   
+    // Share of apps that fell, in percent, for the red damage meter.
     const meterPct = Math.round((hackedCount / total) * 100);
   
     return (
@@ -368,18 +399,21 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
    and Sec. 3.2.2 (rate limiting).
    8 rules: 4 help (keep: true), 4 backfire (keep: false). Everything starts OFF.
    ====================================================================== */
+   // The eight password-policy rules. keep: true = a rule NIST SP 800-63B-4 supports (should be ON); keep: false = a rule that backfires (should stay OFF).
    const RULES = [
     { id: "len", text: "Require at least 15 characters (password-only sign-in)", keep: true, why: "NIST SP 800-63B-4: 15 characters minimum when a password is the only factor (8 when it is one part of multi-factor)." },
     { id: "comp", text: "Require an uppercase, number, and symbol", keep: false, why: "NIST: do not impose composition rules. Users respond in predictable ways, such as P@ssw0rd!." },
     { id: "block", text: "Reject known leaked passwords", keep: true, why: "NIST: check new passwords against a blocklist of commonly used and compromised passwords." },
-    { id: "expiry", text: "Force a password change every 60 days", keep: false, why: "NIST: do not force routine changes. Require a change only when there is evidence the password is compromised." },
+    { id: "expiry", text: "Force a password change every 30 days", keep: false, why: "NIST: do not force routine changes. Require a change only when there is evidence the password is compromised." },
     { id: "spaces", text: "Allow spaces and passphrases of 64+ characters", keep: true, why: "NIST: accept at least 64 characters, including spaces, so passphrases work." },
     { id: "paste", text: "Block pasting into the password box", keep: false, why: "NIST supports password managers and autofill, which need paste to fill long, unique passwords." },
     { id: "rate", text: "Slow or lock down after repeated wrong guesses", keep: true, why: "NIST Sec. 3.2.2: limit failed attempts so online guessing cannot run forever." },
     { id: "secq", text: "Use security questions or password hints (first pet, birthplace)", keep: false, why: "NIST: do not use knowledge-based questions or visible hints. The answers are often on public profiles." },
   ] as const;
+  // XP per correctly set switch: 48 / 8 = 6.
   const POLICY_PTS = PW_TASK_MAX_XP.policy / RULES.length;
   
+  // PolicyTask (Vault level 3, "policy"): flip the settings of a pretend sign-in policy and watch a simulated user react.
   function PolicyTask({ onComplete, onMood }: TaskCallbacks) {
     // Every switch starts OFF. The player turns ON only what NIST supports.
     const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(RULES.map((r) => [r.id, false])));
@@ -388,11 +422,13 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
     // FIX: one helper. A missing value counts as OFF, so a closed switch is never "undefined".
     const isOn = (id: string) => on[id] === true;
   
+    // wrong = rules whose switch is in the wrong position. Score = 6 XP per correct switch; 1 shield is lost only if 4 or more are wrong.
     const wrong = RULES.filter((r) => isOn(r.id) !== r.keep);
     const score = Math.round((RULES.length - wrong.length) * POLICY_PTS);
     const rulesOn = RULES.filter((r) => isOn(r.id)).length;
   
     /* SIMULATED USER. Picks the most telling story for the rules you have right now. */
+    // The simulated user reacts to the FIRST problem found, checked from top to bottom (the if / else if chain below).
     let sim: { typed: string; ok: boolean; note: string };
     if (isOn("comp")) sim = { typed: "P@ssw0rd!", ok: false, note: "Forced symbols pushed the user into a predictable pattern. Attackers try patterns like this first." };
     else if (isOn("expiry")) sim = { typed: "Summer2025!  (was Summer2024!)", ok: false, note: "Forced resets: the user just changed one character. The pattern is easy to guess." };
@@ -403,6 +439,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
     else if (!isOn("rate")) sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Strong password, but nothing slows an attacker who keeps guessing online." };
     else sim = { typed: "lantern orbit pickle drizzle", ok: true, note: "Long, unrelated, easy to remember, and guessing is limited. This policy protects the user." };
   
+    // save(): lock in the settings, set the mood (safe / calm / breach) and play a sound.
     function save() {
       setDone(true);
       onMood?.(wrong.length === 0 ? "safe" : wrong.length >= 3 ? "breach" : "calm");
@@ -483,6 +520,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
    Each alert has `mine`: true if the player really started it. 5 seconds per alert; timeout = mistake.
    Phone vibrates and buzzes on each new alert where supported.
    ====================================================================== */
+// Six sign-in alerts. mine: true = the player really started it (approve); false = an attack (deny).
 const ALERTS = [
   { title: "SnapGram: Approve sign-in?", body: "Samsung Galaxy, Lagos. You are not in Lagos.", mine: false },
   { title: "SnapGram: Approve sign-in?", body: "Your phone, just now. You tapped 'Log in' a second ago.", mine: true },
@@ -491,16 +529,20 @@ const ALERTS = [
   { title: "DM from 'Jay'", body: "omg my phone died, send me the code you just got!", mine: false },
   { title: "TixDrop: Approve sign-in?", body: "Your laptop, just now. You opened the ticket queue.", mine: true },
 ];
+// Time allowed per alert: 10 000 ms = 10 seconds.
 const ALERT_MS = 10000;
 
+// PromptsTask (Vault level 4, "prompts"): a lock screen shows sign-in alerts. Swipe right to approve, left to deny (buttons work too).
 function PromptsTask({ onComplete, onMood }: TaskCallbacks) {
   const [i, setI] = useState(0);
   const [wrong, setWrong] = useState(0);
+  // milliseconds left for the current alert
   const [left, setLeft] = useState(ALERT_MS);
   const [dx, setDx] = useState(0); // current drag offset in px
   const [dragging, setDragging] = useState(false);
   const [note, setNote] = useState("");
   const startX = useRef<number | null>(null);
+  // All alerts handled?
   const finished = i >= ALERTS.length;
 
   /* each new alert: buzz, vibrate, reset the timer */
@@ -564,6 +606,7 @@ function PromptsTask({ onComplete, onMood }: TaskCallbacks) {
   }
 
   if (finished) {
+    // Score = 60 XP x (alerts handled correctly / 6). At most 2 shields are lost.
     const xp = Math.round(PW_TASK_MAX_XP.prompts * ((ALERTS.length - wrong) / ALERTS.length));
     return (
       <Summary
@@ -631,9 +674,10 @@ function PromptsTask({ onComplete, onMood }: TaskCallbacks) {
    ====================================================================== */
 /* ======================================================================
    TASK 5: THE THREAT SORT (Drag & Drop Triage)
-   All messages are on screen. Drag them to the correct bin. 
+   All messages are on screen. Drag them to the correct bin (or tap Safe / Suspicious).
    Wrong drops bounce back and cost integrity.
    ====================================================================== */
+// One message to sort: text, its real type ("safe" or "trap") and the explanation.
 interface ThreatItem {
   id: number;
   text: string;
@@ -641,15 +685,18 @@ interface ThreatItem {
   why: string;
 }
 
+// The six messages to sort into the SAFE or SUSPICIOUS bin.
 const THREAT_ITEMS: ThreatItem[] = [
-  { id: 1, text: "New login to SnapGram from an unknown device.", type: "trap", why: "Warning sign. Someone else is trying to log in." },
+  { id: 1, text: "Text: 'Your code is 483921.' You did not ask for a code.", type: "trap", why: "Someone is trying to sign in or reset your account. Don't share it, and change your password." },
   { id: 2, text: "Jay: 'Bro FREE NITRO for 3 months, claim it fast!'", type: "trap", why: "Classic gamer scam. His account is hacked." },
   { id: 3, text: "Mom: 'Can you pick up milk on the way home?'", type: "safe", why: "Normal text from a known contact. No links." },
   { id: 4, text: "TixDrop: 'Your order is blocked. Verify at tixdr0p-help.com.'", type: "trap", why: "Look-alike domain (tixdr0p). They want your password." },
-  { id: 5, text: "Your 2FA code is 849201. Never share this.", type: "safe", why: "Normal security code. Just don't share it." },
+  { id: 5, text: "Code 849201 arrives right after you tap 'Send code' on the school portal.", type: "safe", why: "You asked for this code. Just don't share it." },
   { id: 6, text: "Principal: 'Reminder, school is closed Monday.'", type: "safe", why: "Standard announcement. No links or requests." },
 ];
 
+// SiegeTask (Vault level 5, "siege"): sort each message into the right bin by dragging it or tapping Safe / Suspicious.
+// A wrong choice bounces back and costs 20% integrity.
 function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
   const [pool, setPool] = useState<ThreatItem[]>([...THREAT_ITEMS]);
   const [safeBin, setSafeBin] = useState<ThreatItem[]>([]);
@@ -657,13 +704,19 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
   
   const [integrity, setIntegrity] = useState(100);
   const [wrong, setWrong] = useState(0);
-  const [errorId, setErrorId] = useState<number | null>(null); // Tracks which card was dropped wrong
+  const [errorId, setErrorId] = useState<number | null>(null); // Tracks which card was sorted wrong
+  // A ref (no re-render) so onComplete is called only once, even if the parent re-renders.
+  const awarded = useRef(false);
 
+  // Integrity bar colour: green above 60, amber above 30, red below.
   const meterColor = integrity > 60 ? "#34D399" : integrity > 30 ? "#f6c453" : "#fb4b5b";
 
   // Check for win condition
   useEffect(() => {
-    if (pool.length === 0) {
+    // All messages sorted -> finish. STUDY NOTE: unlike the other tasks this calls onComplete straight from an effect (no Summary card).
+    // The `awarded` ref makes sure XP is given only once, even if the parent passes a new onComplete function on every render.
+    if (pool.length === 0 && !awarded.current) {
+      awarded.current = true;
       snd("good");
       onMood?.("safe");
       // XP calculation: base XP minus 15 for every mistake
@@ -672,27 +725,25 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
     }
   }, [pool, wrong, onComplete, onMood]);
 
+  // Drag starts: store the card id in the drag data.
   function handleDragStart(e: React.DragEvent, id: number) {
     e.dataTransfer.setData("text/plain", id.toString());
   }
 
-  function handleDrop(e: React.DragEvent, zone: "safe" | "trap") {
-    e.preventDefault();
-    const idStr = e.dataTransfer.getData("text/plain");
-    if (!idStr) return;
-    const id = parseInt(idStr);
-    
+  // sortItem: used by both drag-and-drop and the tap buttons.
+  // Correct -> the card moves into that bin; wrong -> bounce back, mood breach, integrity -20%, red flash for 0.6 s.
+  function sortItem(id: number, zone: "safe" | "trap") {
     const item = pool.find(i => i.id === id);
     if (!item) return; // Already sorted
 
     if (item.type === zone) {
-      // CORRECT DROP
+      // CORRECT
       snd("good");
       setPool(p => p.filter(i => i.id !== id));
       if (zone === "safe") setSafeBin(prev => [...prev, item]);
       else setTrapBin(prev => [...prev, item]);
     } else {
-      // WRONG DROP
+      // WRONG
       snd("bad");
       onMood?.("breach");
       setWrong(w => w + 1);
@@ -701,6 +752,16 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
       // Flash red for 600ms then reset
       setTimeout(() => setErrorId(null), 600);
     }
+  }
+
+  // Drop on a bin (desktop drag and drop): read the card id and sort it.
+  function handleDrop(e: React.DragEvent, zone: "safe" | "trap") {
+    e.preventDefault();
+    const idStr = e.dataTransfer.getData("text/plain");
+    if (!idStr) return;
+    const id = parseInt(idStr);
+    if (Number.isNaN(id)) return;
+    sortItem(id, zone);
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -727,7 +788,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
           className="flex-1 overflow-y-auto min-h-0 rounded-xl border border-white/10 bg-black/40 p-4"
           onDragOver={handleDragOver}
         >
-          <p className="text-[10px] text-[#4cc9ff] uppercase tracking-widest mb-3 sticky top-0 bg-black/80 py-1" style={MONO}>Unclassified Messages (Drag to sort)</p>
+          <p className="text-[10px] text-[#4cc9ff] uppercase tracking-widest mb-3 sticky top-0 bg-black/80 py-1" style={MONO}>Unclassified Messages (Drag to sort, or tap a button)</p>
           
           <div className="flex flex-wrap gap-3 justify-center">
             {pool.map((item) => {
@@ -745,6 +806,23 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
                   style={!hasError ? { boxShadow: "0 0 15px rgba(76,201,255,0.1)" } : {}}
                 >
                   <p className="text-sm text-[#f5f3ff] font-medium text-center">&quot;{item.text}&quot;</p>
+                  {/* Tap buttons: drag and drop does not work on most phones, so every card can also be sorted by tapping. */}
+                  <div className="mt-3 flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sortItem(item.id, "safe")}
+                      className="rounded-lg border border-[#34D399] bg-[#34D399]/10 px-3 py-2 text-xs font-semibold text-[#34D399] active:scale-95"
+                    >
+                      Safe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sortItem(item.id, "trap")}
+                      className="rounded-lg border border-[#fb4b5b] bg-[#fb4b5b]/10 px-3 py-2 text-xs font-semibold text-[#fb4b5b] active:scale-95"
+                    >
+                      Suspicious
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -765,7 +843,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
           >
             <div className="flex items-center gap-2 border-b border-[#34D399]/30 pb-2 mb-2 shrink-0">
               <span className="text-xl">🛡️</span>
-              <span className="text-xs font-bold text-[#34D399] tracking-widest" style={MONO}>SAFE MESSAGES</span>
+              <span className="text-xs font-bold text-[#34D399] tracking-widest" style={MONO}>SAFE</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {safeBin.map((item) => (
@@ -776,7 +854,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
             </div>
           </div>
 
-          {/* TRAP BIN */}
+          {/* SUSPICIOUS BIN */}
           <div
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, "trap")}
@@ -784,7 +862,7 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
           >
             <div className="flex items-center gap-2 border-b border-[#fb4b5b]/30 pb-2 mb-2 shrink-0">
               <span className="text-xl">⚠️</span>
-              <span className="text-xs font-bold text-[#fb4b5b] tracking-widest" style={MONO}>TRAP MESSAGES</span>
+              <span className="text-xs font-bold text-[#fb4b5b] tracking-widest" style={MONO}>SUSPICIOUS</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {trapBin.map((item) => (
@@ -806,6 +884,9 @@ function SiegeTask({ onComplete, onMood }: TaskCallbacks) {
    ====================================================================== */
 export default function PWTask({ task, onComplete, onMood }: { task: PWTaskId } & TaskCallbacks) {
   const [ready, setReady] = useState(false);
+  // ROUTER: the one component MissionPlayer renders. It gets the task id from the level files (last argument of pw/ph/se/ai).
+  // It shows the practice round first (TaskBrief, content in lib/mission/briefs.ts). When the player clicks Start, `ready`
+  // becomes true and the real mini-game replaces it.
   const brief = TASK_BRIEFS[task];
   if (!ready && brief) {
     return <TaskBrief brief={brief} onStart={() => setReady(true)} />;

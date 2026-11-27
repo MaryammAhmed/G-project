@@ -1,3 +1,12 @@
+/** Randomly shuffle an array in-place. */
+export function shuffle<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 /*
   lib/mission/make.ts
   Builds the short beats every level shares: two story lines, three choices,
@@ -49,6 +58,11 @@ export function ph(id: string, say: string, task: PHTaskId): Beat {
 
 export function se(id: string, say: string, task: SETaskId): Beat {
   return { id, type: "se-task", say, task, mood: "alert", hint: "Read the example first. Then it is your turn." };
+}
+
+// phishScale(): helper function to generate a phish-scale beat for TackleBox.
+export function phishScale(id: string, say: string, mood: Mood = "alert"): Beat {
+  return { id, type: "phish-scale", say, mood, hint: "Tap each card to reveal the NIST Phish Scale clues." };
 }
 
 export function ai(id: string, say: string, task: AITaskId): Beat {

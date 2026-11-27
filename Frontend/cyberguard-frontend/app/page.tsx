@@ -74,6 +74,13 @@ export default function Home() {
 
         {/* Buttons container */}
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Privacy Link: subtle text link, goes to /privacy */}
+          <Link
+            href="/privacy"
+            className="whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-fuchsia-300 sm:text-sm"
+          >
+            Privacy
+          </Link>
           {/* Sign In: outlined button, goes to /login */}
           <Link
             href="/login"

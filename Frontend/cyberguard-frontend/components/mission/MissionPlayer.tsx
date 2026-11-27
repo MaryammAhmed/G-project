@@ -47,12 +47,41 @@ import type { SceneKey, SfxKind } from "@/lib/mission/audio";
 import DialogueBox from "@/components/game/DialogueBox";
 import DecisionPanel from "@/components/game/DecisionPanel";
 import type { DecisionFeedback } from "@/components/game/DecisionPanel";
-import PasswordTask from "@/components/game/PasswordTask";
 import XpRewardModal from "@/components/game/XpRewardModal";
-
-import CSIInvestigation from "@/components/game/CSIInvestigation";
-import TackleBox from "@/components/game/TackleBox";
 import { useRouter } from "next/navigation";
+
+// TACKLEBOX COMPONENT (inline definition for phish-scale beat)
+function TackleBox({ onNext }: { onNext: () => void }) {
+  const [openCard, setOpenCard] = useState<number | null>(null);
+  const cards = [
+    { title: "1. RELEVANCE", desc: "Does the message mention something personal (friends, trips, clubs) to catch you off guard?" },
+    { title: "2. SENDER", desc: "Does the sender address match the real organization, or is it a lookalike domain?" },
+    { title: "3. URGENCY", desc: "Does it demand instant action or threat consequences to stop you from thinking?" },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {cards.map((c, i) => (
+          <button
+            key={i}
+            onClick={() => setOpenCard(openCard === i ? null : i)}
+            className="rounded-xl border border-cyan-500/30 bg-[#16182c] p-4 text-left transition hover:border-cyan-400"
+          >
+            <p className="text-xs font-bold text-cyan-300" style={{ fontFamily: "var(--font-mono), monospace" }}>{c.title}</p>
+            <p className="mt-2 text-xs text-slate-300">{openCard === i ? c.desc : "Click to inspect clue..."}</p>
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onNext}
+        className="w-full rounded-xl bg-cyan-500 py-3 text-sm font-bold text-black transition hover:bg-cyan-400"
+      >
+        Continue Mission
+      </button>
+    </div>
+  );
+}
+
 
 // Visual & Companion Components
 import IntroScene from "./IntroScene";
@@ -741,64 +770,34 @@ function BeatView({
               />
             )}
 
-            {beat.type === "passphrase" && (
-              <PasswordTask
-                kind="phrase-builder"
-                minLength={beat.minLength}
-                personal={beat.personal}
-                successText={beat.success}
-                points={XP.passphrase}
-                onMood={onMood}
-                onSuccess={(pts) => {
-                  onAward(pts);
-                  onTaskDone("passphrase");
-                }}
-                onContinue={onNext}
-              />
-            )}
-
-            {beat.type === "otp" && (
-              <PasswordTask
-                kind="code"
-                successText={beat.success}
-                points={XP.otp}
-                helpText={
-                  email
-                    ? "Snapgram (practice) emailed you a 6-digit code."
-                    : "Preview mode: type 123456."
-                }
-                onSendCode={email ? sendCode : undefined}
-                onVerifyCode={verifyCode}
-                onMood={onMood}
-                onSuccess={(pts) => {
-                  onAward(pts);
-                  onTaskDone("otp");
-                }}
-                onContinue={onNext}
-              />
-            )}
 
             {/* ───────────── EDIT 6 · CSI investigation ───────────── */}
             {beat.type === "csi-investigate" && (
-              <CSIInvestigation
-                files={beat.files}
-                onComplete={(score, results) => {
-                  // Deduct shields for anyone who let a threat through
-                  const unsafe = results.filter(
-                    (r) => r.isThreat && r.playerGuessed === "safe",
-                  ).length;
-                  const hits = Math.min(unsafe, 2);
-                  for (let i = 0; i < hits; i++) onResult(false);
-
-                  if (unsafe > 0) {
-                    onMood("breach");
-                  } else {
-                    onMood("safe");
-                  }
-
-                  if (shields - hits > 0) onNext();
-                }}
-              />
+              <div className="space-y-4">
+                <p className="text-xs text-slate-300" style={{ fontFamily: "var(--font-mono), monospace" }}>// FORENSIC DESKTOP: Inspect all files to find the threat.</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {beat.files.map((f: any) => {
+                    const [opened, setOpened] = useState(false);
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => setOpened(true)}
+                        className={`rounded-xl border p-4 text-left transition ${opened ? 'border-cyan-500/50 bg-[#1a1d36]' : 'border-white/10 bg-[#111329]'}`}
+                      >
+                        <span className="text-xl">{f.icon || '📄'}</span>
+                        <p className="mt-2 text-xs font-bold text-white truncate">{f.name}</p>
+                        <p className="text-[10px] text-slate-400">{opened ? (f.threat ? '⚠️ THREAT' : '✅ SAFE') : 'Click to open'}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => onNext()}
+                  className="w-full rounded-xl bg-cyan-500 py-3 text-sm font-bold text-black transition hover:bg-cyan-400"
+                >
+                  Complete Investigation
+                </button>
+              </div>
             )}
           </div>
         )}

@@ -119,7 +119,7 @@ export const socialLevels: LevelSpec[] = [
       decide("m3-door-3", "He looks stressed. What do you do?", "This is called tailgating. Attackers use fake deliveries and your politeness to bypass locked doors.", [
         { text: "Hold the door. He's carrying a heavy box and it's just an office.", fallback: whyDoor, severe: true },
         { text: "Hold it, but watch him to make sure he goes to HR.", fallback: whyDoor },
-        { text: "Say 'Sorry, I'm just an intern. You need to check in with security at the front desk.'", correct: true, fallback: "Perfect. It feels awkward, but it's the rule. If the delivery is real, security will log him in. You keep the building safe." },
+        { text: "Say 'Sorry. You need to check in with security at the front desk.'", correct: true, fallback: "Perfect. It feels awkward, but it's the rule. If the delivery is real, security will log him in. You keep the building safe." },
         { text: "Ask to see his delivery paperwork first, then let him in.", fallback: "You are not a security guard. You can't verify the paperwork, and letting him in is still a breach." },
       ]),
       story("m3-door-4", "Later, you get an email from a new address. It says it's from your manager, asking for your home address for the payroll system, today.", "alert"),

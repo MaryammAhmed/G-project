@@ -243,7 +243,10 @@ def test_chat_endpoint_graceful_fallback_on_groq_error(client, monkeypatch):
 # PASSWORD RESET (forgot password / reset password flow)
 # =============================================================
 
-from datetime import datetime as _dt, timedelta as _td
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+def utcnow() -> _dt:
+    return _dt.now(_tz.utc).replace(tzinfo=None)
 
 
 def _make_reset_user(email="student@example.com", otp_code="123456"):
@@ -258,7 +261,7 @@ def _make_reset_user(email="student@example.com", otp_code="123456"):
         otp_attempts=0,
         is_admin=False,
         reset_otp_code_hash=pwd_context.hash(otp_code),
-        reset_otp_expires_at=_dt.utcnow() + _td(minutes=10),
+        reset_otp_expires_at=utcnow() + _td(minutes=10),
         reset_otp_attempts=0,
     )
     return user
@@ -300,7 +303,7 @@ def test_otp_resend_does_not_reset_failed_guess_budget(client, monkeypatch):
     user = _make_reset_user()
     from main import pwd_context as _pwd
     user.otp_code_hash = _pwd.hash("111111")
-    user.otp_expires_at = _dt.utcnow() + _td(minutes=5)
+    user.otp_expires_at = utcnow() + _td(minutes=5)
     user.otp_attempts = 4  # one wrong guess away from lockout
 
     async def fake_db():
@@ -327,7 +330,7 @@ def test_verify_otp_serializes_attempts_with_a_row_lock(client, monkeypatch):
     user = _make_reset_user()
     from main import pwd_context as _pwd
     user.otp_code_hash = _pwd.hash("123456")
-    user.otp_expires_at = _dt.utcnow() + _td(minutes=5)
+    user.otp_expires_at = utcnow() + _td(minutes=5)
 
     captured = {}
 
@@ -436,7 +439,7 @@ def test_reset_password_rejects_wrong_otp(client, monkeypatch):
 
 def test_reset_password_rejects_expired_otp(client, monkeypatch):
     user = _make_reset_user(otp_code="123456")
-    user.reset_otp_expires_at = _dt.utcnow() - _td(minutes=1)
+    user.reset_otp_expires_at = utcnow() - _td(minutes=1)
 
     _override_db_with_user(monkeypatch, user)
 

@@ -14,6 +14,9 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 // UNCHANGED
 export const PH_TASK_MAX_XP: Record<PHTaskId, number> = { domain: 42, attach: 42, textstorm: 44, audience: 42, recovery: 40 };
 
+// Every task receives the same two callbacks:
+//   onComplete(xp, mistakes)  called once when the task ends. xp is added to the score; mistakes (max 2) are shields lost.
+//   onMood(mood)              changes the scene mood (safe / alert / breach / calm) as the player does well or badly.
 interface TaskCallbacks {
   onComplete: (xp: number, mistakes: number) => void;
   onMood?: (mood: Mood) => void;
@@ -25,6 +28,7 @@ function snd(kind: SfxKind) {
 }
 
 // UNCHANGED
+// CSS classes and keyframes used only by this file (they start with ph-).
 const PH_CSS = `
 @keyframes phIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes phBlink { 50% { opacity: 0; } }
@@ -36,6 +40,7 @@ const PH_CSS = `
 `;
 
 // UNCHANGED
+// Panel: the common bordered card with a coloured title bar.
 function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
     <section className="ph-in overflow-hidden rounded-2xl border bg-[#111329]/85 backdrop-blur" style={{ borderColor: "color-mix(in srgb, var(--c) 40%, transparent)", boxShadow: "0 0 28px color-mix(in srgb, var(--c) 16%, transparent)" }}>
@@ -49,6 +54,7 @@ function Panel({ title, right, children }: { title: string; right?: ReactNode; c
 }
 
 // UNCHANGED
+// Btn: the standard solid button in the realm colour.
 function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} className="rounded-xl px-6 py-3 text-sm font-semibold tracking-wide text-[#070711] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30" style={{ background: "var(--c)" }}>
@@ -58,6 +64,7 @@ function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: ()
 }
 
 // UNCHANGED
+// Summary: the end-of-task card (what you learned + XP). Its Continue button is where onComplete is called.
 function Summary({ title, score, max, lines, onDone }: { title: string; score: number; max: number; lines: string[]; onDone: () => void }) {
   return (
     <Panel title="TASK COMPLETE">
@@ -74,6 +81,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
 }
 
 // UNCHANGED
+// Opt = one answer option for the Pick helper: grade (best / ok / bad), points, whether it counts as a mistake, and why.
 interface Opt { text: string; grade: "best" | "ok" | "bad"; pts: number; mistake?: boolean; why: string }
 
 // UNCHANGED
@@ -85,6 +93,7 @@ function gradeStyle(o: Opt): { label: string; color: string } {
 }
 
 // UNCHANGED
+// Pick: a reusable multiple-choice block used by several tasks.
 function Pick({ opts, cta, onDone }: { opts: Opt[]; cta: string; onDone: (o: Opt) => void }) {
   const [picked, setPicked] = useState<Opt | null>(null);
   const g = picked ? gradeStyle(picked) : null;
@@ -116,6 +125,10 @@ function Pick({ opts, cta, onDone }: { opts: Opt[]; cta: string; onDone: (o: Opt
    ====================================================================== */
 
 // ---- types CSIInvestigation itself needs ----
+// STUDY NOTE: CSIInvestigation below is a merged copy of components/game/CSIInvestigation.tsx. LinkCheck.tsx is an older version of
+// this task and is no longer used here.
+//
+// CSI types: one file/message, and the player's result for it.
 type CSIFileItem = {
   id: string;
   name: string;
@@ -133,6 +146,7 @@ type CSIFileResult = {
 };
 
 // ---- the merged-in CSI Investigation engine (unchanged from its own file) ----
+// CSIInvestigation: a forensic desktop of files. The player opens each one and approves it as safe or flags it as a threat.
 function CSIInvestigation({
   files,
   onComplete,
@@ -335,52 +349,55 @@ function CSIInvestigation({
 }
 
 // ---- domain-detective content, reshaped as CSI "files" ----
+// The six messages / files of Mirage level 1 (isThreat tells the game which are scams).
+// Web addresses are lowercase, like real domains. Where it applies, the explanation names the NIST Phish Scale cue
+// (Domain spoofing, Technical indicator type). The text must keep starting with "This is safe. " or "This is a threat. ".
 const DOMAIN_FILES: CSIFileItem[] = [
   {
     id: "f1",
-    name: "portal.northHigh.edu",
+    name: "portal.northhigh.edu",
     type: "social",
-    content: "https://portal.northHigh.edu/login\n\nThe school's real student portal link, shared in the morning announcement.",
+    content: "https://portal.northhigh.edu/login\n\nThe school's real student portal link, shared in the morning announcement.",
     isThreat: false,
-    explanation: "This is safe. The owner (the part right before .edu) is northHigh.edu — the school's real domain. 'portal' is just a label placed in front of it.",
+    explanation: "This is safe. The owner (the part right before .edu) is northhigh.edu — the school's real domain. 'portal' is just a label placed in front of it.",
   },
   {
     id: "f2",
     name: "account-verify.net",
     type: "email",
-    content: "https://northHigh.edu.account-verify.net/login\n\nArrived in an email claiming your account needs 'urgent verification.'",
+    content: "https://northhigh.edu.account-verify.net/login\n\nArrived in an email claiming your account needs 'urgent verification.'",
     isThreat: true,
-    explanation: "This is a threat. Read a web address from the ending backward: the real owner here is account-verify.net, not northhigh.edu. The school's name was only placed in front to look familiar.",
+    explanation: "This is a threat. Read a web address from the ending backward: the real owner here is account-verify.net, not northhigh.edu. The school's name was only placed in front to look familiar. (Phish Scale cue: Domain spoofing.)",
   },
   {
     id: "f3",
-    name: "N0rthHigh.edu",
+    name: "n0rthhigh.edu",
     type: "document",
-    content: "https://N0rthHigh.edu/portal\n\nA link pinned in a group chat, claiming to be the school portal.",
+    content: "https://n0rthhigh.edu/portal\n\nA link pinned in a group chat, claiming to be the school portal.",
     isThreat: true,
-    explanation: "This is a threat. Look closely — that's a zero (0) pretending to be the letter 'o'. It's really hard to tell them apart unless you're focusing on it.",
+    explanation: "This is a threat. Look closely — that's a zero (0) pretending to be the letter 'o'. It's really hard to tell them apart unless you're focusing on it. (Phish Scale cue: Domain spoofing.)",
   },
   {
     id: "f4",
     name: "verify-login.top",
     type: "email",
-    content: "http://northHigh-portal.verify-login.top/auth\n\nA text message link claiming your grades are 'at risk' unless you log in now.",
+    content: "http://northhigh-portal.verify-login.top/auth\n\nA text message link claiming your grades are 'at risk' unless you log in now.",
     isThreat: true,
-    explanation: "This is a threat. The real owner is verify-login.top. 'northHigh-portal' is just a decoy label, and plain http (no 's') means the connection isn't even encrypted.",
+    explanation: "This is a threat. The real owner is verify-login.top. 'northhigh-portal' is just a decoy label, and plain http (no 's') means the connection isn't even encrypted. (Phish Scale cue: Domain spoofing.)",
   },
   {
     id: "f5",
-    name: "northHigh.edu/library",
+    name: "northhigh.edu/library",
     type: "document",
-    content: "https://northHigh.edu/library\n\nA link to reserve a study room, shared by the librarian.",
+    content: "https://northhigh.edu/library\n\nA link to reserve a study room, shared by the librarian.",
     isThreat: false,
-    explanation: "This is safe. The owner is northHigh.edu, and everything after the slash is just a normal section of the school's own real site.",
+    explanation: "This is safe. The owner is northhigh.edu, and everything after the slash is just a normal section of the school's own real site.",
   },
   {
     id: "f6",
-    name: "bit.ly/northHigh-grades",
+    name: "bit.ly/northhigh-grades",
     type: "social",
-    content: "https://bit.ly/northHigh-grades\n\nPosted in a class group chat with the caption 'check your grades here!'",
+    content: "https://bit.ly/northhigh-grades\n\nPosted in a class group chat with the caption 'check your grades here!'",
     isThreat: true,
     explanation: "This is a threat. A shortened link hides its real destination completely. If you can't see the real owner before clicking, treat it as a scam.",
   },
@@ -388,13 +405,16 @@ const DOMAIN_FILES: CSIFileItem[] = [
 
 // ---- adapter: bridges CSIInvestigation's (score, results) shape into
 // this file's shared (xp, mistakes) TaskCallbacks contract ----
+// DomainTask (Mirage level 1, "domain"): runs the CSI desktop and turns its results into XP and shields.
 function DomainTask({ onComplete, onMood }: TaskCallbacks) {
   function handleCSIComplete(_score: number, results: CSIFileResult[]) {
+    // XP = share of files judged correctly x PH_TASK_MAX_XP.domain.
     const correctCount = results.filter((r) => r.isCorrect).length;
     const xp = Math.round((correctCount / results.length) * PH_TASK_MAX_XP.domain);
 
     // A "mistake" = trusting an actual threat as safe, capped at 2 —
     // same dangerous-miss pattern every other PH task tracks.
+    // A shield is lost only for trusting a REAL threat as safe (at most 2).
     const unsafeMisses = results.filter((r) => r.isThreat && r.playerGuessed === "safe").length;
     const mistakes = Math.min(2, unsafeMisses);
 
@@ -409,6 +429,7 @@ function DomainTask({ onComplete, onMood }: TaskCallbacks) {
    TASK 2: FILE & QR LAB (UNCHANGED logic, just text swap)
    ====================================================================== */
 // UNCHANGED
+// The three actions for the file lab: open it, verify it first, or never open it.
 type Act = "open" | "verify" | "never";
 const ACT_BTNS: { id: Act; label: string; color: string }[] = [
   { id: "open", label: "Open it", color: "#4ade80" },
@@ -418,10 +439,13 @@ const ACT_BTNS: { id: Act; label: string; color: string }[] = [
 const ACT_LABEL: Record<Act, string> = { open: "OPEN IT", verify: "VERIFY FIRST", never: "DON'T OPEN" };
 
 interface Item { icon: string; name: string; ctx: string; answer: Act; why: string }
+// The files and QR codes to judge. `answer` is the right action and `why` explains it.
+// Item 3 is now a .docm (a Word file that can carry macros) so "Enable Content" is technically correct:
+// a .exe file never shows an "Enable Content" bar, and item 2 already covers the .pdf.exe disguise.
 const ITEMS: Item[] = [
-  { icon: "\u{1F4C4}", name: "Lunch_Menu.pdf", ctx: "From cafeteria@NorthHigh.edu, a school address you subscribed to. You expected it.", answer: "open", why: "Known sender, expected file, a normal file type and no odd requests. Fine to open." },
+  { icon: "\u{1F4C4}", name: "Lunch_Menu.pdf", ctx: "From cafeteria@northhigh.edu, a school address you subscribed to. You expected it.", answer: "open", why: "Known sender, expected file, a normal file type and no odd requests. Fine to open." },
   { icon: "\u2699\uFE0F", name: "Invoice_4471.pdf.exe", ctx: "Arrived as 'Your order receipt'. You didn't order anything.", answer: "never", why: "The real ending is .exe: a program pretending to be a PDF. Double extensions are a classic disguise." },
-  { icon: "\u{1F4DD}", name: "Grades_Report.pdf.exe", ctx: "The email says: 'Click Enable Content to view your grades.'", answer: "never", why: "A grade report is a document. The real ending is .exe, which is a program. Windows often hides the last ending, so .pdf was only a costume." },
+  { icon: "\u{1F4DD}", name: "Grades_Report.docm", ctx: "The email says: 'Click Enable Content to view your grades.'", answer: "never", why: "A .docm file is a Word document that can carry macros, which are small programs. 'Enable Content' switches them on. A real grade report is a PDF you open in the portal." },
   { icon: "\u25A6", name: "Poster QR: 'WIN $50, SCAN NOW'", ctx: "Taped over the real cheer-squad notice. No organiser named.", answer: "never", why: "A QR code is a link you can't read. A sticker can cover a real poster and take you to a fake website that steals your info or downloads viruses onto your phone."},
   { icon: "\u{1F5DC}\uFE0F", name: "Group_Project.zip", ctx: "From a classmate you know, but you weren't expecting it. The message includes the zip's password.", answer: "verify", why: "A real person, an unexpected file and a password included (so scanners can't look inside) is suspicious. Ask them on another channel." },
   { icon: "\u{1F4D1}", name: "Fall_Schedule.pdf", ctx: "From the school office, via the portal's message centre. You asked for it yesterday.", answer: "open", why: "Expected, from the official channel, no pressure. Open it." },
@@ -434,6 +458,7 @@ function award(v: Act, a: Act): { pts: number; unsafe: boolean } {
   return { pts: 3, unsafe: false };
 }
 
+// AttachTask (Mirage level 3, "attach"): for each file or QR code choose OPEN IT, VERIFY FIRST or DON'T OPEN.
 function AttachTask({ onComplete, onMood }: TaskCallbacks) {
   const [i, setI] = useState(0);
   const [pick, setPick] = useState<Act | null>(null);
@@ -529,7 +554,7 @@ function AttachTask({ onComplete, onMood }: TaskCallbacks) {
 }
 
 /* ======================================================================
-   TASK 3: SMISHING SIMULATOR  (V5, replaces THE TEXT STORM / INBOX SWEEP)
+   TASK 3: SMISHING SIMULATOR  (V6, now uses the REAL NIST Phish Scale tables)
    ----------------------------------------------------------------------
    SMISHING = SMS + phishing: scam texts that push you to tap, pay or log in.
 
@@ -538,48 +563,80 @@ function AttachTask({ onComplete, onMood }: TaskCallbacks) {
      2. The player taps SMISHING or LEGITIMATE.
      3. Their answer appears as a reply bubble. Then the REVEAL:
           - red flags light up inside the message
-          - a list explains each flag (or each safe signal for a real text)
-          - PHISH SCALE mini-meter: CUES (what gives it away) + PREMISE FIT (how well it
-            matches the player's week) = how HARD it was to spot
+          - each flag is named with the NIST cue it counts as (one of the 23 cues in NIST TN 2276, Table 1)
+          - for scams, the PHISH SCALE result is worked out with NIST's own numbers
 
-   NIST PHISH SCALE (teaching version):
-     difficulty = fewer cues + better premise fit = harder to spot.
-     The thresholds are scaled down for short texts. The real scale counts cues across
-     whole emails, so re-check wording against the current NIST publication before quoting it.
+   NIST PHISH SCALE (NIST TN 2276, Nov 2023). The guide is written for EMAILS. CyberGuard applies the same
+   steps to short texts, so the counts are a teaching estimate and the guide itself says to customise the
+   method (Sec. 1.1). The tables below are NOT scaled down:
+     CUES (Table 3):             1 to 8 = Few (more difficult), 9 to 14 = Some, 15 or more = Many (less difficult)
+     PREMISE ALIGNMENT (Eq. 1):  elements 1 to 4 added, element 5 (training) subtracted. Each element is 0, 2, 4, 6 or 8.
+     PREMISE CATEGORY (Table 6): 10 and below = Weak, 11 to 17 = Medium, 18 and higher = Strong
+     DETECTION DIFFICULTY (Table 7): cue category + premise category, see DETECTION below.
+   Counting rule: each instance of a cue counts once (for example two time-pressure phrases = 2).
+   The cue counts and element scores in SMS are the developer's judgement. Re-check them with the NIST worksheet
+   (Appendix A of TN 2276) before quoting any of them.
 
    SCORING (same contract: max 44, shields <= 3)
      scam correctly called smishing = 8 XP (x4 = 32)   real text correctly kept = 6 XP (x2 = 12)
      A shield is lost ONLY when a scam is marked legitimate.
    ====================================================================== */
 
-/* ---------- data model ---------- */
-/* A red flag. `t` is the exact phrase to highlight in the text. If `t` is not found in the
-   text (for example a phone number), it is still listed, just not highlighted. */
-interface Flag { t: string; why: string }
+/* ---------- the 23 cues of the NIST Phish Scale (TN 2276, Table 1) ---------- */
+const NIST_CUES = [
+  // Error
+  "Spelling and grammar irregularities", "Inconsistency",
+  // Technical indicator
+  "Attachment type", "Sender display name and email address", "URL hyperlinking", "Domain spoofing",
+  // Visual presentation indicator
+  "No/minimal branding and logos", "Logo imitation or out-of-date branding/logos", "Unprofessional looking design or formatting", "Security indicators and icons",
+  // Language and content
+  "Legal language/copyright info/disclaimers", "Distracting detail", "Requests for sensitive information", "Sense of urgency", "Threatening language", "Generic greeting", "Lack of signer details",
+  // Common tactic
+  "Humanitarian appeals", "Too good to be true offers", "You're special", "Limited time offer", "Mimics a work or business process", "Poses as friend, colleague, supervisor, authority figure",
+] as const;
+type CueName = (typeof NIST_CUES)[number];
 
+/* ---------- data model ---------- */
+/* A red flag. `t` is the exact phrase to highlight in the text (optional; if it is missing or not found it is still
+   listed, just not highlighted). `cue` is the NIST cue it counts as. A flag WITHOUT a cue is an extra clue that the
+   Phish Scale does not count, so it is shown but never added to the cue total. */
+// A red flag inside a scam text, the NIST cue it counts as, and why it is a flag.
+interface Flag { t?: string; cue?: CueName; why: string }
+
+// The five premise alignment elements, each scored 0, 2, 4, 6 or 8 for the audience (element 5 = training, subtracted).
+type Elements = [number, number, number, number, number];
+
+// One text message: its text, whether it is a scam, its red flags and the premise alignment element scores.
 interface Sms {
   name: string;        // contact name shown in the phone header
   number: string;
   time: string;
   text: string;        // the message
   isPhish: boolean;
-  week: string;        // "YOUR WEEK": the life facts that make it feel real (premise)
-  fit: 0 | 1 | 2;      // premise fit: 0 = no fit, 1 = partial, 2 = strong
+  week: string;        // "YOUR WEEK": the audience context that the premise elements are scored against
+  elements?: Elements; // premise alignment element scores (scams only)
   flags: Flag[];       // red flags (scams)
   signals: string[];   // safe signals (real texts)
   tip: string;         // "do this in real life"
 }
 
+// The text messages of the smishing simulator.
 const SMS: Sms[] = [
   {
     name: "Unknown", number: "+1 (844) 555-0193", time: "9:42 AM",
     text: "USPS: Your package is waiting for pickup. Confirm delivery address and pay $3.99 redelivery fee: http://bit.ly/usps-pkge-24h",
     isPhish: true,
     week: "You ordered sneakers online 4 days ago. Tracking says 'in transit'.",
-    fit: 2,
+    elements: [6, 6, 4, 4, 2], // 6+6+4+4-2 = 18 = Strong
     flags: [
-      { t: "+1 (844) 555-0193", why: "A random number. USPS texts from short codes, not ordinary numbers." },
-      { t: "pay $3.99 redelivery fee", why: "A tiny fee is bait: the page steals card details. Real redelivery is free." },
+      { t: "USPS:", cue: "Sender display name and email address", why: "The text says USPS, but it comes from a random number. USPS does not text from ordinary numbers." },
+      { t: "Your package is waiting for pickup.", cue: "Mimics a work or business process", why: "Package delivery is an everyday process, so it feels normal." },
+      { cue: "Poses as friend, colleague, supervisor, authority figure", why: "It pretends to be a real organisation you trust." },
+      { t: "Confirm delivery address", cue: "Requests for sensitive information", why: "It asks you to confirm your home address." },
+      { t: "pay $3.99 redelivery fee", cue: "Requests for sensitive information", why: "A tiny fee is bait: the page steals card details. Real redelivery is free." },
+      { cue: "Generic greeting", why: "No name and no greeting, so it could be sent to anyone." },
+      { cue: "Lack of signer details", why: "No person, phone number or office is named." },
       { t: "http://bit.ly/usps-pkge-24h", why: "A shortened link hides who really owns the page." },
     ],
     signals: [],
@@ -590,7 +647,6 @@ const SMS: Sms[] = [
     text: "Wells Fargo Alert: We blocked a suspicious charge of $892.34. To verify your account, reply YES or NO.",
     isPhish: false,
     week: "Your banking app ALSO shows a blocked $892.34 charge that you didn't make.",
-    fit: 2,
     flags: [],
     signals: [
       "It comes from a saved contact.",
@@ -604,11 +660,16 @@ const SMS: Sms[] = [
     text: "Congratulations! You've been selected as a Walmart gift card winner! Claim your $500 reward now: walmart-rewards-center.com/claim?id=849273",
     isPhish: true,
     week: "You never entered any contest or giveaway.",
-    fit: 0,
+    elements: [0, 0, 2, 2, 2], // 0+0+2+2-2 = 2 = Weak
     flags: [
-      { t: "Congratulations! You've been selected", why: "A prize for something you never entered." },
-      { t: "Claim your $500 reward now", why: "An offer that is too good to be true and rushes you." },
-      { t: "walmart-rewards-center.com", why: "The owner is walmart-rewards-center.com, not walmart.com." },
+      { cue: "Sender display name and email address", why: "A random number, not Walmart." },
+      { t: "You've been selected", cue: "You're special", why: "It says you were picked for something you never entered." },
+      { t: "$500 reward", cue: "Too good to be true offers", why: "A big prize for nothing is too good to be true." },
+      { t: "now", cue: "Sense of urgency", why: "It rushes you to act right away." },
+      { t: "walmart-rewards-center.com", cue: "Domain spoofing", why: "The owner is walmart-rewards-center.com, not walmart.com." },
+      { t: "Walmart", cue: "Poses as friend, colleague, supervisor, authority figure", why: "It borrows the name of a brand you know." },
+      { cue: "Generic greeting", why: "No name and no greeting." },
+      { cue: "Lack of signer details", why: "No contact details for any real person or store." },
     ],
     signals: [],
     tip: "If you didn't enter, you didn't win. Delete it and report it. Never claim prizes through a text link.",
@@ -618,26 +679,38 @@ const SMS: Sms[] = [
     text: "ALERT: Your Amazon Prime account has been suspended due to billing failure. Update payment method immediately to restore service: amzn-account-services.com/verify",
     isPhish: true,
     week: "You have Amazon Prime, and your bank sent you a new card last month.",
-    fit: 2,
+    elements: [6, 6, 6, 6, 2], // 6+6+6+6-2 = 22 = Strong
     flags: [
-      { t: "+1 (650) 555-3091", why: "A random number, not Amazon." },
-      { t: "has been suspended", why: "A scary status meant to make you panic." },
-      { t: "Update payment method immediately", why: "It asks for payment details and rushes you." },
-      { t: "amzn-account-services.com", why: "A look-alike name. The owner is not amazon.com." },
+      { cue: "Sender display name and email address", why: "A random number, not Amazon." },
+      { t: "Amazon Prime", cue: "Poses as friend, colleague, supervisor, authority figure", why: "It uses the name of a company you really use." },
+      { t: "has been suspended", cue: "Threatening language", why: "A scary status (an implied threat) meant to make you panic." },
+      { t: "billing failure", cue: "Mimics a work or business process", why: "A billing problem looks like a normal business notice." },
+      { t: "Update payment method", cue: "Requests for sensitive information", why: "It asks for your payment details." },
+      { t: "immediately", cue: "Sense of urgency", why: "It rushes you so you don't stop to check." },
+      { t: "amzn-account-services.com", cue: "Domain spoofing", why: "A look-alike name. The owner is not amazon.com." },
+      { cue: "Generic greeting", why: "No name and no greeting." },
+      { cue: "Lack of signer details", why: "No contact details or support team named." },
     ],
     signals: [],
     tip: "Open the Amazon app yourself and look at your account. If something is wrong, it will say so there.",
   },
   {
     name: "NorthHigh-ALERT", number: "+1 (555) 555-0112", time: "1:20 PM",
-    text: "North High: your school account will be disabled today. Verify now: northHigh-alert.top",
+    text: "North High: your school account will be disabled today. Verify now: northhigh-alert.top",
     isPhish: true,
     week: "You're a North High student, and IT announced a portal update on Monday.",
-    fit: 2,
+    elements: [8, 8, 6, 6, 2], // 8+8+6+6-2 = 26 = Strong
     flags: [
-      { t: "will be disabled today", why: "A threat with a same-day deadline." },
-      { t: "Verify now:", why: "It orders you to act immediately." },
-      { t: "NorthHigh-alert.top", why: "The owner is NorthHigh-alert.top, not NorthHigh.edu. A sender name is just text." },
+      { cue: "Sender display name and email address", why: "The sender name is only a label. The number is not the school's." },
+      { t: "North High:", cue: "Poses as friend, colleague, supervisor, authority figure", why: "It pretends to be your school." },
+      { t: "your school account", cue: "Mimics a work or business process", why: "Account notices from school feel like a normal process." },
+      { t: "will be disabled", cue: "Threatening language", why: "A threat to lock you out." },
+      { t: "today", cue: "Sense of urgency", why: "A same-day deadline." },
+      { t: "Verify", cue: "Requests for sensitive information", why: "'Verify' means type your login on the page." },
+      { t: "now", cue: "Sense of urgency", why: "It orders you to act immediately." },
+      { t: "northhigh-alert.top", cue: "Domain spoofing", why: "The owner is northhigh-alert.top, not northhigh.edu. A sender name is just text." },
+      { cue: "Generic greeting", why: "No name and no greeting." },
+      { cue: "Lack of signer details", why: "No office, person or phone number." },
     ],
     signals: [],
     tip: "Type your school portal address yourself. If your account really had a problem, it will say so there. Tell IT about the text.",
@@ -647,7 +720,6 @@ const SMS: Sms[] = [
     text: "North High Counseling: your appointment moved to 2:30 P.M. today. Nothing to do on your side.",
     isPhish: false,
     week: "You booked a counseling visit for today.",
-    fit: 2,
     flags: [],
     signals: [
       "A saved contact, and you really have an appointment.",
@@ -658,18 +730,51 @@ const SMS: Sms[] = [
   },
 ];
 
-/* ---------- Phish Scale helpers (teaching version) ---------- */
-const FIT_LABEL = ["LOW FIT", "PARTIAL FIT", "STRONG FIT"];
-const CUE_LABEL = ["FEW", "SOME", "MANY"];
-const cueLevel = (n: number) => (n <= 1 ? 0 : n <= 3 ? 1 : 2);        // scaled-down thresholds
-const difficulty = (cues: number, fit: number) => 2 - cueLevel(cues) + fit;   // 0 (easy) to 4 (hardest)
-const DIFF_LABEL = ["EASY TO SPOT", "FAIRLY EASY", "MODERATE", "HARD TO SPOT", "VERY HARD TO SPOT"];
-const DIFF_COLOR = ["#4ade80", "#a3e635", "#f6c453", "#fb923c", "#fb4b5b"];
+/* ---------- Phish Scale calculation (NIST TN 2276) ---------- */
+type CueCat = "Few" | "Some" | "Many";
+type PremCat = "Weak" | "Medium" | "Strong";
+// Table 3: total cue count -> cue category.
+const cueCategory = (n: number): CueCat => (n <= 8 ? "Few" : n <= 14 ? "Some" : "Many");
+// Equation 1: elements 1 to 4 added, element 5 (training) subtracted.
+const premiseRating = (e: Elements) => e[0] + e[1] + e[2] + e[3] - e[4];
+// Table 6: premise alignment rating -> premise category.
+const premiseCategory = (r: number): PremCat => (r <= 10 ? "Weak" : r <= 17 ? "Medium" : "Strong");
+// Table 7: cue category + premise category -> detection difficulty (exact wording from the guide).
+const DETECTION: Record<CueCat, Record<PremCat, string>> = {
+  Few:  { Strong: "Very difficult",       Medium: "Very difficult",       Weak: "Moderately difficult" },
+  Some: { Strong: "Very difficult",       Medium: "Moderately difficult", Weak: "Moderately to Least difficult" },
+  Many: { Strong: "Moderately difficult", Medium: "Moderately difficult", Weak: "Least difficult" },
+};
+const DIFF_COLOR: Record<string, string> = {
+  "Very difficult": "#fb4b5b",
+  "Moderately difficult": "#fb923c",
+  "Moderately to Least difficult": "#a3e635",
+  "Least difficult": "#4ade80",
+};
+const DIFF_LEVEL: Record<string, number> = { "Least difficult": 1, "Moderately to Least difficult": 2, "Moderately difficult": 3, "Very difficult": 4 };
+// Plain-language names for the five premise alignment elements (TN 2276, Sec. 2.2.1).
+const ELEMENT_LABEL = [
+  "Mimics a process or practice you use",
+  "Is relevant to you",
+  "Fits what is happening around you",
+  "Makes you worry about NOT acting",
+  "You had training or warnings (subtracted)",
+];
+
+// Worked-out Phish Scale result for one scam text.
+function scaleFor(m: Sms) {
+  const cues = m.flags.filter((f) => f.cue).length;
+  const cueCat = cueCategory(cues);
+  const rating = premiseRating(m.elements as Elements);
+  const premCat = premiseCategory(rating);
+  return { cues, cueCat, rating, premCat, detection: DETECTION[cueCat][premCat] };
+}
 
 /* Highlight the red-flag phrases inside the message text (only used after the answer). */
 function marked(text: string, flags: Flag[]): ReactNode[] {
   const hits = flags
-    .map((f) => ({ f, at: text.indexOf(f.t) }))
+    .filter((f) => f.t)
+    .map((f) => ({ f, at: text.indexOf(f.t as string) }))
     .filter((h) => h.at >= 0)
     .sort((a, b) => a.at - b.at);
   const out: ReactNode[] = [];
@@ -682,12 +787,13 @@ function marked(text: string, flags: Flag[]): ReactNode[] {
         {h.f.t}
       </mark>,
     );
-    pos = h.at + h.f.t.length;
+    pos = h.at + (h.f.t as string).length;
   });
   out.push(text.slice(pos));
   return out;
 }
 
+// TextStormTask (Mirage level 2, "textstorm"): the SMISHING simulator. Max 44 XP: a scam called smishing = 8 XP, a real text kept = 6 XP. A shield is lost only when a scam is marked legitimate.
 function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
   const [i, setI] = useState(0);
   const [stage, setStage] = useState<"typing" | "ready" | "answered">("typing");
@@ -738,7 +844,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
         score={score} max={44}
         lines={[
           "Smishing = phishing by text. Scams ask you to tap, pay, scan or log in, and they rush you.",
-          "Cues (odd links, fake names, pressure) give a scam away. A story that fits your week makes the cues easier to miss.",
+          "The NIST Phish Scale rates how hard a phish is to spot using two things: how many cues it has, and how well its story fits the people reading it. Few cues + a strong fit = very difficult.",
           "Check the request, not the story: go to the real app or site yourself. Not every text is a scam.",
           shields > 0 ? `${shields} scam(s) were marked legitimate. Real attackers only need one.` : "No scam marked legitimate. Shields intact.",
         ]}
@@ -749,7 +855,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
 
   const answered = stage === "answered";
   const right = answered && (choice === "smish") === m.isPhish;
-  const diff = difficulty(m.flags.length, m.fit);
+  const scale = m.isPhish && m.elements ? scaleFor(m) : null;
 
   return (
     <Panel title="SMISHING SIMULATOR" right={<span className="text-[10px] text-[#b8b5c9]" style={MONO}>MESSAGE {i + 1} OF {SMS.length}</span>}>
@@ -835,27 +941,49 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
                 : "\u274C NOT QUITE: THIS ONE WAS LEGITIMATE"}
             </p>
 
-            {/* red flags (scam) or safe signals (real) */}
+            {/* red flags named as NIST cues (scam) or safe signals (real) */}
             <ul className="space-y-1.5 rounded-xl border border-white/10 bg-[#070711]/60 p-3 text-sm">
-              <li className="text-[10px] font-bold tracking-[0.25em] text-[#77748c]" style={MONO}>{m.isPhish ? "RED FLAGS" : "WHY IT'S SAFE"}</li>
+              <li className="text-[10px] font-bold tracking-[0.25em] text-[#77748c]" style={MONO}>{m.isPhish ? "RED FLAGS (PHISH SCALE CUES)" : "WHY IT'S SAFE"}</li>
               {m.isPhish
-                ? m.flags.map((f) => <li key={f.t} className="text-[#f5f3ff]"><span className="text-[#fb4b5b]">&#9873;</span> <b>{f.t}</b>: <span className="text-[#d8d6e6]">{f.why}</span></li>)
+                ? m.flags.map((f, k) => (
+                    <li key={k} className="text-[#f5f3ff]">
+                      <span className="text-[#fb4b5b]">&#9873;</span> <b>{f.cue ?? "Extra clue"}</b>{f.cue ? "" : " (not a Phish Scale cue)"}: <span className="text-[#d8d6e6]">{f.why}</span>
+                    </li>
+                  ))
                 : m.signals.map((s) => <li key={s} className="text-[#d8d6e6]"><span className="text-[#4ade80]">&#10003;</span> {s}</li>)}
             </ul>
 
-            {/* PHISH SCALE mini-meter (scams only) */}
-            {m.isPhish && (
+            {/* NIST PHISH SCALE result (scams only), worked out with the guide's own tables */}
+            {scale && m.elements && (
               <div className="space-y-2 rounded-xl border border-white/10 bg-[#070711]/70 p-3">
-                <p className="text-[10px] font-bold tracking-[0.25em] text-[#77748c]" style={MONO}>PHISH SCALE: HOW HARD TO SPOT?</p>
+                <p className="text-[10px] font-bold tracking-[0.25em] text-[#77748c]" style={MONO}>NIST PHISH SCALE: HOW HARD TO SPOT?</p>
                 <div className="grid grid-cols-2 gap-2 text-center text-xs" style={MONO}>
-                  <div className="rounded-lg bg-black/50 p-2"><p className="text-[#77748c]">CUES</p><p className="font-bold text-[#f5f3ff]">{m.flags.length} ({CUE_LABEL[cueLevel(m.flags.length)]})</p></div>
-                  <div className="rounded-lg bg-black/50 p-2"><p className="text-[#77748c]">YOUR WEEK</p><p className="font-bold text-[#f5f3ff]">{FIT_LABEL[m.fit]}</p></div>
+                  <div className="rounded-lg bg-black/50 p-2"><p className="text-[#77748c]">CUES COUNTED</p><p className="font-bold text-[#f5f3ff]">{scale.cues} = {scale.cueCat.toUpperCase()}</p></div>
+                  <div className="rounded-lg bg-black/50 p-2"><p className="text-[#77748c]">PREMISE ALIGNMENT</p><p className="font-bold text-[#f5f3ff]">{scale.rating} = {scale.premCat.toUpperCase()}</p></div>
                 </div>
                 <div className="flex gap-1" aria-hidden="true">
-                  {DIFF_LABEL.map((_, n) => <span key={n} className="h-2.5 flex-1 rounded" style={{ background: n <= diff ? DIFF_COLOR[diff] : "rgba(255,255,255,.1)" }} />)}
+                  {[1, 2, 3, 4].map((n) => <span key={n} className="h-2.5 flex-1 rounded" style={{ background: n <= DIFF_LEVEL[scale.detection] ? DIFF_COLOR[scale.detection] : "rgba(255,255,255,.1)" }} />)}
                 </div>
-                <p className="text-center text-xs font-bold" style={{ ...MONO, color: DIFF_COLOR[diff] }}>{DIFF_LABEL[diff]}</p>
-                <p className="text-[11px] text-[#b8b5c9]">Fewer cues + a story that fits your week = harder to spot.</p>
+                <p className="text-center text-xs font-bold" style={{ ...MONO, color: DIFF_COLOR[scale.detection] }}>{scale.detection.toUpperCase()}</p>
+                <p className="text-[11px] text-[#b8b5c9]">Fewer cues + a story that fits your week = harder to spot. Few = 1 to 8 cues, Some = 9 to 14, Many = 15 or more.</p>
+
+                <details className="text-[11px] text-[#b8b5c9]">
+                  <summary className="cursor-pointer text-[#22D3EE]">Show the Phish Scale math</summary>
+                  <ul className="mt-2 space-y-1">
+                    {ELEMENT_LABEL.map((label, k) => (
+                      <li key={label} className="flex justify-between gap-2">
+                        <span>{k + 1}. {label}</span>
+                        <span style={MONO}>{k === 4 ? "-" : "+"}{m.elements ? m.elements[k] : 0}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2" style={MONO}>
+                    {m.elements[0]} + {m.elements[1]} + {m.elements[2]} + {m.elements[3]} - {m.elements[4]} = {scale.rating}
+                  </p>
+                  <p className="mt-1">Weak = 10 or below, Medium = 11 to 17, Strong = 18 or higher.</p>
+                </details>
+
+                <p className="text-[10px] text-[#77748c]">NIST built the Phish Scale for emails. CyberGuard applies the same counting steps to short texts, so treat the numbers as a teaching estimate.</p>
               </div>
             )}
 
@@ -879,6 +1007,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
    BEFORE clicking, not just findable by elimination.)
    ====================================================================== */
 
+   // One field of an email that can be hovered or inspected (sender, link, ...).
    interface EmailField {
     text: string;
     isGiveaway: boolean;
@@ -889,6 +1018,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
     url?: string;
   }
   
+  // One round of the email inspector: the email and which part gives it away.
   interface FRound {
     who: string;
     facts: string[];
@@ -898,37 +1028,38 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
     button: EmailField;
   }
   
+  // The rounds of the email inspector.
   const FROUNDS: FRound[] = [
     {
       who: "Sarah, junior",
-      facts: ["Uses the school portal every day", "IT really announced a portal update on Monday", "Her school address is NorthHigh.edu"],
-      sender: { text: "NorthHigh IT Desk <it@NorthHigh.edu>", isGiveaway: false, reason: "The sender address looks perfectly real. Scammers can fake the display name, but this one is actually spoofing the real address." },
+      facts: ["Uses the school portal every day", "IT really announced a portal update on Monday", "Her school address is northhigh.edu"],
+      sender: { text: "NorthHigh IT Desk <it@northhigh.edu>", isGiveaway: false, reason: "The sender address looks perfectly real. Scammers can fake the display name, but this one is actually spoofing the real address." },
       subject: { text: "Action needed: portal password expires today", isGiveaway: false, reason: "Urgency is a red flag, but the real proof is hiding further down." },
       body: { text: "Hi Sarah,\n\nAs announced on Monday, we are updating the portal. Your password expires today. Please update it immediately to avoid losing access.", isGiveaway: false, reason: "These are true facts. The hacker borrowed real school news to make it feel safe." },
       button: {
         text: "Update my password",
         isGiveaway: true,
         url: "https://northhigh-portal.verify-login.top/reset",
-        reason: "GIVEAWAY! Hovering shows the real destination: verify-login.top, not NorthHigh.edu. The button text can say anything — the URL in the status bar is the truth.",
+        reason: "GIVEAWAY! Hovering shows the real destination: verify-login.top, not northhigh.edu. The button text can say anything — the URL in the status bar is the truth. (Phish Scale cues: URL hyperlinking and Domain spoofing.)",
       },
     },
     {
       who: "Diego, senior",
-      facts: ["Applied for 2 scholarships last month", "Is waiting to hear back", "Real scholarship emails come from @NorthHigh.edu"],
-      sender: { text: "Scholarship Office <office@scholarship-docs.help>", isGiveaway: true, reason: "GIVEAWAY! The sender's domain is a look-alike. Real scholarship emails come from @NorthHigh.edu." },
+      facts: ["Applied for 2 scholarships last month", "Is waiting to hear back", "Real scholarship emails come from @northhigh.edu"],
+      sender: { text: "Scholarship Office <office@scholarship-docs.help>", isGiveaway: true, reason: "GIVEAWAY! The sender's domain is a look-alike. Real scholarship emails come from @northhigh.edu. (Phish Scale cue: Domain spoofing.)" },
       subject: { text: "Your application is missing a document", isGiveaway: false, reason: "This matches his real life perfectly. He is waiting for news." },
       body: { text: "Hello Diego,\n\nYour scholarship application is missing one document. Please upload it by Friday or you will be removed from consideration.", isGiveaway: false, reason: "Again, this uses true facts to scare him into acting fast." },
       button: {
         text: "Upload document",
         isGiveaway: false,
         url: "https://scholarship-docs.help/upload",
-        reason: "The link matches the sender's own (fake) domain, so it isn't the inconsistency here — the sender's address is the real giveaway.",
+        reason: "The link goes to the same fake domain as the sender, so the two match each other. Start with the sender's address: it already proves the email is fake.",
       },
     },
     {
       who: "Ms. Okafor, office manager",
       facts: ["Approves school purchases every week", "Purchases are approved inside the finance system", "Principal Hall never asks for approvals by email link"],
-      sender: { text: "Principal Hall <principal@NorthHigh.edu>", isGiveaway: false, reason: "The address is 100% real. The hacker hacked the principal's actual account." },
+      sender: { text: "Principal Hall <principal@northhigh.edu>", isGiveaway: false, reason: "The address is 100% real. The hacker hacked the principal's actual account." },
       subject: { text: "Approval needed today", isGiveaway: false, reason: "Urgency is a cue, but not the main giveaway." },
       body: { text: "Hi Ms. Okafor,\n\nI need your approval for 12 new lab laptops. Please approve through this link today.", isGiveaway: false, reason: "The request for laptops is normal, but the way he asks for approval is wrong." },
       button: {
@@ -940,6 +1071,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
     },
   ];
   
+  // AudienceTask (Mirage level 4, "audience"): EMAIL INSPECTOR. Hovering reveals the real link, like a real mail client, so the giveaway can be spotted before clicking.
   function AudienceTask({ onComplete, onMood }: TaskCallbacks) {
     const [r, setR] = useState(0);
     const [pts, setPts] = useState(0);
@@ -983,7 +1115,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
           title="You dissected the traps"
           score={Math.min(42, pts)} max={42}
           lines={[
-            "Phishers write for someone. They copy TRUE details so the email feels normal.",
+            "Phishers write for someone. They copy TRUE details so the email feels normal. The Phish Scale calls this premise alignment.",
             "The giveaway is always technical: the sender's real address, or the link's real destination — hover before you click, every time.",
             "If you clicked the wrong thing, you learned that true facts are just bait.",
           ]}
@@ -1095,6 +1227,7 @@ function TextStormTask({ onComplete, onMood }: TaskCallbacks) {
 /* ======================================================================
    TASK 5: EMERGENCY RECOVERY (Hacker vs. Defender Card Battle)
    ====================================================================== */
+// RecoveryTask (Mirage level 5, "recovery"): a hacker-vs-defender card battle. Pick the moves that actually lock the hacker out.
 function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
@@ -1103,23 +1236,25 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
   const [shake, setShake] = useState(false);
 
   // The 4 rounds of the battle
+  // The rounds of the card battle. The correct card is NOT always the longest or always in the same slot:
+  // round 1 = shortest (slot 3), round 2 = middle (slot 1), round 3 = longest (slot 2), round 4 = middle (slot 3).
   const ROUNDS = [
     {
       hackerText: "I still have Sarah's old password. I'm logging into her account right now!",
       hackerIcon: "🔑",
       options: [
-        { text: "Reply to the hacker and ask them to stop.", isCorrect: false, why: "The hacker won't stop. You need to close the door they are using." },
-        { text: "Change the password from a clean device.", isCorrect: true, why: "CRITICAL HIT! By changing the password, the hacker's stolen key is now useless." },
-        { text: "Turn off Sarah's computer.", isCorrect: false, why: "Turning off the computer doesn't kick the hacker out of the server." }
+        { text: "Reply to the hacker and politely ask them to stop.", isCorrect: false, why: "The hacker won't stop. You need to close the door they are using." },
+        { text: "Turn off Sarah's computer and walk away for a while.", isCorrect: false, why: "Turning off the computer doesn't kick the hacker out of the server." },
+        { text: "Change the password from a clean device.", isCorrect: true, why: "CRITICAL HIT! By changing the password, the hacker's stolen key is now useless." }
       ]
     },
     {
       hackerText: "Nice password change. But I'm still logged in on my laptop from earlier!",
       hackerIcon: "💻",
       options: [
-        { text: "Sign out all other devices and active sessions.", isCorrect: true, why: "CRITICAL HIT! This instantly forces the hacker's laptop offline." },
-        { text: "Wait a day and see if they leave on their own.", isCorrect: false, why: "Waiting gives the hacker more time to steal her data." },
-        { text: "Change the profile picture.", isCorrect: false, why: "The hacker is still in the account. A new profile picture doesn't kick them out." }
+        { text: "Sign out of all other devices and active sessions.", isCorrect: true, why: "CRITICAL HIT! This instantly forces the hacker's laptop offline." },
+        { text: "Change the profile picture.", isCorrect: false, why: "The hacker is still in the account. A new profile picture doesn't kick them out." },
+        { text: "Wait a day or two and see if they leave on their own.", isCorrect: false, why: "Waiting gives the hacker more time to steal her data." }
       ]
     },
     {
@@ -1127,17 +1262,17 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
       hackerIcon: "📨",
       options: [
         { text: "Delete the whole account to be safe.", isCorrect: false, why: "That destroys all of Sarah's data. We just need to remove the hacker's trap." },
-        { text: "Check forwarding rules and recovery emails for changes.", isCorrect: true, why: "CRITICAL HIT! Finding and deleting the hacker's hidden rule breaks their backdoor." },
-        { text: "Just send an email to the hacker asking them to delete it.", isCorrect: false, why: "Hackers don't follow instructions. You have to fix the settings yourself." }
+        { text: "Check the forwarding rules and recovery email for changes, then remove them.", isCorrect: true, why: "CRITICAL HIT! Finding and deleting the hacker's hidden rule breaks their backdoor." },
+        { text: "Email the hacker and ask them to delete it.", isCorrect: false, why: "Hackers don't follow instructions. You have to fix the settings yourself." }
       ]
     },
     {
       hackerText: "I'm using Sarah's account to message all her friends and ask them for gift cards!",
       hackerIcon: "🎣",
       options: [
-        { text: "Warn her friends on a different app (like a text message) and report the hack.", isCorrect: true, why: "CRITICAL HIT! Warning them through a different channel stops the trap from spreading." },
+        { text: "Tell Sarah to post a story on SnapGram and hope everyone sees it.", isCorrect: false, why: "A public story might miss the friends who are currently falling for the trap." },
         { text: "Pay the 'recovery fee' someone is DMing you.", isCorrect: false, why: "Anyone offering to recover the account for money is part of the scam." },
-        { text: "Tell Sarah to post a story on SnapGram.", isCorrect: false, why: "A public story might miss the friends who are currently falling for the trap." }
+        { text: "Warn her friends on another app, and report the hack.", isCorrect: true, why: "CRITICAL HIT! Warning them through a different channel stops the trap from spreading." }
       ]
     }
   ];
@@ -1165,7 +1300,8 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
   function nextRound() {
     setFeedback(null);
     if (round + 1 >= ROUNDS.length) {
-      onComplete(Math.min(40, score), mistakes);
+      // Cap shields lost at 2, as the TaskCallbacks contract says (it was uncapped before).
+      onComplete(Math.min(40, score), Math.min(2, mistakes));
     } else {
       setRound(round + 1);
       onMood?.("calm");
@@ -1235,6 +1371,9 @@ function RecoveryTask({ onComplete, onMood }: TaskCallbacks) {
    ====================================================================== */
 export default function PHTask({ task, onComplete, onMood }: { task: PHTaskId } & TaskCallbacks) {
   const [ready, setReady] = useState(false);
+  // ROUTER: the one component MissionPlayer renders. It gets the task id from the level files (last argument of pw/ph/se/ai).
+  // It shows the practice round first (TaskBrief, content in lib/mission/briefs.ts). When the player clicks Start, `ready`
+  // becomes true and the real mini-game replaces it.
   const brief = TASK_BRIEFS[task];
   if (!ready && brief) {
     return <TaskBrief brief={brief} onStart={() => setReady(true)} />;

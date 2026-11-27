@@ -34,6 +34,9 @@ const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 /* Max XP per task. MissionPlayer reads this to size the "account security" meter. */
 export const SE_TASK_MAX_XP: Record<SETaskId, number> = { tactics: 40, chat: 40, recon: 48, gauntlet: 34, call: 60 };
 
+// Every task receives the same two callbacks:
+//   onComplete(xp, mistakes)  called once when the task ends. xp is added to the score; mistakes (max 2) are shields lost.
+//   onMood(mood)              changes the scene mood (safe / alert / breach / calm) as the player does well or badly.
 interface TaskCallbacks {
   onComplete: (xp: number, mistakes: number) => void;
   onMood?: (mood: Mood) => void; // optional: lets a task change the companion's mood
@@ -45,6 +48,7 @@ function snd(kind: SfxKind) {
 }
 
 /* Small animation CSS for the tasks (scoped by .se-root). */
+// CSS classes and keyframes used only by this file (they start with se-).
 const SE_CSS = `
 @keyframes seBars { 0%,100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
 @keyframes seFlipA { 0%,45% { opacity: 1; } 50%,95% { opacity: 0; } 100% { opacity: 1; } }
@@ -63,6 +67,7 @@ const SE_CSS = `
    ====================================================================== */
 
 /* A glass panel with a title bar in the mission accent colour. */
+// Panel: the common bordered card with a coloured title bar.
 function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
     <section
@@ -84,6 +89,7 @@ function Panel({ title, right, children }: { title: string; right?: ReactNode; c
   );
 }
 
+// Btn: the standard solid button.
 function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button
@@ -98,6 +104,7 @@ function Btn({ children, onClick, disabled }: { children: ReactNode; onClick: ()
   );
 }
 
+// Bar: a labelled meter (used for the caller's GRIP and for scores).
 function Bar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div>
@@ -112,6 +119,7 @@ function Bar({ label, value, color }: { label: string; value: number; color: str
 }
 
 /* End-of-task card: score, a few takeaways, and the Continue button. */
+// Summary: the end-of-task card; its Continue button is where onComplete is called.
 function Summary({ title, score, max, lines, onDone }: { title: string; score: number; max: number; lines: string[]; onDone: () => void }) {
   return (
     <Panel title="TASK COMPLETE">
@@ -131,6 +139,7 @@ function Summary({ title, score, max, lines, onDone }: { title: string; score: n
 
 /* Phone-call header used by the two call tasks: caller ID that flickers between a trusted
    label and the real unknown number, a voice waveform, and the caller's "grip" meter. */
+// CallerHeader: the caller's name plate with his GRIP meter. Grip falls as the player resists the pressure.
 function CallerHeader({ grip }: { grip: number }) {
   return (
     <div className="space-y-3 border-b border-white/10 bg-[#070711]/70 p-4">
@@ -156,8 +165,10 @@ function CallerHeader({ grip }: { grip: number }) {
 /* ======================================================================
    TACTICS (the psychology vocabulary shared by tasks 1, 4 and 5)
    ====================================================================== */
+// The manipulation tactics the player learns to name: authority, fear, urgency, favour, secrecy, rapport, reward, ask (and harmless).
 type Tactic = "authority" | "fear" | "urgency" | "favour" | "secrecy" | "rapport" | "reward" | "ask" | "harmless";
 
+// Tactic id -> label shown on the buttons.
 const TACTICS: { id: Tactic; label: string }[] = [
   { id: "authority", label: "Authority" },
   { id: "fear", label: "Fear" },
@@ -169,6 +180,7 @@ const TACTICS: { id: Tactic; label: string }[] = [
   { id: "ask", label: "The ask" },
   { id: "harmless", label: "Harmless" },
 ];
+// Lookup: tactic id -> label.
 const LABEL = Object.fromEntries(TACTICS.map((t) => [t.id, t.label])) as Record<Tactic, string>;
 
 /* ======================================================================
@@ -176,6 +188,7 @@ const LABEL = Object.fromEntries(TACTICS.map((t) => [t.id, t.label])) as Record<
    The player replays Monday's call one sentence at a time and names the tactic.
    No shields here: naming a tactic wrong is learning, not an unsafe decision.
    ====================================================================== */
+// Level 1 script: each line the caller says, the tactic it uses, why, and the counter-move.
 const TRANSCRIPT: { line: string; answer: Tactic; why: string; counter: string }[] = [
   { line: "Hi, it's Mr. Davies from IT. I've been fixing student accounts all week.", answer: "authority",
     why: "He borrows a title and a job to sound official. Titles cost nothing to fake.", counter: "Judge the channel, not the title." },
@@ -195,6 +208,7 @@ const TRANSCRIPT: { line: string; answer: Tactic; why: string; counter: string }
     why: "Isolation: he needs you away from anyone who'd say 'that's a scam'.", counter: "A request for secrecy is a red flag by itself." },
 ];
 
+// TacticSpotter (Whisper level 1, "tactics"): replay the call one sentence at a time and name the tactic. No shields: naming a tactic wrong is learning, not an unsafe choice.
 function TacticSpotter({ onComplete }: TaskCallbacks) {
   const [i, setI] = useState(0);                       // which line we're on
   const [picked, setPicked] = useState<Tactic | null>(null);
@@ -313,10 +327,13 @@ function TacticSpotter({ onComplete }: TaskCallbacks) {
    A small branching conversation. Each option has a grade, points, an explanation,
    and the next node. Sending the code = unsafe = a mistake (a shield).
    ====================================================================== */
+// One reply option in the DM chat: grade, points, mistake flag, explanation and the next chat node.
 interface ChatOpt { text: string; grade: "best" | "ok" | "bad"; pts: number; mistake?: boolean; why: string; next: string }
+// One step of the branching conversation: what they say, an optional SMS, the options, or an ending (safe / recovered / hacked).
 interface ChatNode { them: string[]; sms?: string; sys?: string; opts?: ChatOpt[]; ending?: "safe" | "recovered" | "hacked" }
 
 /* The three "last stand" nodes share these options. */
+// The options for the final decision of the chat.
 const OPTS_FINAL: ChatOpt[] = [
   { text: "Ok ok... here: 482913", grade: "bad", pts: 0, mistake: true, next: "x1",
     why: "That code was sent to YOUR phone because someone is logging into YOUR account. Sending it hands over the key." },
@@ -326,6 +343,7 @@ const OPTS_FINAL: ChatOpt[] = [
     why: "Stopping is good, but also report the account and warn Noor another way so she can recover it." },
 ];
 
+// The whole conversation as a graph: node name -> ChatNode. Each option points to the next node.
 const CHAT: Record<string, ChatNode> = {
   n1: {
     them: ["omg are u there??", "my SnapGram got locked and i'm locked out of EVERYTHING \u{1F62D}", "can u help me real quick??"],
@@ -371,8 +389,10 @@ const CHAT: Record<string, ChatNode> = {
   "end-hacked": { them: [], sys: "\u26A0\uFE0F Your account is taken over. Your friends now receive the same message... from YOU.", ending: "hacked" },
 };
 
+// One bubble on screen: who sent it and the text.
 interface ChatMsg { from: "them" | "me" | "sms" | "sys"; text: string }
 
+// DmChat (Whisper level 2, "chat"): a branching DM from a hacked "friend" who wants a login code. Sending the code is unsafe = a mistake (shield).
 function DmChat({ onComplete, onMood }: TaskCallbacks) {
   const [nodeId, setNodeId] = useState("n1");
   const [log, setLog] = useState<ChatMsg[]>([]);
@@ -513,14 +533,18 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
    DEFEND: change the settings that matter, leave harmless ones alone,
            then replay the attack                                (max 28 XP)
    ====================================================================== */
+   // A public post and the personal fact it leaks.
    interface Post { id: string; time: string; text: string; leak: string }
+   // A security / recovery question and its answer.
    interface Question { id: string; ask: string; answer: string; from: string; hint: string }
+   // A privacy setting the player can change in the defend phase.
    interface Fix {
      id: string; label: string; what: string; from: string; to: string;
      kind: "close" | "open";   // close = should change, open = fine to leave alone
      pts: number; blocks: string[]; std: string; why: string;
    }
    
+   // The public posts of the fictional profile.
    const POSTS: Post[] = [
      { id: "p1", time: "Mar 14", text: "Turning 17 today!! \u{1F382} Thanks for all the birthday wishes", leak: "her birth date" },
      { id: "p2", time: "2d", text: "Biscuit stole my sandwich AGAIN \u{1F436} (golden retriever, 3 yrs)", leak: "her pet's name" },
@@ -532,6 +556,7 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
      { id: "p8", time: "1w", text: "Mr. Davies' class is honestly my favourite \u{1F602}", leak: "her favourite teacher" },
    ];
    
+   // The four recovery questions the attacker must answer from the public posts.
    const QUESTIONS: Question[] = [
      { id: "pet", ask: "Name of your first pet?", answer: "Biscuit", from: "p2", hint: "Look for a post with an animal." },
      { id: "dob", ask: "Date of birth?", answer: "14 March 2008", from: "p1", hint: "Look for a celebration." },
@@ -539,8 +564,10 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
      { id: "teacher", ask: "Favourite teacher?", answer: "Mr. Davies", from: "p8", hint: "Look for a post about a class." },
    ];
    
+   // The recovery form lets an attacker in when 2 or more answers are known.
    const NEEDED = 2; // the recovery form accepts an attacker who knows 2 or more answers
    
+   // The settings the player can change (some matter, some are harmless).
    const FIXES: Fix[] = [
      { id: "visibility", label: "Who can see Jordan's posts", what: "Controls who can read her profile from now on",
        from: "Public", to: "Friends only", kind: "close", pts: 3, blocks: [], std: "Least privilege",
@@ -573,6 +600,7 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
    
    const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
    
+   // ProfileRecon (Whisper level 3, "recon"): ATTACK (answer 4 recovery questions from public posts, max 20 XP), then DEFEND (change the settings that matter and replay the attack, max 28 XP).
    function ProfileRecon({ onComplete }: TaskCallbacks) {
      const [phase, setPhase] = useState<"attack" | "breach" | "defend" | "done">("attack");
      const [step, setStep] = useState(0);
@@ -818,8 +846,10 @@ function DmChat({ onComplete, onMood }: TaskCallbacks) {
    3 genuine + 5 manipulation scenarios so the player learns NOT to distrust everything.
    Trusting a manipulation = unsafe = a mistake. Over-suspicion only loses points.
    ====================================================================== */
+// One rapid-sort scenario: channel, text, whether it is manipulation, the tactic and why.
 interface Scenario { channel: string; text: string; se: boolean; tactic?: Tactic; why: string }
 
+// 3 genuine and 5 manipulation scenarios, so the player learns NOT to distrust everything.
 const SCENARIOS: Scenario[] = [
   { channel: "\u{1F6AA} In person", text: "A man in a delivery vest at the side door: 'Can you buzz me in? Left my pass in the truck, I'm running late.'",
     se: true, tactic: "urgency", why: "A rush plus a missing pass is the tailgater's script. Send him to the front office." },
@@ -839,6 +869,7 @@ const SCENARIOS: Scenario[] = [
     se: false, why: "Known person, existing group, a harmless schedule change. Genuine." },
 ];
 
+// Gauntlet (Whisper level 4, "gauntlet"): sort each scenario as genuine or manipulation. Trusting a manipulation = a mistake; over-suspicion only loses points.
 function Gauntlet({ onComplete }: TaskCallbacks) {
   const [i, setI] = useState(0);
   const [verdict, setVerdict] = useState<"legit" | "se" | null>(null);
@@ -964,9 +995,12 @@ function Gauntlet({ onComplete }: TaskCallbacks) {
    Best reply -15 grip and +15 XP. Okay reply -> small XP. Unsafe reply = a mistake.
    He uses the public details from Thursday's profile (the pet's name).
    ====================================================================== */
+// One reply option in the boss call.
 interface CallOpt { text: string; grade: "best" | "ok" | "bad"; pts: number; mistake?: boolean; why: string }
+// One round of the boss call: the tactics he uses, his line, an optional SMS and the reply options.
 interface Round { tactics: Tactic[]; line: string; sms?: string; opts: CallOpt[] }
 
+// The four escalating rounds.
 const ROUNDS: Round[] = [
   {
     tactics: ["rapport", "authority"],
@@ -1019,6 +1053,7 @@ const ROUNDS: Round[] = [
   },
 ];
 
+// BossCall (Whisper level 5, "call"): four escalating rounds. Best reply: his grip -15 and +15 XP. Unsafe reply = a mistake.
 function BossCall({ onComplete, onMood }: TaskCallbacks) {
   const [r, setR] = useState(0);
   const [picked, setPicked] = useState<CallOpt | null>(null);
@@ -1114,6 +1149,9 @@ function BossCall({ onComplete, onMood }: TaskCallbacks) {
    ====================================================================== */
 export default function SETask({ task, onComplete, onMood }: { task: SETaskId } & TaskCallbacks) {
   const [ready, setReady] = useState(false);
+  // ROUTER: the one component MissionPlayer renders. It gets the task id from the level files (last argument of pw/ph/se/ai).
+  // It shows the practice round first (TaskBrief, content in lib/mission/briefs.ts). When the player clicks Start, `ready`
+  // becomes true and the real mini-game replaces it.
   const brief = TASK_BRIEFS[task];
   if (!ready && brief) {
     return <TaskBrief brief={brief} onStart={() => setReady(true)} />;

@@ -30,13 +30,16 @@ import { useEffect, useRef, useState } from "react";
 import type { Choice } from "@/lib/mission/types";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
+// At most four answer buttons are drawn (A to D).
 const MAX_OPTIONS = 4;
 
+// The explanation text and where it came from: "ai" = written by the AI mentor, "fallback" = the authored teaching sentence.
 export interface DecisionFeedback {
   text: string;
   source: "ai" | "fallback";
 }
 
+// Props: the parent (MissionPlayer) supplies the choices, the points, the feedback loader and the callbacks.
 export interface DecisionPanelProps {
   choices: Choice[];                                         // 3 to 4 options (extras beyond 4 are ignored)
   points: number;                                            // points for a correct answer (0 for a wrong one)
@@ -46,6 +49,7 @@ export interface DecisionPanelProps {
   onContinue: () => void;                                    // fires from the Continue button
 }
 
+// DecisionPanel: shows the answer buttons, locks after the first click, shows the verdict at once and then the explanation.
 export default function DecisionPanel({
   choices,
   points,
@@ -54,8 +58,9 @@ export default function DecisionPanel({
   onChoice,
   onContinue,
 }: DecisionPanelProps) {
-  const [picked, setPicked] = useState<Choice | null>(null);
-  const [feedback, setFeedback] = useState<DecisionFeedback | null>(null);
+  const [picked, setPicked] = useState<Choice | null>(null);  // the choice the player clicked (null = nothing yet)
+  const [feedback, setFeedback] = useState<DecisionFeedback | null>(null);  // the explanation text, once it has loaded (null while loading)
+  // A ref that says "this component is still on screen". Used to ignore a late AI reply after the player has moved on.
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -65,17 +70,22 @@ export default function DecisionPanel({
     };
   }, []);
 
+  // pick(): the whole click flow - lock, award, tell the parent, then load the explanation.
   async function pick(choice: Choice) {
     if (picked) return; // one answer only
+    // Points only for a correct choice. The GAME decides (choice.correct), never the AI.
     const awarded = choice.correct ? points : 0;
 
     setPicked(choice); // verdict + points show instantly
+    // Tell the parent immediately (mood, shield and XP update) while the explanation is still loading.
     onChoice(choice, awarded);
 
     let result: DecisionFeedback;
     try {
+      // The parent supplies fetchFeedback; normally it calls the backend POST /api/scenario-feedback (Cipher explains, with the authored fallback if the AI fails).
       result = await fetchFeedback(choice);
     } catch {
+      // The request failed: use a built-in sentence so the player never sees an empty box.
       result = {
         text: choice.correct
           ? "That was the safe choice."
@@ -83,6 +93,7 @@ export default function DecisionPanel({
         source: "fallback",
       };
     }
+    // Show the explanation only if the player is still here.
     if (mounted.current) setFeedback(result);
   }
 
@@ -90,10 +101,12 @@ export default function DecisionPanel({
     <>
       <div className="space-y-2" role="group" aria-label="Choose your response">
         {choices.slice(0, MAX_OPTIONS).map((c, i) => {
+          // Is this the button the player clicked?
           const isPicked = picked?.id === c.id;
           const stateClass = !picked
             ? "border-white/15 bg-[#16182c] text-[#f5f3ff] hover:border-white/40"
             : "border-white/15 bg-[#16182c] text-[#f5f3ff]";
+          // After answering, wrong options that were not picked fade out; the correct one stays bright (labelled SAFER MOVE if it was not picked).
           const faded = !!picked && !isPicked && !c.correct;
           return (
             <button
