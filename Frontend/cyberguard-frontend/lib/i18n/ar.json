@@ -1,0 +1,8 @@
+{
+  "language": {
+    "groupLabel": "اللغة",
+    "english": "الإنجليزية",
+    "arabic": "العربية",
+    "switchTo": "تغيير اللغة إلى {language}"
+  }
+}

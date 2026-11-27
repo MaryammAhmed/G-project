@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
+import LanguageToggle from "@/components/layout/LanguageToggle";
 export const viewport = {
   width: "device-width",
   initialScale: 1,
@@ -42,9 +44,12 @@ export default function RootLayout({
             no matter which one, can check login status or call
             login()/logout() via the useAuth() hook. This is the one
             spot in the whole project where that connection is made. */}
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+          <LanguageToggle />
+        </LanguageProvider>
       </body>
     </html>
   );
