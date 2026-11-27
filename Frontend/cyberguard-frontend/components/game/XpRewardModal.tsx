@@ -4,6 +4,7 @@ import Link from "next/link";
 
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
+// Props: how much XP before / after penalties, the badge name, shields left, and what the buttons do.
 export interface XpRewardModalProps {
   isOpen: boolean;
   baseXp: number;         // 👈 ADDED: The raw XP before penalties
@@ -17,7 +18,9 @@ export interface XpRewardModalProps {
   homeHref?: string;
 }
 
+// Confetti: 36 coloured pieces; position, colour, speed and delay come from the index (a fixed pattern, no randomness).
 function Confetti() {
+  // The five confetti colours.
   const colors = ["#4cc9ff", "#8b5cf6", "#4ade80", "#f6c453", "#fb4b5b"];
   return (
     <>
@@ -37,6 +40,7 @@ function Confetti() {
   );
 }
 
+// XpRewardModal: the end-of-level reward card (badge, rank, XP, shields, penalty breakdown, Back to map).
 export default function XpRewardModal({
   isOpen,
   baseXp,
@@ -49,11 +53,17 @@ export default function XpRewardModal({
   continueLabel = "Play again",
   homeHref = "/",
 }: XpRewardModalProps) {
+  // Render nothing while the modal is closed.
   if (!isOpen) return null;
 
+  // XP lost = raw XP minus final XP.
   const penalty = baseXp - xpEarned;
+  // Mistakes = shields that were lost.
   const mistakes = maxShields - shields;
 
+  // Rank from the shields left: all shields = top rank, at least one = GUARDIAN, none = ROOKIE.
+  // STUDY NOTE: the top rank always says "VAULT MASTER", even in the Mirage, Whisper and Oracle realms.
+  // A rank name per realm (or a neutral one) would match the screen the player is on.
   const rank =
     shields === maxShields
       ? "RANK: VAULT MASTER"

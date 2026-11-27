@@ -14,6 +14,8 @@
     2. SOURCE LINE: the backend now returns which standard the realm is based on,
        and it is shown small under each Cipher answer.
     3. DARK SCROLLBAR: the white scrollbar in the chat log is now dark and thin.
+    4. BIGGER TEXT: chat bubbles, input, intro text, source line and thinking
+       indicator are larger, and the chat log and container have more room.
 */
 
 import { useEffect, useRef, useState, type FormEvent, type ChangeEvent } from "react";
@@ -110,10 +112,10 @@ export default function ChatPage() {
         <a href="/map" className="rounded-full border border-cyan-300/40 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-cyan-100 hover:border-cyan-200" style={MONO}>MAP</a>
       } />
 
-      <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-white/10 bg-[#0c0e22]/90 p-4 sm:p-6">
+      <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-white/10 bg-[#0c0e22]/90 p-4 sm:p-6">
         <p className="text-[10px] font-bold tracking-[0.3em] text-cyan-300" style={MONO}>{"// LIVE AI MENTOR"}</p>
         <h1 className="mt-1 text-xl font-bold text-white">Ask Cipher</h1>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-sm text-slate-400">
           Cipher teaches from one realm at a time, using the lesson rulebook and the standards behind it.
           Ask follow-up questions if you are curious. It cannot see your password, your codes, or anything outside the lesson.
         </p>
@@ -144,7 +146,7 @@ export default function ChatPage() {
         {/* the chat log. colorScheme "dark" + thin slate scrollbar replace the bright white default one */}
         <div
           ref={logRef}
-          className="mt-4 h-72 space-y-3 overflow-y-auto rounded-xl border border-white/10 bg-black/40 p-3"
+          className="mt-4 h-96 space-y-3 overflow-y-auto rounded-xl border border-white/10 bg-black/40 p-3"
           style={{ colorScheme: "dark", scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}
           aria-live="polite"
         >
@@ -155,7 +157,7 @@ export default function ChatPage() {
                 <div className="max-w-[85%]">
                   <p
                     className={
-                      "whitespace-pre-wrap rounded-xl px-3 py-2 text-xs " +
+                      "whitespace-pre-wrap rounded-xl px-4 py-3 text-base leading-relaxed " +
                       (mine ? "bg-cyan-500/20 text-cyan-100" : "border text-slate-100")
                     }
                     style={!mine ? { borderColor: active.color + "55", background: active.color + "14" } : undefined}
@@ -165,13 +167,13 @@ export default function ChatPage() {
                   </p>
                   {/* which standard this answer is based on (only on real answers, not the greeting) */}
                   {!mine && m.source && (
-                    <p className="mt-1 px-1 text-[9px] leading-snug text-slate-500" style={MONO}>SOURCE: {m.source}</p>
+                    <p className="mt-1 px-1 text-[11px] leading-snug text-slate-400" style={MONO}>SOURCE: {m.source}</p>
                   )}
                 </div>
               </div>
             );
           })}
-          {busy && <p className="text-[10px] tracking-[0.2em] text-slate-400" style={MONO}>CIPHER IS THINKING...</p>}
+          {busy && <p className="text-xs tracking-[0.2em] text-slate-400" style={MONO}>CIPHER IS THINKING...</p>}
         </div>
 
         {error && (
@@ -187,7 +189,7 @@ export default function ChatPage() {
             placeholder={"Ask about " + active.topic.toLowerCase() + "..."}
             maxLength={300}
             aria-label="Your question for Cipher"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-300 focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-base text-white placeholder-slate-500 focus:border-cyan-300 focus:outline-none"
           />
           <button
             type="submit"

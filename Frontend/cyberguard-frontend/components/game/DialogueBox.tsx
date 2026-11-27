@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
 /* ---------- PROPS ---------- */
+// Props. Two naming styles are accepted (text/speaker/onDone and dialogueText/speakerName/onTypingDone) so older call sites keep working.
 export interface DialogueBoxProps {
   // Two naming styles are accepted so older call sites keep working.
   text?: string;
@@ -34,14 +35,19 @@ export interface DialogueBoxProps {
 /* ---------- TYPEWRITER HOOK ---------- */
 // Reveals the text one character at a time.
 // Returns the visible text, whether typing has finished, and a skip() helper.
+// Custom hook: reveals the text one character at a time. Returns what is visible now, whether typing finished, and skip().
 function useTypewriter(fullText: string, speed = 16) {
+  // How many characters are visible right now.
   const [count, setCount] = useState(0);
   // Array.from splits by real characters, so emoji don't get cut in half
+  // Array.from splits by real characters, so an emoji is never cut in half.
   const chars = Array.from(fullText);
 
   useEffect(() => {
+    // Restart from 0 whenever the text changes (done in a timeout so React does not warn about setState inside an effect).
     const restart = setTimeout(() => setCount(0));
     const total = Array.from(fullText).length;
+    // Every `speed` ms show one more character; stop the timer when everything is visible.
     const id = setInterval(() => {
       setCount((c) => {
         if (c >= total) {
@@ -65,6 +71,7 @@ function useTypewriter(fullText: string, speed = 16) {
 }
 
 /* ---------- COMPONENT ---------- */
+// DialogueBox: name tag + typewriter text + optional hint button. Clicking the box skips the typing.
 export default function DialogueBox({
   text,
   speaker,
@@ -77,15 +84,18 @@ export default function DialogueBox({
   hint,
 }: DialogueBoxProps) {
   // Pick whichever naming style the parent used
+  // Use whichever naming style the parent used.
   const fullText = text ?? dialogueText ?? "";
   const name = speaker ?? speakerName ?? "";
   const callback = onDone ?? onTypingDone;
 
+  // shown = visible text, done = typing finished, skip = show everything now.
   const { shown, done, skip } = useTypewriter(fullText);
   const [showHint, setShowHint] = useState(false);
 
   // Keep the latest callback in a ref so the effect below doesn't re-fire
   // just because the parent re-rendered with a new function.
+  // Keep the newest callback in a ref so the effect below does not re-run just because the parent re-rendered.
   const doneRef = useRef(callback);
   useEffect(() => {
     doneRef.current = callback;
@@ -93,6 +103,7 @@ export default function DialogueBox({
 
   // Tell the parent when typing finishes (MissionPlayer uses this to reveal the buttons)
   useEffect(() => {
+    // When typing finishes, tell the parent (MissionPlayer then reveals the choice buttons).
     if (done) doneRef.current?.();
   }, [done]);
 
