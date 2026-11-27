@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/context/LanguageContext";
+
 /*
   components/ui/CyberInteractive.tsx
   ==================================
@@ -260,6 +262,7 @@ export function TerminalHeader({
   className = "",
 }: TerminalHeaderProps) {
   const statusColor = STATUS_COLOR[status];
+  const t = useT();
 
   return (
     <header
@@ -277,7 +280,7 @@ export function TerminalHeader({
 
       {/* prompt line with a blinking cursor */}
       <p className="min-w-0 flex-1 truncate text-xs text-[#b8b5c9]">
-        <span style={{ color: "var(--c)" }}>$</span> {title}
+        <span style={{ color: "var(--c)" }}>$</span> <bdi>{title}</bdi>
         <span className="cgi-blink ms-0.5" style={{ color: "var(--c)" }} aria-hidden="true">_</span>
       </p>
 
@@ -292,12 +295,12 @@ export function TerminalHeader({
           style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}` }}
           aria-hidden="true"
         />
-        STATUS: {status}
+        {t("terminal.status", { status: t(`terminal.statusValues.${status}`) })}
       </p>
 
       {/* CLEARANCE chip */}
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f6c453]">
-        CLEARANCE: {clearance}
+        {t("terminal.clearance", { clearance })}
       </p>
 
       {right}

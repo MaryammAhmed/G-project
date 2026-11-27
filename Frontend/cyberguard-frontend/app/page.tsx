@@ -1,9 +1,11 @@
 "use client"; // Next.js: this component runs in the browser (needed for interactive/animated UI)
 
 import Link from "next/link"; // Next.js Link: navigates between pages without a full reload
+import { useT } from "@/context/LanguageContext";
 
 // Home = the landing page component. Next.js shows it at the "/" route.
 export default function Home() {
+  const t = useT();
   return (
     // ROOT WRAPPER
     // h-dvh            -> exactly the visible screen height (dvh = "dynamic viewport height",
@@ -79,14 +81,14 @@ export default function Home() {
             href="/privacy"
             className="whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-fuchsia-300 sm:text-sm"
           >
-            Privacy
+            {t("home.privacy")}
           </Link>
           {/* Sign In: outlined button, goes to /login */}
           <Link
             href="/login"
             className="min-h-10 whitespace-nowrap rounded-full border border-fuchsia-400/40 px-2.5 py-2 text-xs font-semibold text-fuchsia-200 transition-all hover:bg-fuchsia-500/10 sm:min-h-11 sm:px-5 sm:py-2.5 sm:text-base lg:px-7"
           >
-            Sign In
+            {t("home.signIn")}
           </Link>
           {/* Play Now: filled gradient button, goes to /register.
               hover:scale-105 = grows slightly on hover, active:scale-95 = shrinks when pressed */}
@@ -94,7 +96,7 @@ export default function Home() {
             href="/register"
             className="min-h-10 whitespace-nowrap rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-500 px-2.5 py-2 text-xs font-bold text-white shadow-lg shadow-fuchsia-500/30 transition-all hover:scale-105 active:scale-95 sm:min-h-11 sm:px-5 sm:py-2.5 sm:text-base lg:px-7"
           >
-            Play Now
+            {t("home.playNow")}
           </Link>
         </div>
       </nav>
@@ -108,7 +110,7 @@ export default function Home() {
       <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-[1.5dvh] px-4 pb-[8dvh] text-center sm:px-6">
         {/* Small tagline above the title */}
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300/80 sm:text-base sm:tracking-[0.3em] md:text-lg">
-          Enter the World of
+          {t("home.tagline")}
         </p>
 
         {/* Big title.
@@ -244,7 +246,7 @@ export default function Home() {
         {/* Speech-bubble style quote under the mascot.
             &quot; = a literal " character (JSX needs this escape) */}
         <p className="max-w-[34rem] px-2 text-base font-medium leading-relaxed text-fuchsia-300/70 sm:text-lg md:text-xl">
-          &quot;Hey there, ready to level up your security skills?&quot;
+          {t("home.quote")}
         </p>
       </main>
     </div>

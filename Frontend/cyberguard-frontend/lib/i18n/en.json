@@ -136,5 +136,41 @@
     "resetting": "Resetting...",
     "submit": "Reset password",
     "failed": "Could not reset the password. Try again."
+  },
+  "terminal": {
+    "status": "STATUS: {status}",
+    "clearance": "CLEARANCE: {clearance}",
+    "statusValues": {
+      "ONLINE": "ONLINE",
+      "OFFLINE": "OFFLINE",
+      "ALERT": "ALERT",
+      "SECURE": "SECURE"
+    }
+  },
+  "home": {
+    "privacy": "Privacy",
+    "signIn": "Sign In",
+    "playNow": "Play Now",
+    "tagline": "Enter the World of",
+    "quote": "\"Hey there, ready to level up your security skills?\""
+  },
+  "privacy": {
+    "header": "PRIVACY & GDPR (DR-01)",
+    "login": "LOGIN",
+    "kicker": "// DATA PROTECTION & COMPLIANCE",
+    "title": "Privacy Policy & GDPR Compliance",
+    "intro": "CyberGuard is engineered to meet strict GDPR data minimization and privacy standards (DR-01). We collect only what is necessary to track training progress and secure your account.",
+    "s1Title": "1. DATA COLLECTED",
+    "s1Body": "During registration, we store your chosen username, email address, and a securely hashed password (using bcrypt). We also store mission progress (completed levels and scores) to maintain your training status.",
+    "s2Title": "2. AI CONVERSATIONS & STATEMENTS",
+    "s2BodyBefore": "Conversations with Cipher (the AI mentor) are",
+    "s2Stateless": "stateless",
+    "s2BodyAfter": ". Your chat messages and history are sent transiently to generate responses via the Groq API and are never permanently logged or associated with your identity in our database.",
+    "s3Title": "3. USER RIGHTS & ACCOUNT DELETION",
+    "s3Body": "Under GDPR Article 17 (Right to Erasure), you have the absolute right to delete your account at any time. You can instantly self-delete your account and all associated progress data via your profile dashboard, or contact an administrator to purge all records.",
+    "s4Title": "4. CONTACT & SECURITY AUDITS",
+    "s4Body": "For security inquiries, vulnerability reporting, or data export requests, contact the CyberGuard security team through your institutional administrator.",
+    "footer": "CyberGuard Security Standards",
+    "back": "Return to Registration →"
   }
 }
