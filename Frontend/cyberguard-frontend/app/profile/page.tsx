@@ -8,6 +8,8 @@ import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import CompanionSkeleton from "@/components/mission/CompanionSkeleton";
 import type { Mood } from "@/lib/mission/types";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 
 const API = API_BASE_URL;
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
@@ -33,15 +35,16 @@ type ProgressResponse = {
 
 const BADGE_COLORS = ["#34D399", "#22D3EE", "#A855F7", "#FBBF24"];
 
-const MODULE_META: Record<number, { icon: string; title: string; color: string }> = {
-  1: { icon: "🔐", title: "Locked Out", color: "#34D399" },
-  2: { icon: "🎣", title: "Phished", color: "#22D3EE" },
-  3: { icon: "🎭", title: "Manipulated", color: "#A855F7" },
-  4: { icon: "🤖", title: "Overshared", color: "#FBBF24" },
+const MODULE_META: Record<number, { icon: string; title: TranslationKey; color: string }> = {
+  1: { icon: "🔐", title: "map.realms.vault.title", color: "#34D399" },
+  2: { icon: "🎣", title: "map.realms.mirage.title", color: "#22D3EE" },
+  3: { icon: "🎭", title: "map.realms.whisper.title", color: "#A855F7" },
+  4: { icon: "🤖", title: "map.realms.oracle.title", color: "#FBBF24" },
 };
 
 export default function ProfilePage() {
   const router = useRouter();
+  const t = useT();
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
   const [username, setUsername] = useState<string>("Agent");
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export default function ProfilePage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("This will permanently delete your account, all progress, and all data. This cannot be undone. Continue?")) return;
+    if (!confirm(t("profile.confirmDelete"))) return;
 
     setBusy(true);
     const token = localStorage.getItem("token");
@@ -97,7 +100,7 @@ export default function ProfilePage() {
       router.push("/login");
     } else {
       const body = await res.json().catch(() => ({}));
-      alert("Delete failed: " + (body.detail || res.status));
+      alert(t("profile.deleteFailed", { detail: body.detail || res.status }));
     }
   };
 
@@ -113,9 +116,9 @@ export default function ProfilePage() {
   if (error) return (
     <CyberShell variant="app" accent="brick">
       <div className="p-8 text-red-500 font-mono text-center">
-        <p className="text-2xl font-bold mb-4">SYSTEM ERROR</p>
+        <p className="text-2xl font-bold mb-4">{t("profile.systemError")}</p>
         <p>{error}</p>
-        <button onClick={() => router.push("/map")} className="mt-6 px-4 py-2 border border-red-500 rounded hover:bg-red-500/20">RETURN TO MAP</button>
+        <button onClick={() => router.push("/map")} className="mt-6 px-4 py-2 border border-red-500 rounded hover:bg-red-500/20">{t("profile.returnToMap")}</button>
       </div>
     </CyberShell>
   );
@@ -123,7 +126,7 @@ export default function ProfilePage() {
   if (!progress) return (
     <CyberShell variant="app" accent="cyan">
       <div className="grid h-screen place-items-center text-cyan-300 font-mono tracking-widest animate-pulse">
-        DECRYPTING AGENT FILE...
+        {t("profile.loading")}
       </div>
     </CyberShell>
   );
@@ -138,10 +141,10 @@ export default function ProfilePage() {
           <TerminalHeader
             title="cyberguard_XD"
             status="ONLINE"
-            clearance="AGENT"
+            clearance={t("profile.clearance")}
             right={
               <Link href="/map" className="rounded-full border border-cyan-300/40 bg-cyan-300/10 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-cyan-200 transition hover:border-cyan-200 hover:bg-cyan-300/20" style={MONO}>
-                &larr; BACK TO MAP
+                {t("profile.backToMap")}
               </Link>
             }
           />
@@ -161,28 +164,28 @@ export default function ProfilePage() {
                 <h1 className="text-3xl font-black tracking-widest text-[#f5f3ff] uppercase" style={MONO}>
                   {username}
                 </h1>
-                <p className="text-xs tracking-[0.3em] text-cyan-400" style={MONO}>CLEARANCE: AGENT | ACTIVE</p>
+                <p className="text-xs tracking-[0.3em] text-cyan-400" style={MONO}>{t("profile.clearanceLine")}</p>
               </div>
 
               {/* --- STATS SECTION --- */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="rounded-xl border border-amber-300/30 bg-amber-300/5 p-4 text-center">
-                  <p className="text-[10px] tracking-widest text-amber-300/70 mb-1" style={MONO}>TOTAL XP</p>
+                  <p className="text-[10px] tracking-widest text-amber-300/70 mb-1" style={MONO}>{t("profile.totalXp")}</p>
                   <p className="text-3xl font-black text-amber-300" style={MONO}>{progress.total_score}</p>
                 </div>
                 <div className="rounded-xl border border-cyan-300/30 bg-cyan-300/5 p-4 text-center">
-                  <p className="text-[10px] tracking-widest text-cyan-300/70 mb-1" style={MONO}>MODULES SECURED</p>
+                  <p className="text-[10px] tracking-widest text-cyan-300/70 mb-1" style={MONO}>{t("profile.modulesSecured")}</p>
                   <p className="text-3xl font-black text-cyan-300" style={MONO}>{completedCount} / 4</p>
                 </div>
                 <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/5 p-4 text-center">
-                  <p className="text-[10px] tracking-widest text-emerald-300/70 mb-1" style={MONO}>TOTAL ATTEMPTS</p>
+                  <p className="text-[10px] tracking-widest text-emerald-300/70 mb-1" style={MONO}>{t("profile.totalAttempts")}</p>
                   <p className="text-3xl font-black text-emerald-300" style={MONO}>{totalAttempts}</p>
                 </div>
               </div>
 
               {/* --- MODULES SECTION --- */}
               <div className="space-y-4">
-                <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff] border-b border-white/10 pb-2" style={MONO}>MISSION ARCHIVES</h2>
+                <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff] border-b border-white/10 pb-2" style={MONO}>{t("profile.archives")}</h2>
                 <div className="grid gap-4 md:grid-cols-2">
                   {progress.modules.map((m) => {
                     const meta = MODULE_META[m.module];
@@ -201,23 +204,23 @@ export default function ProfilePage() {
                       >
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <p className="text-[10px] tracking-widest mb-1" style={{ ...MONO, color: meta.color }}>MODULE 0{m.module}</p>
+                            <p className="text-[10px] tracking-widest mb-1" style={{ ...MONO, color: meta.color }}>{t("profile.moduleLabel", { n: m.module })}</p>
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                              <span>{meta.icon}</span> {meta.title}
+                              <span>{meta.icon}</span> {t(meta.title)}
                             </h3>
                           </div>
-                          <span className="text-2xl" title={isDone ? "Secured" : isUnlocked ? "Unlocked" : "Locked"}>
+                          <span className="text-2xl" title={isDone ? t("profile.secured") : isUnlocked ? t("profile.unlocked") : t("profile.locked")}>
                             {isDone ? "✅" : isUnlocked ? "🔓" : "🔒"}
                           </span>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-xs" style={MONO}>
                           <div className="rounded bg-black/40 p-2 border border-white/5">
-                            <span className="block text-[9px] text-gray-500 mb-0.5">BEST SCORE</span>
-                            <span className="text-amber-300">{m.best_score} XP</span>
+                            <span className="block text-[9px] text-gray-500 mb-0.5">{t("profile.bestScore")}</span>
+                            <span className="text-amber-300">{t("profile.xpValue", { xp: m.best_score })}</span>
                           </div>
                           <div className="rounded bg-black/40 p-2 border border-white/5">
-                            <span className="block text-[9px] text-gray-500 mb-0.5">ATTEMPTS</span>
+                            <span className="block text-[9px] text-gray-500 mb-0.5">{t("profile.attempts")}</span>
                             <span className="text-white">{m.attempts}</span>
                           </div>
                         </div>
@@ -228,7 +231,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-3 pt-4 border-t border-white/10">
-                <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff]" style={MONO}>LEVEL BADGES</h2>
+                <h2 className="text-sm font-bold tracking-[0.3em] text-[#f5f3ff]" style={MONO}>{t("profile.levelBadges")}</h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {(progress.levels ?? []).map((level) => {
                     const color = BADGE_COLORS[level.module - 1] ?? "#f5f3ff";
@@ -251,7 +254,7 @@ export default function ProfilePage() {
                     );
                   })}
                 </div>
-                {completedCount === 4 && <Badge icon="⭐" label="CyberGuard Elite" color="#f5f3ff" />}
+                {completedCount === 4 && <Badge icon="⭐" label={t("profile.elite")} color="#f5f3ff" />}
               </div>
 
               {/* --- DANGER ZONE / ACTIONS --- */}
@@ -261,7 +264,7 @@ export default function ProfilePage() {
                   className="flex-1 rounded-xl border border-white/20 bg-white/5 py-3 text-xs font-bold tracking-widest text-white transition hover:bg-white/10"
                   style={MONO}
                 >
-                  🚪 LOGOUT
+                  {t("profile.logout")}
                 </button>
                 <button
                   onClick={handleDelete}
@@ -269,7 +272,7 @@ export default function ProfilePage() {
                   className="flex-1 rounded-xl border border-rose-500/50 bg-rose-500/10 py-3 text-xs font-bold tracking-widest text-rose-400 transition hover:bg-rose-500/20 disabled:opacity-50"
                   style={MONO}
                 >
-                  {busy ? "DELETING DATA..." : "⚠️ DELETE ACCOUNT"}
+                  {busy ? t("profile.deleting") : t("profile.deleteAccount")}
                 </button>
               </div>
               

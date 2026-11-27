@@ -25,26 +25,30 @@ import PageCompanion from "@/components/layout/PageCompanion";
 
 import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { API_BASE_URL } from "@/lib/api";
+import { useT } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 
 const API = API_BASE_URL;
 const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace" };
 
-const MODULES = [
-  { id: 1, name: "LockedOut", topic: "Passwords", color: "#34D399" },
-  { id: 2, name: "Phished", topic: "Phishing", color: "#22D3EE" },
-  { id: 3, name: "Manipulated", topic: "Social engineering", color: "#A855F7" },
-  { id: 4, name: "OverShared", topic: "Safe AI use", color: "#FBBF24" },
-] as const;
+const MODULES: readonly { id: number; name: string; topic: TranslationKey; color: string }[] = [
+  { id: 1, name: "LockedOut", topic: "modules.vault.topic", color: "#34D399" },
+  { id: 2, name: "Phished", topic: "modules.mirage.topic", color: "#22D3EE" },
+  { id: 3, name: "Manipulated", topic: "modules.whisper.topic", color: "#A855F7" },
+  { id: 4, name: "OverShared", topic: "modules.oracle.topic", color: "#FBBF24" },
+];
 
-/* source is only set on Cipher replies (it comes from the backend) */
-type Msg = { role: "user" | "cipher"; text: string; source?: string };
+/* source is only set on Cipher replies (it comes from the backend).
+   greeting marks the opening line, which is rendered in the current language. */
+type Msg = { role: "user" | "cipher"; text: string; source?: string; greeting?: boolean };
 
 function seedMsgs(): Msg[] {
-  return [{ role: "cipher", text: "Cipher online. Ask me anything about the realm you are training in." }];
+  return [{ role: "cipher", text: "Cipher online. Ask me anything about the realm you are training in.", greeting: true }];
 }
 
 export default function ChatPage() {
   const router = useRouter();
+  const t = useT();
   const [moduleId, setModuleId] = useState<number>(1);
   const [messages, setMessages] = useState<Msg[]>(seedMsgs());
   const [input, setInput] = useState<string>("");
@@ -85,7 +89,7 @@ export default function ChatPage() {
         if (!res.ok) {
           if (res.status === 401) { router.push("/login"); throw new Error("signed out"); }
           return res.json().catch(function () { return {}; }).then(function (data) {
-            throw new Error(typeof data.detail === "string" ? data.detail : "Cipher did not answer. Try again.");
+            throw new Error(typeof data.detail === "string" ? data.detail : t("chat.noAnswer"));
           });
         }
         return res.json();
@@ -97,7 +101,7 @@ export default function ChatPage() {
       })
       .catch(function (err) {
         if (err && err.message !== "signed out") {
-          setError(err instanceof Error ? err.message : "Something went wrong.");
+          setError(err instanceof Error ? err.message : t("chat.genericError"));
         }
       })
       .finally(function () { setBusy(false); });
@@ -107,20 +111,19 @@ export default function ChatPage() {
 
   return (
     <CyberShell variant="app" accent="cyan">
-      <PageCompanion mood="calm" message="Cipher online. Ask me about your security realm." />
-      <TerminalHeader title="ASK CIPHER" right={
-        <a href="/map" className="rounded-full border border-cyan-300/40 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-cyan-100 hover:border-cyan-200" style={MONO}>MAP</a>
+      <PageCompanion mood="calm" message={t("chat.companion")} />
+      <TerminalHeader title={t("chat.header")} right={
+        <a href="/map" className="rounded-full border border-cyan-300/40 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-cyan-100 hover:border-cyan-200" style={MONO}>{t("chat.map")}</a>
       } />
 
       <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-white/10 bg-[#0c0e22]/90 p-4 sm:p-6">
-        <p className="text-[10px] font-bold tracking-[0.3em] text-cyan-300" style={MONO}>{"// LIVE AI MENTOR"}</p>
-        <h1 className="mt-1 text-xl font-bold text-white">Ask Cipher</h1>
+        <p className="text-[10px] font-bold tracking-[0.3em] text-cyan-300" style={MONO}>{t("chat.kicker")}</p>
+        <h1 className="mt-1 text-xl font-bold text-white">{t("chat.title")}</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Cipher teaches from one realm at a time, using the lesson rulebook and the standards behind it.
-          Ask follow-up questions if you are curious. It cannot see your password, your codes, or anything outside the lesson.
+          {t("chat.intro")}
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Choose a realm">
+        <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label={t("chat.realmsLabel")}>
           {MODULES.map(function (m) {
             const on = moduleId === m.id;
             return (
@@ -137,7 +140,7 @@ export default function ChatPage() {
                   borderColor: m.color,
                 }}
               >
-                {m.name.toUpperCase()} &#183; {m.topic.toUpperCase()}
+                {m.name.toUpperCase()} &#183; {t(m.topic).toUpperCase()}
               </button>
             );
           })}
@@ -162,18 +165,18 @@ export default function ChatPage() {
                     }
                     style={!mine ? { borderColor: active.color + "55", background: active.color + "14" } : undefined}
                   >
-                    {!mine && <span className="mr-1 font-bold" style={{ color: active.color }}>CIPHER</span>}
-                    {m.text}
+                    {!mine && <span className="mr-1 font-bold" style={{ color: active.color }}>{t("chat.cipher")}</span>}
+                    {m.greeting ? t("chat.greeting") : m.text}
                   </p>
                   {/* which standard this answer is based on (only on real answers, not the greeting) */}
                   {!mine && m.source && (
-                    <p className="mt-1 px-1 text-[11px] leading-snug text-slate-400" style={MONO}>SOURCE: {m.source}</p>
+                    <p className="mt-1 px-1 text-[11px] leading-snug text-slate-400" style={MONO}>{t("chat.source", { source: m.source })}</p>
                   )}
                 </div>
               </div>
             );
           })}
-          {busy && <p className="text-xs tracking-[0.2em] text-slate-400" style={MONO}>CIPHER IS THINKING...</p>}
+          {busy && <p className="text-xs tracking-[0.2em] text-slate-400" style={MONO}>{t("chat.thinking")}</p>}
         </div>
 
         {error && (
@@ -186,9 +189,9 @@ export default function ChatPage() {
           <input
             value={input}
             onChange={function (e: ChangeEvent<HTMLInputElement>) { setInput(e.target.value); }}
-            placeholder={"Ask about " + active.topic.toLowerCase() + "..."}
+            placeholder={t("chat.placeholder", { topic: t(active.topic).toLowerCase() })}
             maxLength={300}
-            aria-label="Your question for Cipher"
+            aria-label={t("chat.inputLabel")}
             className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-base text-white placeholder-slate-500 focus:border-cyan-300 focus:outline-none"
           />
           <button
@@ -197,7 +200,7 @@ export default function ChatPage() {
             className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-cyan-500 disabled:cursor-wait disabled:opacity-60"
             style={MONO}
           >
-            {busy ? "..." : "Ask"}
+            {busy ? "..." : t("chat.ask")}
           </button>
         </form>
       </div>
