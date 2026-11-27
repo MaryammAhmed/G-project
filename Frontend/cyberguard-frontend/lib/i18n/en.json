@@ -264,5 +264,33 @@
     "ask": "Ask",
     "noAnswer": "Cipher did not answer. Try again.",
     "genericError": "Something went wrong."
+  },
+  "admin": {
+    "confirmDelete": "Delete {username} and all their progress? This cannot be undone.",
+    "deleted": "User {username} deleted.",
+    "deleteFailed": "Could not delete that user.",
+    "restricted": "// ACCESS RESTRICTED",
+    "adminOnly": "Admin only",
+    "noClearance": "Your account does not have administrator clearance.",
+    "backToMap": "Back to map",
+    "header": "CONTROL ROOM",
+    "map": "MAP",
+    "kicker": "// ADMINISTRATOR",
+    "title": "Control Room",
+    "intro": "Manage players and inspect their progress. Deleting a user also deletes their progress (GDPR erasure).",
+    "loadingRoster": "LOADING ROSTER...",
+    "colAgent": "Agent",
+    "colEmail": "Email",
+    "colRealms": "Realms done",
+    "colActions": "Actions",
+    "adminBadge": "ADMIN",
+    "progress": "PROGRESS",
+    "delete": "DELETE",
+    "progressDetail": "// PROGRESS DETAIL",
+    "loading": "Loading...",
+    "realmLine": "Realm {n}: {status}",
+    "complete": "COMPLETE",
+    "levelsDone": "{done}/5 levels",
+    "totalScore": "Total score: {score} XP"
   }
 }

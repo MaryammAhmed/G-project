@@ -264,5 +264,33 @@
     "ask": "اسأل",
     "noAnswer": "لم يُجب Cipher. حاول مرة أخرى.",
     "genericError": "حدث خطأ ما."
+  },
+  "admin": {
+    "confirmDelete": "هل تريد حذف {username} وكل تقدّمه؟ لا يمكن التراجع عن ذلك.",
+    "deleted": "تم حذف المستخدم {username}.",
+    "deleteFailed": "تعذّر حذف هذا المستخدم.",
+    "restricted": "// الدخول مقيَّد",
+    "adminOnly": "للمسؤولين فقط",
+    "noClearance": "حسابك لا يملك صلاحيات المسؤول.",
+    "backToMap": "العودة إلى الخريطة",
+    "header": "غرفة التحكّم",
+    "map": "الخريطة",
+    "kicker": "// المسؤول",
+    "title": "غرفة التحكّم",
+    "intro": "أدِر اللاعبين واطّلع على تقدّمهم. حذف المستخدم يحذف تقدّمه أيضًا (الحق في المحو وفق GDPR).",
+    "loadingRoster": "جارٍ تحميل قائمة اللاعبين...",
+    "colAgent": "العميل",
+    "colEmail": "البريد الإلكتروني",
+    "colRealms": "العوالم المكتملة",
+    "colActions": "الإجراءات",
+    "adminBadge": "مسؤول",
+    "progress": "التقدّم",
+    "delete": "حذف",
+    "progressDetail": "// تفاصيل التقدّم",
+    "loading": "جارٍ التحميل...",
+    "realmLine": "العالم {n}: {status}",
+    "complete": "مكتمل",
+    "levelsDone": "{done}/5 مستويات",
+    "totalScore": "مجموع النقاط: {score} نقطة خبرة"
   }
 }

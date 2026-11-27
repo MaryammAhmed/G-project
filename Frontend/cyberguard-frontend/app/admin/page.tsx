@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation"; // lets us redirect from code (e.g.
 import CyberShell from "@/components/layout/CyberShell"; // your page frame/background
 import { TerminalHeader } from "@/components/ui/CyberInteractive"; // the fake terminal title bar
 import { API_BASE_URL } from "@/lib/api"; // backend address, kept in one place
+import { useT } from "@/context/LanguageContext";
 
 const API = API_BASE_URL; // short alias used when building request URLs
 
@@ -49,6 +50,7 @@ type Snap = {
 
 export default function AdminPage() {
   const router = useRouter(); // used to redirect to /login if there is no token
+  const t = useT();
 
   /* ---------- STATE (the page's memory) ---------- */
   const [loading, setLoading] = useState<boolean>(true); // true while the user list loads
@@ -137,7 +139,7 @@ export default function AdminPage() {
   /* ---------- DELETE USER ---------- */
   function removeUser(u: UserRow) {
     // Browser confirmation popup; if admin clicks Cancel we stop here
-    if (!window.confirm("Delete " + u.username + " and all their progress? This cannot be undone.")) return;
+    if (!window.confirm(t("admin.confirmDelete", { username: u.username }))) return;
 
     const token = localStorage.getItem("token");
     setBusyId(u.id); // disables that row's delete button and shows "..."
@@ -148,7 +150,7 @@ export default function AdminPage() {
     })
       .then(function (res) {
         if (!res.ok) throw new Error("delete failed");
-        setNotice("User " + u.username + " deleted.");
+        setNotice(t("admin.deleted", { username: u.username }));
         // Remove the deleted user from the table without reloading the page
         setUsers(function (rows) {
           return rows.filter(function (r) {
@@ -162,7 +164,7 @@ export default function AdminPage() {
         }
       })
       .catch(function () {
-        setNotice("Could not delete that user.");
+        setNotice(t("admin.deleteFailed"));
       })
       .finally(function () {
         setBusyId(null); // re-enable buttons whether it worked or not
@@ -175,16 +177,16 @@ export default function AdminPage() {
       <CyberShell variant="app" accent="brick">
         <div className="mx-auto mt-10 max-w-md rounded-2xl border border-red-500/40 bg-[#0c0e22] p-6 text-center">
           <p className="text-[10px] font-bold tracking-[0.3em] text-red-300" style={MONO}>
-            {"// ACCESS RESTRICTED"}
+            {t("admin.restricted")}
           </p>
-          <h1 className="mt-2 text-lg font-bold text-white">Admin only</h1>
-          <p className="mt-1 text-xs text-slate-400">Your account does not have administrator clearance.</p>
+          <h1 className="mt-2 text-lg font-bold text-white">{t("admin.adminOnly")}</h1>
+          <p className="mt-1 text-xs text-slate-400">{t("admin.noClearance")}</p>
           <Link
             href="/map"
             className="mt-4 inline-block rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-cyan-500"
             style={MONO}
           >
-            Back to map
+            {t("admin.backToMap")}
           </Link>
         </div>
       </CyberShell>
@@ -196,14 +198,14 @@ export default function AdminPage() {
     <CyberShell variant="app" accent="amber">
       {/* Terminal-style title bar with a MAP button on the right */}
       <TerminalHeader
-        title="CONTROL ROOM"
+        title={t("admin.header")}
         right={
           <Link
             href="/map"
             className="rounded-full border border-amber-300/40 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-amber-100 hover:border-amber-200"
             style={MONO}
           >
-            MAP
+            {t("admin.map")}
           </Link>
         }
       />
@@ -213,11 +215,11 @@ export default function AdminPage() {
        This is what removes the sideways scrollbar on desktop. */}
         <div className="mx-auto mt-6 max-w-5xl rounded-2xl border border-white/10 bg-[#0c0e22]/90 p-4 sm:p-6">
         <p className="text-[10px] font-bold tracking-[0.3em] text-amber-300" style={MONO}>
-          {"// ADMINISTRATOR"}
+          {t("admin.kicker")}
         </p>
-        <h1 className="mt-1 text-xl font-bold text-white">Control Room</h1>
+        <h1 className="mt-1 text-xl font-bold text-white">{t("admin.title")}</h1>
         <p className="mt-1 text-xs text-slate-400">
-          Manage players and inspect their progress. Deleting a user also deletes their progress (GDPR erasure).
+          {t("admin.intro")}
         </p>
 
         {/* Yellow message box, only rendered when `notice` is not empty */}
@@ -233,7 +235,7 @@ export default function AdminPage() {
         {/* While loading show text, otherwise show the table */}
         {loading ? (
           <p className="mt-6 text-xs text-slate-400" style={MONO}>
-            LOADING ROSTER...
+            {t("admin.loadingRoster")}
           </p>
         ) : (
           // overflow-x-auto = FIX #3: on very narrow screens the table scrolls sideways
@@ -244,10 +246,10 @@ export default function AdminPage() {
               <thead>
                 <tr className="bg-white/5 text-[10px] uppercase tracking-[0.2em] text-slate-400" style={MONO}>
                   {/* whitespace-nowrap = FIX #4: headers stay on ONE line (no more "REALMS / DONE") */}
-                  <th className="whitespace-nowrap px-3 py-2">Agent</th>
-                  <th className="whitespace-nowrap px-3 py-2">Email</th>
-                  <th className="whitespace-nowrap px-3 py-2">Realms done</th>
-                  <th className="whitespace-nowrap px-3 py-2 text-right">Actions</th>
+                  <th className="whitespace-nowrap px-3 py-2">{t("admin.colAgent")}</th>
+                  <th className="whitespace-nowrap px-3 py-2">{t("admin.colEmail")}</th>
+                  <th className="whitespace-nowrap px-3 py-2">{t("admin.colRealms")}</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">{t("admin.colActions")}</th>
                 </tr>
               </thead>
 
@@ -262,7 +264,7 @@ export default function AdminPage() {
                         {u.username}
                         {u.is_admin && (
                           <span className="ml-2 rounded bg-amber-300/20 px-1 text-[9px] text-amber-200" style={MONO}>
-                            ADMIN
+                            {t("admin.adminBadge")}
                           </span>
                         )}
                       </td>
@@ -273,7 +275,7 @@ export default function AdminPage() {
                       {/* break-all on small screens lets a long email wrap onto a second line instead of
                       stretching the table; sm:break-normal turns that off on bigger screens
                       where there is enough room to show the email on one line. */}
-                      <td className="break-all px-3 py-2 text-slate-400 sm:break-normal">{u.email || "—"}</td>
+                      <td className="break-all px-3 py-2 text-slate-400 sm:break-normal" dir="ltr">{u.email || "—"}</td>
                       {/* How many realms (modules) the user completed, out of 4 */}
                       <td className="whitespace-nowrap px-3 py-2 text-slate-300">{u.modules_completed} / 4</td>
 
@@ -293,7 +295,7 @@ export default function AdminPage() {
                             className="whitespace-nowrap rounded border border-cyan-300/40 px-2 py-1 text-[10px] font-bold tracking-widest text-cyan-100 hover:border-cyan-200"
                             style={MONO}
                           >
-                            PROGRESS
+                            {t("admin.progress")}
                           </button>
 
                           {/* DELETE button: disabled and shows "..." while this user is being deleted */}
@@ -305,7 +307,7 @@ export default function AdminPage() {
                             className="whitespace-nowrap rounded border border-red-400/40 px-2 py-1 text-[10px] font-bold tracking-widest text-red-200 hover:border-red-300 disabled:opacity-50"
                             style={MONO}
                           >
-                            {busyId === u.id ? "..." : "DELETE"}
+                            {busyId === u.id ? "..." : t("admin.delete")}
                           </button>
                         </div>
                       </td>
@@ -321,11 +323,11 @@ export default function AdminPage() {
         {openId !== null && (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3">
             <p className="text-[10px] font-bold tracking-[0.25em] text-slate-400" style={MONO}>
-              {"// PROGRESS DETAIL"}
+              {t("admin.progressDetail")}
             </p>
 
             {/* No data yet -> still fetching */}
-            {!snap && <p className="mt-2 text-xs text-slate-400">Loading...</p>}
+            {!snap && <p className="mt-2 text-xs text-slate-400">{t("admin.loading")}</p>}
 
             {/* Data arrived -> list each realm and the total score */}
             {snap && (
@@ -333,12 +335,12 @@ export default function AdminPage() {
                 {snap.modules.map(function (mod) {
                   return (
                     <p key={mod.module} className="text-xs text-slate-300" style={MONO}>
-                      Realm {mod.module}: {mod.completed ? "COMPLETE" : mod.levels_done + "/5 levels"}
+                      {t("admin.realmLine", { n: mod.module, status: mod.completed ? t("admin.complete") : t("admin.levelsDone", { done: mod.levels_done }) })}
                     </p>
                   );
                 })}
                 <p className="pt-1 text-xs font-bold text-amber-200" style={MONO}>
-                  Total score: {snap.total_score} XP
+                  {t("admin.totalScore", { score: snap.total_score })}
                 </p>
               </div>
             )}
