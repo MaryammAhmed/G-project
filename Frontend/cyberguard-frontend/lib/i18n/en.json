@@ -172,5 +172,53 @@
     "s4Body": "For security inquiries, vulnerability reporting, or data export requests, contact the CyberGuard security team through your institutional administrator.",
     "footer": "CyberGuard Security Standards",
     "back": "Return to Registration →"
+  },
+  "map": {
+    "realms": {
+      "vault": {
+        "title": "Locked Out",
+        "brief": "Strong passwords and 2FA stop hackers."
+      },
+      "mirage": {
+        "title": "Phished",
+        "brief": "Spot fake emails and scams."
+      },
+      "whisper": {
+        "title": "Manipulated",
+        "brief": "Outsmart fake calls and mind games."
+      },
+      "oracle": {
+        "title": "Overshared",
+        "brief": "Stop leaking secrets to AI."
+      },
+      "takeover": {
+        "title": "The Takeover",
+        "brief": "Face the rogue AI. Prove what you learned."
+      }
+    },
+    "status": {
+      "completed": "MISSION SECURED",
+      "available": "MISSION AVAILABLE",
+      "locked": "ACCESS RESTRICTED"
+    },
+    "realmAria": "{title}, {status}",
+    "fromIT": "\"I'm from IT\"",
+    "askCipherAria": "Ask Cipher, the AI mentor",
+    "askCipher": "ASK CIPHER",
+    "adminAria": "Open the admin console",
+    "admin": "ADMIN",
+    "profileAria": "Open your agent profile",
+    "profile": "PROFILE",
+    "xp": "{xp} XP",
+    "clearance": "TIER 1",
+    "missionLabel": "MISSION 0{order}",
+    "counter": "MISSION {done}/{total}",
+    "swipe": "SWIPE",
+    "intel": "INTEL_0{order}.SYS",
+    "clickToDeploy": "> CLICK TO DEPLOY",
+    "accessDeniedShort": "> ACCESS DENIED",
+    "accessDenied": "ACCESS DENIED",
+    "realmLocked": "REALM LOCKED",
+    "sealed": "{title} is sealed. Complete the previous mission to unlock it."
   }
 }

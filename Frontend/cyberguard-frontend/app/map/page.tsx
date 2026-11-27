@@ -28,6 +28,8 @@ import { TerminalHeader } from "@/components/ui/CyberInteractive";
 import { ensureAudio, sfx } from "@/lib/mission/audio";
 import type { SfxKind } from "@/lib/mission/audio";
 import { useAuth } from "@/context/AuthContext";
+import { useT } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 import { fetchProgress, finaleStatus, moduleStatus } from "@/lib/progress";
 import type { ProgressSnapshot } from "@/lib/progress";
 import type { Mood } from "@/lib/mission/types";
@@ -72,10 +74,10 @@ const BASE_MISSIONS: Realm[] = [
 
 const MODULE_OF: Record<string, number> = { vault: 1, mirage: 2, whisper: 3, oracle: 4 };
 
-const STATUS_TEXT: Record<Status, string> = {
-  completed: "MISSION SECURED",
-  available: "MISSION AVAILABLE",
-  locked: "ACCESS RESTRICTED",
+const STATUS_TEXT: Record<Status, TranslationKey> = {
+  completed: "map.status.completed",
+  available: "map.status.available",
+  locked: "map.status.locked",
 };
 
 function wavePath(y: number, amp: number, step = 100, len = 3800): string {
@@ -184,6 +186,7 @@ function MirageArt({ hov, color }: { hov: boolean; color: string }) {
 }
 
 function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
+  const t = useT();
   return (
     <g>
       <Islet color={color} />
@@ -212,7 +215,7 @@ function WhisperArt({ hov, color }: { hov: boolean; color: string }) {
       </g>
       <g className="mp-bob">
         <rect x="-110" y="-134" width="84" height="22" rx="8" fill="#0d0a1c" stroke={color} />
-        <text x="-68" y="-119" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={color} style={MONO}>&quot;I&apos;m from IT&quot;</text>
+        <text x="-68" y="-119" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={color} style={MONO}>{t("map.fromIT")}</text>
       </g>
     </g>
   );
@@ -311,16 +314,17 @@ function isUnlocked(realm: Realm) {
 }
 
 function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2">
       {xp !== null && (
         <span className="hidden rounded-full border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold tracking-[0.15em] text-amber-200 sm:inline" style={MONO}>
-          &#9733; {xp} XP
+          &#9733; {t("map.xp", { xp })}
         </span>
       )}
       <Link
         href="/chat"
-        aria-label="Ask Cipher, the AI mentor"
+        aria-label={t("map.askCipherAria")}
         className="group flex items-center gap-2 rounded-full border border-violet-300/40 bg-gradient-to-r from-violet-300/15 to-fuchsia-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-violet-100 transition hover:border-violet-200 hover:shadow-[0_0_16px_rgba(196,132,252,.45)] active:scale-95"
         style={MONO}
       >
@@ -329,12 +333,12 @@ function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean })
             <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" />
           </svg>
         </span>
-        ASK CIPHER
+        {t("map.askCipher")}
       </Link>
       {isAdmin && (
         <Link
           href="/admin"
-          aria-label="Open the admin console"
+          aria-label={t("map.adminAria")}
           className="group flex items-center gap-2 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-300/15 to-orange-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-amber-100 transition hover:border-amber-200 hover:shadow-[0_0_16px_rgba(251,191,36,.45)] active:scale-95"
           style={MONO}
         >
@@ -343,12 +347,12 @@ function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean })
               <path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6l-8-3Z" />
             </svg>
           </span>
-          ADMIN
+          {t("map.admin")}
         </Link>
       )}
       <Link
         href="/profile"
-        aria-label="Open your agent profile"
+        aria-label={t("map.profileAria")}
         className="group flex items-center gap-2 rounded-full border border-cyan-300/40 bg-gradient-to-r from-cyan-300/15 to-violet-400/15 py-1 pe-3 ps-1 text-[10px] font-bold tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:shadow-[0_0_16px_rgba(103,232,249,.45)] active:scale-95"
         style={MONO}
       >
@@ -358,7 +362,7 @@ function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean })
             <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
           </svg>
         </span>
-        PROFILE
+        {t("map.profile")}
       </Link>
     </div>
   );
@@ -366,6 +370,7 @@ function ProfileButton({ xp, isAdmin }: { xp: number | null; isAdmin: boolean })
 
 export default function MissionMapPage() {
   const router = useRouter();
+  const t = useT();
   const [hovered, setHovered] = useState<string | null>(null);
   const [denied, setDenied] = useState<Realm | null>(null);
   const gesture = useRef(false);
@@ -390,7 +395,11 @@ export default function MissionMapPage() {
     if (!progressReady && !snap) return m;
     if (m.id === "takeover") return { ...m, status: finaleStatus(snap) };
     return { ...m, status: moduleStatus(MODULE_OF[m.id], snap) };
-  });
+  }).map((m) => ({
+    ...m,
+    title: t(`map.realms.${m.id}.title` as TranslationKey),
+    brief: t(`map.realms.${m.id}.brief` as TranslationKey),
+  }));
 
   const unlockedCount = MISSIONS.filter(isUnlocked).length;
   const selected = MISSIONS.find((r) => r.id === hovered) ?? null;
@@ -544,12 +553,12 @@ export default function MissionMapPage() {
           onPointerLeave={() => setHovered(null)}
           onFocus={() => highlight(r.id)}
           onBlur={() => setHovered(null)}
-          aria-label={`${r.title}, ${STATUS_TEXT[r.status]}`}
+          aria-label={t("map.realmAria", { title: r.title, status: t(STATUS_TEXT[r.status]) })}
           className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white"
           style={{ left: `${(r.x / W) * 100}%`, top: `${((r.y - 45) / H) * 100}%`, width: `${(240 / W) * 100}%`, height: `${(290 / H) * 100}%` } as CSSProperties}
         >
           <span className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 whitespace-nowrap" style={{ bottom: "-1.75rem" }}>
-            <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 font-bold tracking-widest" style={{ ...MONO, fontSize: "clamp(8px, .72cqw, 12px)", color: isUnlocked(r) ? r.color : "#9ca3af" }}>MISSION 0{r.order}</span>
+            <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 font-bold tracking-widest" style={{ ...MONO, fontSize: "clamp(8px, .72cqw, 12px)", color: isUnlocked(r) ? r.color : "#9ca3af" }}>{t("map.missionLabel", { order: r.order })}</span>
             <span className="rounded bg-[#050611]/95 px-1.5 py-0.5 font-bold text-[#f5f3ff]" style={{ ...MONO, fontSize: "clamp(9px, .8cqw, 13px)" }}>{r.title}</span>
           </span>
         </button>
@@ -591,7 +600,7 @@ export default function MissionMapPage() {
           <TerminalHeader
             title="cyberguard/mission-map"
             status="ONLINE"
-            clearance="TIER 1"
+            clearance={t("map.clearance")}
             right={<ProfileButton xp={snap ? snap.total_score : null} isAdmin={Boolean(snap && snap.is_admin)} />}
           />
 
@@ -626,14 +635,14 @@ export default function MissionMapPage() {
 
             {/* mission counter: fades out on small screens while the intel card is open so they never overlap */}
             <div className={`pointer-events-none absolute left-3 top-3 z-20 flex flex-col gap-2 ${selected ? "opacity-0 sm:opacity-100" : ""}`} style={MONO}>
-              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">MISSION {unlockedCount}/{MISSIONS.length}</span>
+              <span className="w-fit rounded border border-cyan-300/40 bg-[#050611]/90 px-2 py-1 text-[9px] font-bold tracking-widest text-cyan-200 sm:text-[10px]">{t("map.counter", { done: unlockedCount, total: MISSIONS.length })}</span>
             </div>
 
             {/* swipe hint: only in pan mode, disappears after the first swipe */}
             {panMode && !swiped && (
               <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center" style={MONO}>
                 <span className="mp-hint rounded-full border border-cyan-300/40 bg-[#050611]/90 px-3 py-1 text-[10px] font-bold tracking-[0.25em] text-cyan-200">
-                  &#9664; SWIPE &#9654;
+                  &#9664; {t("map.swipe")} &#9654;
                 </span>
               </div>
             )}
@@ -647,9 +656,9 @@ export default function MissionMapPage() {
                   role="status"
                 >
                   <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5" style={{ borderColor: `${selected.color}44`, background: `${selected.color}12` }}>
-                    <span className="text-[10px] tracking-widest" style={{ ...MONO, color: selected.color }}>INTEL_0{selected.order}.SYS</span>
+                    <span className="text-[10px] tracking-widest" style={{ ...MONO, color: selected.color }}><bdi dir="ltr">{t("map.intel", { order: selected.order })}</bdi></span>
                     <span className="text-[10px] font-bold tracking-widest" style={{ ...MONO, color: isUnlocked(selected) ? "#4ade80" : "#fb7185" }}>
-                      {isUnlocked(selected) ? "> CLICK TO DEPLOY" : "> ACCESS DENIED"}
+                      {isUnlocked(selected) ? t("map.clickToDeploy") : t("map.accessDeniedShort")}
                     </span>
                   </div>
 
@@ -665,9 +674,9 @@ export default function MissionMapPage() {
               <div className="pointer-events-none absolute inset-x-3 top-1/2 z-50 mx-auto w-[min(360px,90%)] -translate-y-1/2">
                 <div className="mp-pop mp-shake rounded-xl border-2 border-rose-400 bg-[#190710]/95 p-5 text-center backdrop-blur-xl" style={{ ...MONO, boxShadow: "0 0 40px rgba(251,75,133,.35)" }} role="alert">
                   <p className="text-3xl" aria-hidden="true">&#128274;</p>
-                  <p className="mt-2 text-xl font-black tracking-widest text-rose-300">ACCESS DENIED</p>
-                  <p className="mt-2 text-[10px] font-bold tracking-widest text-amber-300">REALM LOCKED</p>
-                  <p className="mt-3 text-xs leading-relaxed text-slate-300">{denied.title} is sealed. Complete the previous mission to unlock it.</p>
+                  <p className="mt-2 text-xl font-black tracking-widest text-rose-300">{t("map.accessDenied")}</p>
+                  <p className="mt-2 text-[10px] font-bold tracking-widest text-amber-300">{t("map.realmLocked")}</p>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-300">{t("map.sealed", { title: denied.title })}</p>
                 </div>
               </div>
             )}
