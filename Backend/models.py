@@ -23,7 +23,11 @@ HOW THIS FILE IS USED:
     column here you must also change the real database (see the notes in the chat/migration).
 """
 
-from datetime import datetime   # used for the last_updated default value in UserProgress
+from datetime import datetime, timezone
+
+def utcnow() -> datetime:
+    """Naive UTC datetime matching plain SQLAlchemy DateTime columns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Column types and helpers from SQLAlchemy:
 #   Boolean / Integer / String / DateTime = the type of data a column holds
@@ -109,5 +113,5 @@ class UserProgress(Base):
 
     completed_at = Column(DateTime, nullable=True)      # first time it was completed (the completion log)
     # default = set when the row is created; onupdate = refreshed automatically on every UPDATE.
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_updated = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
     
